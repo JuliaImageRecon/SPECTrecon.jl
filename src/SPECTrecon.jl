@@ -1,4 +1,4 @@
-module SPECT
+module SPECTrecon
 
 #include("project.jl")
 

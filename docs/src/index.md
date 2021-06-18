@@ -1,10 +1,10 @@
 ```@meta
-CurrentModule = SPECT
+CurrentModule = SPECTrecon
 ```
 
-# SPECT.jl Documentation
+# SPECTrecon.jl Documentation
 
-Documentation for [SPECT](https://github.com/JeffFessler/SPECT.jl).
+Documentation for [SPECTrecon](https://github.com/JeffFessler/SPECTrecon.jl).
 
 ## Contents
 
@@ -32,5 +32,5 @@ of the three-dimensional geometric point response correction in SPECT imaging"
 ## Functions
 
 ```@autodocs
-Modules = [SPECT]
+Modules = [SPECTrecon]
 ```

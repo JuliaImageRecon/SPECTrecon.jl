@@ -1,6 +1,6 @@
-using SPECT
+using SPECTrecon
 using Test: @testset
 
-@testset "SPECT.jl" begin
+@testset "SPECTrecon.jl" begin
     # todo
 end

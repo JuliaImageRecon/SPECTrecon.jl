@@ -1,18 +1,18 @@
 # push!(LOAD_PATH,"../src/")
 
-using SPECT
+using SPECTrecon
 using Documenter
 
-DocMeta.setdocmeta!(SPECT, :DocTestSetup, :(using SPECT); recursive=true)
+DocMeta.setdocmeta!(SPECTrecon, :DocTestSetup, :(using SPECTrecon); recursive=true)
 
 makedocs(;
-    modules = [SPECT],
+    modules = [SPECTrecon],
     authors = "Jeff Fessler and contributors",
-    repo = "https://github.com/JeffFessler/SPECT.jl/blob/{commit}{path}#{line}",
-    sitename = "SPECT.jl",
+    repo = "https://github.com/JeffFessler/SPECTrecon.jl/blob/{commit}{path}#{line}",
+    sitename = "SPECTrecon.jl",
     format = Documenter.HTML(;
         prettyurls=get(ENV, "CI", "false") == "true",
-#       canonical="https://JeffFessler.github.io/SPECT.jl",
+#       canonical="https://JeffFessler.github.io/SPECTrecon.jl",
 #       assets=String[],
     ),
     pages = [
@@ -21,7 +21,7 @@ makedocs(;
 )
 
 deploydocs(;
-    repo="github.com/JeffFessler/SPECT.jl.git",
+    repo="github.com/JeffFessler/SPECTrecon.jl.git",
     devbranch = "main",
     devurl = "dev",
     versions = ["stable" => "v^", "dev" => "dev"]
