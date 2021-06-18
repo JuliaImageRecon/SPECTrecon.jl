@@ -1,0 +1,7 @@
+name = "SPECT"
+uuid = "54fb361e-b454-41be-864b-a070af2201dc"
+authors = ["Jeff Fessler <fessler@umich.edu>"]
+version = "0.1.0"
+
+[compat]
+julia = "1.6"
