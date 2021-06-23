@@ -22,7 +22,7 @@ Struct for storing key factors for a SPECT system model
 - `nz` number of voxels in z direction of the image, must be integer
 - `nx_psf` number of voxels in x direction of the psf, must be integer
 - `nz_psf` number of voxels in z direction of the psf, must be integer
-- `pad[up,down,left,right]` number of padding voxels in each direction, must be integer
+- `pad{up,down,left,right}` number of padding voxels in each direction, must be integer
 - `mypad` padding function using replicate border condition
 Currently code assumes each of the `nview` projection views is `[nx,nz]`
 Currently code assumes `nx = ny`
