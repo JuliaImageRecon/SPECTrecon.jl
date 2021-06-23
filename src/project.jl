@@ -6,7 +6,7 @@ using OffsetArrays
 using FFTW
 # myzeropad1 = (x, p) -> padarray(x, Fill(0, (0, 0), (p - size(x, 1), 0))) # zero pad for x
 # myreplicatepad2 = (x, p) -> padarray(x, Pad(:replicate, (0, 0), (0, p - size(x, 2)))) # replicate pad for z
-Power2 = x -> Int(exp2(Int(ceil(log2(x)))))
+Power2 = x -> 2^ceil(Int, log2(x))
 """
     SPECTplan
 
