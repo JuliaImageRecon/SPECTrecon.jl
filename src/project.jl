@@ -16,7 +16,7 @@ Struct for storing key factors for a SPECT system model
 - `nview` number of views, must be integer
 - `interphow` Interpolation method, default is bilinear interpolation
 - `viewangle` a vector of angles ranging from 0 to 2π
-- `dy` voxel size in y direction
+- `dy` voxel size in y direction (dx is the same value)
 - `nx` number of voxels in x direction of the image, must be integer
 - `ny` number of voxels in y direction of the image, must be integer
 - `nz` number of voxels in z direction of the image, must be integer
