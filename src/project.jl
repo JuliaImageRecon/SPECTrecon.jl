@@ -26,7 +26,7 @@ Struct for storing key factors for a SPECT system model
 - `mypad` padding function using replicate border condition
 Currently code assumes each of the `nview` projection views is `[nx,nz]`
 Currently code assumes `nx = ny`
-Currently code assumes uniform sampling
+Currently code assumes uniform angular sampling
 """
 struct SPECTplan
     mumap::AbstractArray{<:Real} # [nx,ny,nz] attenuation map, must be 3D, possibly zeros()
