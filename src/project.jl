@@ -12,7 +12,7 @@ Power2 = x -> 2^ceil(Int, log2(x))
 
 Struct for storing key factors for a SPECT system model
 - `mumap [nx,ny,nz]` attenuation map, must be 3D, possibly zeros()
-- `psfs [n,n,ny,nview]` usually 4D, but could be 3D for a circular orbit
+- `psfs [nx_psf,nz_psf,ny,nview]` must be 4D, with `nx_psf` and `nz_psf` odd, and symmetric for each slice
 - `nview` number of views, must be integer
 - `interphow` Interpolation methods, default is bilinear interpolation
 - `viewangle` a vector of angles ranging from 0 to 2π
