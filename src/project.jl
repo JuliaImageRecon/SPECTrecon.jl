@@ -61,6 +61,7 @@ struct SPECTplan
         else
             throw("unknown interpidx!")
         end
+        # todo: check that nx_psf and nz_psf are odd and very each psf is symmetric
         viewangle = (0:nview-1) / nview * (2π)
         padleft = Int(ceil((Power2(nx+nx_psf-1) - nx) / 2))
         padright = Int(floor((Power2(nx+nx_psf-1) - nx) / 2))
