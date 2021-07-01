@@ -1,18 +1,11 @@
 # project.jl
-using Interpolations
-using ImageTransformations
-using ImageFiltering
-using OffsetArrays
-using FFTW
-# myzeropad1 = (x, p) -> padarray(x, Fill(0, (0, 0), (p - size(x, 1), 0))) # zero pad for x
-# myreplicatepad2 = (x, p) -> padarray(x, Pad(:replicate, (0, 0), (0, p - size(x, 2)))) # replicate pad for z
-Power2 = x -> 2^ceil(Int, log2(x))
+using Interpolations, ImageTransformations, ImageFiltering, OffsetArrays
 """
     SPECTplan
 
 Struct for storing key factors for a SPECT system model
 - `mumap [nx,ny,nz]` attenuation map, must be 3D, possibly zeros()
-- `psfs [nx_psf,nz_psf,ny,nview]` must be 4D, with `nx_psf` and `nz_psf` odd, and symmetric for each slice
+- `psfs [nx_psf,nz_psf,ny,nview]` point spread function, must be 4D, with `nx_psf` and `nz_psf` odd, and symmetric for each slice
 - `nview` number of views, must be integer
 - `interphow` Interpolation method, default is bilinear interpolation
 - `viewangle` a vector of angles ranging from 0 to 2π
@@ -22,15 +15,15 @@ Struct for storing key factors for a SPECT system model
 - `nz` number of voxels in z direction of the image, must be integer
 - `nx_psf` number of voxels in x direction of the psf, must be integer
 - `nz_psf` number of voxels in z direction of the psf, must be integer
-- `pad{up,down,left,right}` number of padding voxels in each direction, must be integer
 - `mypad` padding function using replicate border condition
+- `alg` algorithms used for convolution, default is FFT
 Currently code assumes each of the `nview` projection views is `[nx,nz]`
 Currently code assumes `nx = ny`
 Currently code assumes uniform angular sampling
 """
 struct SPECTplan
-    mumap::AbstractArray{<:Real} # [nx,ny,nz] attenuation map, must be 3D, possibly zeros()
-    psfs::AbstractArray{<:Real} # PSFs could be 3D or 4D
+    mumap::AbstractArray{<:Real, 3} # [nx,ny,nz] attenuation map, must be 3D, possibly zeros()
+    psfs::AbstractArray{<:Real, 4} # PSFs must be 4D
     nview::Int
     interphow::BSpline{<:Any}
     viewangle::AbstractVector
@@ -40,36 +33,47 @@ struct SPECTplan
     nz::Int
     nx_psf::Int
     nz_psf::Int
-    padup::Int
-    paddown::Int
-    padleft::Int
-    padright::Int
     mypad::Function
+    alg::Any
     # other options for how to do the projection?
-    function SPECTplan(mumap, psfs, nview, dy; interpidx::Int = 1)
+    function SPECTplan(mumap,
+                        psfs,
+                        nview,
+                        dy;
+                        interpidx::Int = 1,
+                        conv_alg::Symbol = :fft)
         # check nx = ny ? typically 128 x 128 x 81
         nx, ny, nz = size(mumap)
-        nx_psf = size(psf, 1)
-        nz_psf = size(psf, 2)
+        nx_psf = size(psfs, 1)
+        nz_psf = size(psfs, 2)
         @assert isequal(nx, ny)
-        if interpidx === 0
+        @assert isodd(nx_psf) && isodd(nz_psf)
+        if interpidx == 0
             interphow = BSpline(Constant()) # nearest neighbor interpolation
-        elseif interpidx === 1
+        elseif interpidx == 1
             interphow = BSpline(Linear()) # (multi)linear interpolation
-        elseif interpidx === 3
+        elseif interpidx == 3
             interphow = BSpline(Cubic(Line(OnGrid()))) # cubic b-spline interpolation
         else
             throw("unknown interpidx!")
         end
-        # todo: check that nx_psf and nz_psf are odd and very each psf is symmetric
         viewangle = (0:nview-1) / nview * (2π)
+        Power2 = x -> 2^(ceil(Int, log2(x)))
         padleft = ceil(Int, (Power2(nx+nx_psf-1) - nx) / 2)
-        padright = Int(floor((Power2(nx+nx_psf-1) - nx) / 2))
-        padup = Int(ceil((Power2(nz+nz_psf-1) - nz) / 2))
-        paddown = Int(floor((Power2(nz+nz_psf-1) - nz) / 2))
+        padright = floor(Int, (Power2(nx+nx_psf-1) - nx) / 2)
+        padup = ceil(Int, (Power2(nz+nz_psf-1) - nz) / 2)
+        paddown = floor(Int, (Power2(nz+nz_psf-1) - nz) / 2)
         mypad = x -> padarray(x, Pad(:replicate, (padleft, padup), (padright, paddown)))
-        new(mumap, psfs, nview, interphow, viewangle, dy, nx, ny, nz, nx_psf, nz_psf,
-            padup, paddown, padleft, padright, mypad)
+
+        if conv_alg === :fft
+            alg = Algorithm.FFT()
+        elseif conv_alg === :fir
+            alg = Algorithm.FIR()
+        else
+            throw("unknown convolution algorithm choice!")
+        end
+        new(mumap, psfs, nview, interphow, viewangle, dy, nx, ny, nz,
+                nx_psf, nz_psf, mypad, alg)
         #  creates objects of the block's type (inner constructor methods).
     end
 end
@@ -77,10 +81,92 @@ end
 
 """
     my_conv(img, ker, plan)
-    Convolve an image with a kernel using FFT with zero padding
+    Convolve an image with a kernel
 """
 function my_conv(img, ker, plan)
-    return max.(0, imfilter(plan.mypad(img), centered(reverse(ker)), Algorithm.FFT()))[1:plan.nx, 1:plan.nz]
+    if issymmetric(ker)
+        return max.(0, imfilter(plan.mypad(img), centered(ker), plan.alg))[1:plan.nx, 1:plan.nz]
+    else
+        throw("psf is not symmetric!")
+    end
+end
+
+"""
+    my_conv!(output, img, ker, plan)
+    Convolve an image with a kernel using in-place operation
+    This part is still under construction
+"""
+function my_conv!(output, img, ker, plan)
+    if issymmetric(ker)
+        imfilter!(plan.workimg, plan.mypad(img), centered(ker), plan.alg)
+        return map!(output, x -> max.(x, 0), @view plan.workimg[1:plan.nx, 1:plan.nz])
+    else
+        throw("psf is not symmetric!")
+    end
+end
+"""
+    rotate_x(img, θ)
+    rotate an image along x axis in clockwise direction using linear interpolation
+"""
+function rotate_x(img, θ)
+    M, N = size(img) # M, N is preferred to be odd
+    xi = 1:M
+    yi = 1:N
+    rotate_x(xin, yin, θ) = xin + (yin - (N+1)/2) * tan(θ/2)
+    tmp = zeros(eltype(img), M, N)
+    for yin in yi
+        ic = LinearInterpolation(xi, img[:, yin], extrapolation_bc = 0)
+        tmp[:, yin] = ic.(rotate_x.(xi, yin, θ))
+    end
+    return tmp
+end
+"""
+    rotate_y(img, θ)
+    rotate an image along y axis in clockwise direction using linear interpolation
+"""
+function rotate_y(img, θ)
+    M, N = size(img) # M, N is preferred to be odd
+    xi = 1:M
+    yi = 1:N
+    rotate_y(xin, yin, θ) = (xin - (M+1)/2) * (-sin(θ)) + yin
+    tmp = zeros(eltype(img), M, N)
+    for xin in xi
+        ic = LinearInterpolation(yi, img[xin, :], extrapolation_bc = 0)
+        tmp[xin, :] = ic.(rotate_y.(xin, yi, θ))
+    end
+    return tmp
+end
+"""
+    my_rotate_v2(img, θ)
+    rotate an image by angle θ (must be ranging from 0 to 2π) in clockwise direction using linear interpolation
+"""
+function my_rotate_v2(img, θ)
+    if θ ≤ π/2
+        return rotate_x(rotate_y(rotate_x(img, θ), θ), θ)
+    elseif π/2 < θ ≤ 3π/2
+        return rotate_x(rotate_y(rotate_x(reverse(img), θ-π), θ-π), θ-π)
+    elseif 3π/2 < θ ≤ 2π
+        return rotate_x(rotate_y(rotate_x(img, θ-2π), θ-2π), θ-2π)
+    else
+        throw("invalid θ range")
+    end
+end
+"""
+    my_rotate(image, θ, plan)
+    Rotate an image by angle θ in counter clockwise direction using built-in imrotate function
+"""
+function my_rotate(img, θ, interphow)
+    if mod(θ, 2π) ≈ 0
+        return img
+    elseif mod(θ, 2π) ≈ π
+        return reverse(img)
+    else
+        return OffsetArrays.no_offset_view(imrotate(img,
+                                            θ, # rotate angle
+                                            axes(img), # crop the image
+                                            0, # extrapolation_bc = 0
+                                            method = interphow))
+    end
 end
 
 """
@@ -94,9 +180,8 @@ function project!(
     viewidx::Int,
 )
     # todo : read multiple dispatch
-    rotate = x -> OffsetArrays.no_offset_view(
-                            imrotate(x, - plan.viewangle[viewidx], axes(x), 0, # details check the rotation center
-                            method = plan.interphow))
+    # rotate = x -> my_rotate(x, -plan.viewangle[viewidx], plan.interphow)
+    rotate = x -> my_rotate_v2(x, plan.viewangle[viewidx])
     # rotate image
     imgr = mapslices(rotate, image, dims = [1, 2])
     # rotate mumap
@@ -104,9 +189,10 @@ function project!(
     # loop over image planes
         # use zero-padded fft (because big) or conv (if small) to convolve with psf
         # sum, account for mumap
-    for i = 1:ny
-        exp_mumapr = dropdims(exp.(-sum(plan.dy * mumapr[:, 1:i, :], dims = 2)); dims = 2) # nx * nz
-        view += my_conv(imgr[:, i, :] .* exp_mumapr, plan.psfs[:, :, i, viewidx], plan)
+    for i = 1:plan.ny
+        # 0.5 account for the slice thickness
+        exp_mumapr = dropdims(exp.(-plan.dy*(sum(mumapr[:, 1:i, :], dims = 2) .- (mumapr[:,i:i,:]/2))); dims = 2) # nx * nz
+        view .+= my_conv(imgr[:, i, :] .* exp_mumapr, plan.psfs[:, :, i, viewidx], plan)
     end
     return view
 end
@@ -125,12 +211,10 @@ function project!(
 
     # loop over each view index
     for i in index
-        # project!((@view views[:,:,i]), plan, image, i) # this line doesn't work, the output is all zero
-        views[:,:,i] = project!(views[:,:,i], plan, image, i)
+        project!((@view views[:,:,i]), plan, image, i)
     end
     return views
 end
-
 
 """
     views = project(plan, image ; index)
@@ -141,9 +225,7 @@ function project(
     image::AbstractArray{<:Real,3} ;
     kwargs...,
 )
-    nx = size(image, 1)
-    nz = size(image, 3)
-    views = zeros(promote_type(eltype(image), Float32), nx, nz, plan.nview)
+    views = zeros(promote_type(eltype(image), Float32), plan.nx, plan.nz, plan.nview)
     return project!(views, plan, image ; kwargs...)
 end
 
@@ -160,6 +242,6 @@ function project(
     interpidx::Int = 1,
     kwargs...,
 )
-    plan = SPECTplan(mumap, psfs, nview, dy; interpidx = interpidx)
+    plan = SPECTplan(mumap, psfs, nview, dy; interpidx)
     project(plan, image; kwargs...)
 end
