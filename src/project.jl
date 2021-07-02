@@ -138,7 +138,8 @@ function rotate_y(img, θ)
     return tmp
 end
 """
-    rot_back(img, m)
+    rot_f90(img, m)
+    rotate an image by 90/180/270 degrees
 """
 function rot_f90(img, m)
     if m == 0
@@ -159,22 +160,23 @@ end
 """
 function my_rotate_v2(img, θ)
     M, N = size(img)
-    m = mod(floor(Int, (θ + π/4) / (π/2)), 4)
+    m = mod(floor(Int, 0.5 + θ/(π/2)), 4)
     mod_theta = θ - m * (π/2) # make sure it is between -45 and 45 degree
     pad_x = ceil(Int, 1 + M * sqrt(2)/2 - M / 2)
     pad_y = ceil(Int, 1 + N * sqrt(2)/2 - N / 2)
-    return rotate_x(rotate_y(rotate_x(rot_f90(OffsetArrays.no_offset_view(padarray(img, Pad(:reflect, pad_x, pad_y))), m),
+    return rotate_x(rotate_y(rotate_x(rot_f90(OffsetArrays.no_offset_view(padarray(img, Fill(0, (pad_x, pad_y)))), m),
                 mod_theta), mod_theta), mod_theta)[pad_x + 1 : pad_x + M, pad_y + 1 : pad_y + N]
 end
 """
     my_rotate(image, θ, plan)
     Rotate an image by angle θ in counter clockwise direction using built-in imrotate function
+    Not used in this version
 """
 function my_rotate(img, θ, interphow)
     if mod(θ, 2π) ≈ 0
         return img
     elseif mod(θ, 2π) ≈ π
-        return reverse(img)
+        return rot180(img)
     else
         return OffsetArrays.no_offset_view(imrotate(img,
                                             -θ, # rotate angle
