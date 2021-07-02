@@ -47,6 +47,7 @@ struct SPECTplan
         nx_psf = size(psfs, 1)
         nz_psf = size(psfs, 2)
         @assert isequal(nx, ny)
+        @assert iseven(nx) && iseven(ny)
         @assert isodd(nx_psf) && isodd(nz_psf)
         if interpidx == 0
             interphow = BSpline(Constant()) # nearest neighbor interpolation
@@ -109,14 +110,14 @@ end
     rotate an image along x axis in clockwise direction using linear interpolation
 """
 function rotate_x(img, θ)
-    M, N = size(img) # M, N is preferred to be odd
-    xi = 1:M
-    yi = 1:N
-    rotate_x(xin, yin, θ) = xin + (yin - (N+1)/2) * tan(θ/2)
+    M, N = size(img)
+    xi = -(M-1)/2 : (M-1)/2
+    yi = -(N-1)/2 : (N-1)/2
+    rotate_x(xin, yin, θ) = xin + yin * tan(θ/2)
     tmp = zeros(eltype(img), M, N)
-    for yin in yi
-        ic = LinearInterpolation(xi, img[:, yin], extrapolation_bc = 0)
-        tmp[:, yin] = ic.(rotate_x.(xi, yin, θ))
+    for (i, yin) in enumerate(yi)
+        ic = LinearInterpolation(xi, img[:, i], extrapolation_bc = 0)
+        tmp[:, i] .= ic.(rotate_x.(xi, yin, θ))
     end
     return tmp
 end
@@ -125,31 +126,45 @@ end
     rotate an image along y axis in clockwise direction using linear interpolation
 """
 function rotate_y(img, θ)
-    M, N = size(img) # M, N is preferred to be odd
-    xi = 1:M
-    yi = 1:N
-    rotate_y(xin, yin, θ) = (xin - (M+1)/2) * (-sin(θ)) + yin
+    M, N = size(img)
+    xi = -(M-1)/2 : (M-1)/2
+    yi = -(N-1)/2 : (N-1)/2
+    rotate_y(xin, yin, θ) = xin * (-sin(θ)) + yin
     tmp = zeros(eltype(img), M, N)
-    for xin in xi
-        ic = LinearInterpolation(yi, img[xin, :], extrapolation_bc = 0)
-        tmp[xin, :] = ic.(rotate_y.(xin, yi, θ))
+    for (i, xin) in enumerate(xi)
+        ic = LinearInterpolation(yi, img[i, :], extrapolation_bc = 0)
+        tmp[i, :] .= ic.(rotate_y.(xin, yi, θ))
     end
     return tmp
+end
+"""
+    rot_back(img, m)
+"""
+function rot_f90(img, m)
+    if m == 0
+        return img
+    elseif m == 1
+        return rotl90(img)
+    elseif m == 2
+        return rot180(img)
+    elseif m == 3
+        return rotr90(img)
+    else
+        throw("invalid m!")
+    end
 end
 """
     my_rotate_v2(img, θ)
     rotate an image by angle θ (must be ranging from 0 to 2π) in clockwise direction using linear interpolation
 """
 function my_rotate_v2(img, θ)
-    if θ ≤ π/2
-        return rotate_x(rotate_y(rotate_x(img, θ), θ), θ)
-    elseif π/2 < θ ≤ 3π/2
-        return rotate_x(rotate_y(rotate_x(reverse(img), θ-π), θ-π), θ-π)
-    elseif 3π/2 < θ ≤ 2π
-        return rotate_x(rotate_y(rotate_x(img, θ-2π), θ-2π), θ-2π)
-    else
-        throw("invalid θ range")
-    end
+    M, N = size(img)
+    m = mod(floor(Int, (θ + π/4) / (π/2)), 4)
+    mod_theta = θ - m * (π/2) # make sure it is between -45 and 45 degree
+    pad_x = ceil(Int, 1 + M * sqrt(2)/2 - M / 2)
+    pad_y = ceil(Int, 1 + N * sqrt(2)/2 - N / 2)
+    return rotate_x(rotate_y(rotate_x(rot_f90(OffsetArrays.no_offset_view(padarray(img, Pad(:reflect, pad_x, pad_y))), m),
+                mod_theta), mod_theta), mod_theta)[pad_x + 1 : pad_x + M, pad_y + 1 : pad_y + N]
 end
 """
     my_rotate(image, θ, plan)
@@ -162,7 +177,7 @@ function my_rotate(img, θ, interphow)
         return reverse(img)
     else
         return OffsetArrays.no_offset_view(imrotate(img,
-                                            θ, # rotate angle
+                                            -θ, # rotate angle
                                             axes(img), # crop the image
                                             0, # extrapolation_bc = 0
                                             method = interphow))
@@ -180,7 +195,7 @@ function project!(
     viewidx::Int,
 )
     # todo : read multiple dispatch
-    # rotate = x -> my_rotate(x, -plan.viewangle[viewidx], plan.interphow)
+    # rotate = x -> my_rotate(x, plan.viewangle[viewidx], plan.interphow)
     rotate = x -> my_rotate_v2(x, plan.viewangle[viewidx])
     # rotate image
     imgr = mapslices(rotate, image, dims = [1, 2])
