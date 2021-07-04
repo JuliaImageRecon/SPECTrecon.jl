@@ -1,5 +1,6 @@
 # project.jl
 using Interpolations, ImageTransformations, ImageFiltering, OffsetArrays
+include("rotate3.jl")
 """
     SPECTplan
 
@@ -20,6 +21,7 @@ Struct for storing key factors for a SPECT system model
 Currently code assumes each of the `nview` projection views is `[nx,nz]`
 Currently code assumes `nx = ny`
 Currently code assumes uniform angular sampling
+Currently imrotate3 code only supports linear interpolation
 """
 struct SPECTplan
     mumap::AbstractArray{<:Real, 3} # [nx,ny,nz] attenuation map, must be 3D, possibly zeros()
@@ -41,7 +43,11 @@ struct SPECTplan
                         nview,
                         dy;
                         interpidx::Int = 1,
-                        conv_alg::Symbol = :fft)
+                        conv_alg::Symbol = :fft,
+                        padleft::Int = 0,
+                        padright::Int = 0,
+                        padup::Int = 0,
+                        paddown::Int = 0)
         # check nx = ny ? typically 128 x 128 x 81
         nx, ny, nz = size(mumap)
         nx_psf = size(psfs, 1)
@@ -49,6 +55,7 @@ struct SPECTplan
         @assert isequal(nx, ny)
         @assert iseven(nx) && iseven(ny)
         @assert isodd(nx_psf) && isodd(nz_psf)
+        @assert all(mapslices(issymmetric, psfs, dims = [1, 2]))
         if interpidx == 0
             interphow = BSpline(Constant()) # nearest neighbor interpolation
         elseif interpidx == 1
@@ -59,11 +66,14 @@ struct SPECTplan
             throw("unknown interpidx!")
         end
         viewangle = (0:nview-1) / nview * (2π)
+
         Power2 = x -> 2^(ceil(Int, log2(x)))
-        padleft = ceil(Int, (Power2(nx+nx_psf-1) - nx) / 2)
-        padright = floor(Int, (Power2(nx+nx_psf-1) - nx) / 2)
-        padup = ceil(Int, (Power2(nz+nz_psf-1) - nz) / 2)
-        paddown = floor(Int, (Power2(nz+nz_psf-1) - nz) / 2)
+
+        padleft = iszero(padleft) ? ceil(Int, (Power2(nx+nx_psf-1) - nx) / 2) : padleft
+        padright = iszero(padright) ? floor(Int, (Power2(nx+nx_psf-1) - nx) / 2) : padright
+        padup = iszero(padup) ? ceil(Int, (Power2(nz+nz_psf-1) - nz) / 2) : padup
+        paddown = iszero(paddown) ? floor(Int, (Power2(nz+nz_psf-1) - nz) / 2) : paddown
+
         mypad = x -> padarray(x, Pad(:replicate, (padleft, padup), (padright, paddown)))
 
         if conv_alg === :fft
@@ -85,11 +95,7 @@ end
     Convolve an image with a kernel
 """
 function my_conv(img, ker, plan)
-    if issymmetric(ker)
-        return max.(0, imfilter(plan.mypad(img), centered(ker), plan.alg))[1:plan.nx, 1:plan.nz]
-    else
-        throw("psf is not symmetric!")
-    end
+    return max.(0, imfilter(plan.mypad(img), centered(ker), plan.alg))[1:plan.nx, 1:plan.nz]
 end
 
 """
@@ -105,86 +111,6 @@ function my_conv!(output, img, ker, plan)
         throw("psf is not symmetric!")
     end
 end
-"""
-    rotate_x(img, θ)
-    rotate an image along x axis in clockwise direction using linear interpolation
-"""
-function rotate_x(img, θ)
-    M, N = size(img)
-    xi = -(M-1)/2 : (M-1)/2
-    yi = -(N-1)/2 : (N-1)/2
-    rotate_x(xin, yin, θ) = xin + yin * tan(θ/2)
-    tmp = zeros(eltype(img), M, N)
-    for (i, yin) in enumerate(yi)
-        ic = LinearInterpolation(xi, img[:, i], extrapolation_bc = 0)
-        tmp[:, i] .= ic.(rotate_x.(xi, yin, θ))
-    end
-    return tmp
-end
-"""
-    rotate_y(img, θ)
-    rotate an image along y axis in clockwise direction using linear interpolation
-"""
-function rotate_y(img, θ)
-    M, N = size(img)
-    xi = -(M-1)/2 : (M-1)/2
-    yi = -(N-1)/2 : (N-1)/2
-    rotate_y(xin, yin, θ) = xin * (-sin(θ)) + yin
-    tmp = zeros(eltype(img), M, N)
-    for (i, xin) in enumerate(xi)
-        ic = LinearInterpolation(yi, img[i, :], extrapolation_bc = 0)
-        tmp[i, :] .= ic.(rotate_y.(xin, yi, θ))
-    end
-    return tmp
-end
-"""
-    rot_f90(img, m)
-    rotate an image by 90/180/270 degrees
-"""
-function rot_f90(img, m)
-    if m == 0
-        return img
-    elseif m == 1
-        return rotl90(img)
-    elseif m == 2
-        return rot180(img)
-    elseif m == 3
-        return rotr90(img)
-    else
-        throw("invalid m!")
-    end
-end
-"""
-    my_rotate_v2(img, θ)
-    rotate an image by angle θ (must be ranging from 0 to 2π) in clockwise direction using linear interpolation
-"""
-function my_rotate_v2(img, θ)
-    M, N = size(img)
-    m = mod(floor(Int, 0.5 + θ/(π/2)), 4)
-    mod_theta = θ - m * (π/2) # make sure it is between -45 and 45 degree
-    pad_x = ceil(Int, 1 + M * sqrt(2)/2 - M / 2)
-    pad_y = ceil(Int, 1 + N * sqrt(2)/2 - N / 2)
-    return rotate_x(rotate_y(rotate_x(rot_f90(OffsetArrays.no_offset_view(padarray(img, Fill(0, (pad_x, pad_y)))), m),
-                mod_theta), mod_theta), mod_theta)[pad_x + 1 : pad_x + M, pad_y + 1 : pad_y + N]
-end
-"""
-    my_rotate(image, θ, plan)
-    Rotate an image by angle θ in counter clockwise direction using built-in imrotate function
-    Not used in this version
-"""
-function my_rotate(img, θ, interphow)
-    if mod(θ, 2π) ≈ 0
-        return img
-    elseif mod(θ, 2π) ≈ π
-        return rot180(img)
-    else
-        return OffsetArrays.no_offset_view(imrotate(img,
-                                            -θ, # rotate angle
-                                            axes(img), # crop the image
-                                            0, # extrapolation_bc = 0
-                                            method = interphow))
-    end
-end
 
 """
     project!(view, plan, image, viewidx)
@@ -198,7 +124,7 @@ function project!(
 )
     # todo : read multiple dispatch
     # rotate = x -> my_rotate(x, plan.viewangle[viewidx], plan.interphow)
-    rotate = x -> my_rotate_v2(x, plan.viewangle[viewidx])
+    rotate = x -> imrotate3(x, plan.viewangle[viewidx], plan.nx, plan.ny)
     # rotate image
     imgr = mapslices(rotate, image, dims = [1, 2])
     # rotate mumap
