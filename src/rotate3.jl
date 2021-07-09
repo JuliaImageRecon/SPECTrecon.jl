@@ -54,8 +54,10 @@ function imrotate3(img, θ, M, N)
     mod_theta = θ - m * (π/2) # make sure it is between -45 and 45 degree
     pad_x = ceil(Int, 1 + M * sqrt(2)/2 - M / 2)
     pad_y = ceil(Int, 1 + N * sqrt(2)/2 - N / 2)
+    M_pad = M + 2 * pad_x
+    N_pad = N + 2 * pad_y
     return rotate_x(rotate_y(rotate_x(rot_f90(OffsetArrays.no_offset_view(padarray(img, Fill(0, (pad_x, pad_y)))), m),
-                mod_theta, M, N), mod_theta, M, N), mod_theta, M, N)[pad_x + 1 : pad_x + M, pad_y + 1 : pad_y + N]
+                mod_theta, M_pad, N_pad), mod_theta, M_pad, N_pad), mod_theta, M_pad, N_pad)[pad_x + 1 : pad_x + M, pad_y + 1 : pad_y + N]
 end
 """
     imrotate3jl(image, θ, plan)

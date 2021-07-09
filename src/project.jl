@@ -1,5 +1,5 @@
 # project.jl
-using Interpolations, ImageTransformations, ImageFiltering, OffsetArrays
+using Interpolations, ImageTransformations, ImageFiltering, OffsetArrays, LinearAlgebra
 include("rotate3.jl")
 """
     SPECTplan
@@ -25,7 +25,7 @@ Currently imrotate3 code only supports linear interpolation
 """
 struct SPECTplan
     mumap::AbstractArray{<:Real, 3} # [nx,ny,nz] attenuation map, must be 3D, possibly zeros()
-    psfs::AbstractArray{<:Real, 4} # PSFs must be 4D
+    psfs::AbstractArray{<:Real, 4} # PSFs must be 4D, [nx_psf, nz_psf, ny, nview]
     nview::Int
     interphow::BSpline{<:Any}
     viewangle::AbstractVector
