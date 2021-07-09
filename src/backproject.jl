@@ -126,7 +126,7 @@ function backproject!(
     # rotate = x -> my_rotate(x, plan.viewangle[viewidx], plan.interphow)
 
     rotate = x -> imrotate3(x, plan.viewangle[viewidx], plan.nx, plan.ny)
-    derotate = x -> imrotate3(x, - plan.viewangle[viewidx], plan.nx, plan.ny)
+    derotate = x -> imrotate3(x, 2π - plan.viewangle[viewidx], plan.nx, plan.ny)
 
     # rotate mumap
     mumapr = mapslices(rotate, plan.mumap, dims = [1, 2])
@@ -138,7 +138,7 @@ function backproject!(
         exp_mumapr = dropdims(exp.(-plan.dy*(sum(mumapr[:, 1:i, :], dims = 2) .- (mumapr[:,i:i,:]/2))); dims = 2) # nx * nz
         # adjoint of convolution, convolve with reverse of psfs
         # adjoint of multiplying with mumap
-        imgr[:, i, :] = my_conv(imgr[:, i, :], reverse(plan.psfs[:, :, i, viewidx]), plan) .* exp_mumapr
+        imgr[:, i, :] = my_conv(imgr[:, i, :], plan.psfs[:, :, i, viewidx], plan) .* exp_mumapr
     end
     # adjoint of imrotate
     image = mapslices(derotate, imgr, dims = [1, 2])
@@ -166,7 +166,7 @@ function backproject!(
 end
 
 """
-    image = backproject(plan, image ; index)
+    image = backproject(plan, views ; index)
     3. Initialize image, call 2
 """
 function backproject(
