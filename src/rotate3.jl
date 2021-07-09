@@ -1,18 +1,35 @@
+
+const RealU = Number # Union{Real,Unitful.Length}
+
+export rotate_x, rotate_x!
+
+
 """
-    rotate_x(img, θ, M, N)
-    rotate an image along x axis in clockwise direction using linear interpolation
+    rotate_x!(out, img, θ, M, N)
+Mutating version of `rotate_x`.
 """
-function rotate_x(img, θ, M, N)
+function rotate_x!(out, img, θ::RealU, M::Int, N::Int)
     xi = -(M-1)/2 : (M-1)/2
     yi = -(N-1)/2 : (N-1)/2
-    rotate_x(xin, yin, θ) = xin + yin * tan(θ/2)
-    tmp = zeros(eltype(img), M, N)
+    rotate_x(xin, yin) = xin + yin * tan(θ/2)
     for (i, yin) in enumerate(yi)
         ic = LinearInterpolation(xi, img[:, i], extrapolation_bc = 0)
-        tmp[:, i] .= ic.(rotate_x.(xi, yin, θ))
+        out[:, i] .= ic.(rotate_x.(xi, yin))
     end
-    return tmp
+    return out
 end
+
+
+"""
+    out = rotate_x(img, θ, M, N)
+Rotate an image along x axis in clockwise direction using linear interpolation
+"""
+function rotate_x(out, img::AbstractMatrix{T}, θ, M::Int, N::Int) where T
+    out = zeros(T, M, N)
+    return rotate_x!(out, img, θ, M, N)
+end
+
+
 """
     rotate_y(img, θ, M, N)
     rotate an image along y axis in clockwise direction using linear interpolation
@@ -28,6 +45,8 @@ function rotate_y(img, θ, M, N)
     end
     return tmp
 end
+
+
 """
     rot_f90(img, m)
     rotate an image by 90/180/270 degrees
@@ -45,6 +64,8 @@ function rot_f90(img, m)
         throw("invalid m!")
     end
 end
+
+
 """
     imrotate3(img, θ, M, N)
     rotate an image by angle θ (must be ranging from 0 to 2π) in clockwise direction using linear interpolation
@@ -59,6 +80,8 @@ function imrotate3(img, θ, M, N)
     return rotate_x(rotate_y(rotate_x(rot_f90(OffsetArrays.no_offset_view(padarray(img, Fill(0, (pad_x, pad_y)))), m),
                 mod_theta, M_pad, N_pad), mod_theta, M_pad, N_pad), mod_theta, M_pad, N_pad)[pad_x + 1 : pad_x + M, pad_y + 1 : pad_y + N]
 end
+
+
 """
     imrotate3jl(image, θ, plan)
     Rotate an image by angle θ in counter clockwise direction using "Julia" built-in imrotate function
