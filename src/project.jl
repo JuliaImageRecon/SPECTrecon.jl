@@ -1,10 +1,9 @@
 # project.jl
 # Use BorderArray instead of PadArray
 include("rotate3.jl")
-using Interpolations, ImageTransformations, ImageFiltering, OffsetArrays, LinearAlgebra, FFTW
+
 """
     SPECTplan
-
 Struct for storing key factors for a SPECT system model
 - `mumap [nx,ny,nz]` attenuation map, must be 3D, possibly zeros()
 - `psfs [nx_psf,nz_psf,ny,nview]` point spread function, must be 4D, with `nx_psf` and `nz_psf` odd, and symmetric for each slice
@@ -21,6 +20,9 @@ Struct for storing key factors for a SPECT system model
 - `padzero` padding function using zero border condition
 - {padleft,padright,padup,paddown} pixels padded along {left,right,up,down} direction
 - `alg` algorithms used for convolution, default is FFT
+- `workimg` 2D padded image for imfilter
+- `imgr` 3D rotated image
+- `mumapr` 3D rotated mumap
 Currently code assumes each of the `nview` projection views is `[nx,nz]`
 Currently code assumes `nx = ny`
 Currently code assumes uniform angular sampling
@@ -45,7 +47,13 @@ struct SPECTplan
     padright::Int
     padup::Int
     paddown::Int
+    pad_rotate_x::Int
+    pad_rotate_y::Int
     alg::Any
+    workimg::AbstractArray{<:Real, 2} # padded image
+    imgr::AbstractArray{<:Real, 3} # rotated image
+    pad_imgr::AbstractArray{<:Real, 2} # 2D padded rotated image
+    mumapr::AbstractArray{<:Real, 3} # rotated mumap
     # other options for how to do the projection?
     function SPECTplan(mumap,
                         psfs,
@@ -66,12 +74,14 @@ struct SPECTplan
         @assert isodd(nx_psf) && isodd(nz_psf)
         issym = x -> x == reverse(x)
         @assert all(mapslices(issym, psfs, dims = [1, 2]))
+        # center the psfs
+        psfs = OffsetArray(psfs, OffsetArrays.Origin(-Int((nx_psf-1)/2), -Int((nz_psf-1)/2), 1, 1))
         if interpidx == 1
-            rotateforw = imrotate3
-            rotateadjt = imrotate3_adj
+            rotateforw = imrotate3!
+            rotateadjt = imrotate3_adj!
         elseif interpidx == 2
-            rotateforw = imrotate3emmt
-            rotateadjt = imrotate3emmt_adj
+            rotateforw = imrotate3emmt!
+            rotateadjt = imrotate3emmt_adj!
         else
             throw("invalid interpidx!")
         end
@@ -83,12 +93,19 @@ struct SPECTplan
         padright = iszero(padright) ? floor(Int, (Power2(nx+nx_psf-1) - nx) / 2) : padright
         padup = iszero(padup) ? ceil(Int, (Power2(nz+nz_psf-1) - nz) / 2) : padup
         paddown = iszero(paddown) ? floor(Int, (Power2(nz+nz_psf-1) - nz) / 2) : paddown
-
+        pad_rotate_x = ceil(Int, 1 + nx * sqrt(2)/2 - nx / 2)
+        pad_rotate_y = ceil(Int, 1 + ny * sqrt(2)/2 - ny / 2)
         # mypad1 = x -> padarray(x, Pad(:replicate, (nx_psf, nz_psf), (nx_psf, nz_psf)))
-        padrepl = x -> padarray(x, Pad(:replicate, (padleft, padup), (padright, paddown)))
-        padzero = x -> padarray(x, Fill(0, (padleft, padup), (padright, paddown)))
+        padrepl = x -> BorderArray(x, Pad(:replicate, (padleft, padup), (padright, paddown)))
+        padzero = x -> BorderArray(x, Fill(0, (padleft, padup), (padright, paddown)))
 
         # mypad = x -> mypad2(mypad1(x))
+        workimg = zeros(promote_type(eltype(mumap), Float32), nx + padleft + padright, nz + padup + paddown)
+        imgr = zeros(promote_type(eltype(mumap), Float32), nx, ny, nz)
+        pad_imgr = zeros(promote_type(eltype(mumap), Float32),
+                        nx + 2 * pad_rotate_x,
+                        ny + 2 * pad_rotate_y)
+        mumapr = zeros(promote_type(eltype(mumap), Float32), nx, ny, nz)
 
         if conv_alg === :fft
             alg = Algorithm.FFT()
@@ -98,7 +115,8 @@ struct SPECTplan
             throw("unknown convolution algorithm choice!")
         end
         new(mumap, psfs, nview, rotateforw, rotateadjt, viewangle, dy, nx, ny, nz,
-                nx_psf, nz_psf, padrepl, padzero, padleft, padright, padup, paddown, alg)
+                nx_psf, nz_psf, padrepl, padzero, padleft, padright, padup, paddown,
+                pad_rotate_x, pad_rotate_y, alg, workimg, imgr, pad_imgr, mumapr)
         #  creates objects of the block's type (inner constructor methods).
     end
 end
@@ -107,20 +125,27 @@ end
     my_conv(img, ker, plan)
     Convolve an image with a kernel
 """
-function my_conv(img, ker, plan)
-    return max.(0, imfilter(plan.padrepl(img), centered(ker), plan.alg))[1:plan.nx, 1:plan.nz]
+function my_conv(img, ker, plan, i, viewidx)
+    return imfilter!(plan.workimg, plan.padrepl(img),
+                    plan.psfs[:, :, i, viewidx], NoPad(), plan.alg)[1:plan.nx, 1:plan.nz]
+    # return imfilter(plan.padrepl(img), plan.psfs[:, :, i, viewidx], plan.alg)[1:plan.nx, 1:plan.nz]
 end
 """
     my_conv_adj(img, ker, plan)
 """
-function my_conv_adj(img, ker, plan)
-    tmp = imfilter(plan.padzero(img), centered(ker), plan.alg)
-    tmp[1:1, :] .+= sum(tmp[1 - plan.padleft:0, :], dims = 1)
-    tmp[plan.nx:plan.nx, :] .+= sum(tmp[plan.nx + 1:end, :], dims = 1)
-    tmp[:, 1:1] .+= sum(tmp[:, 1-plan.padup:0], dims = 2)
-    tmp[:, plan.nz:plan.nz] .+= sum(tmp[:, plan.nz+1:end], dims = 2)
-    tmp = tmp[1:plan.nx, 1:plan.nz]
-    return max.(tmp, 0)
+function my_conv_adj(img, ker, plan, i, viewidx)
+    # tmp = imfilter(plan.padzero(img), centered(ker), plan.alg)
+    # tmp[1:1, :] .+= sum(tmp[1 - plan.padleft:0, :], dims = 1)
+    # tmp[plan.nx:plan.nx, :] .+= sum(tmp[plan.nx + 1:end, :], dims = 1)
+    # tmp[:, 1:1] .+= sum(tmp[:, 1-plan.padup:0], dims = 2)
+    # tmp[:, plan.nz:plan.nz] .+= sum(tmp[:, plan.nz+1:end], dims = 2)
+    # return tmp[1:plan.nx, 1:plan.nz]
+    imfilter!(plan.workimg, plan.padzero(img), plan.psfs[:, :, i, viewidx], NoPad(), plan.alg)
+    plan.workimg[1:1, :] .+= sum(plan.workimg[plan.nx+plan.padright+1:end, :], dims = 1)
+    plan.workimg[plan.nx:plan.nx, :] .+= sum(plan.workimg[plan.nx+1:plan.nx+plan.padright, :], dims = 1)
+    plan.workimg[:, 1:1] .+= sum(plan.workimg[:, plan.nz+plan.paddown+1:end], dims = 2)
+    plan.workimg[:, plan.nz:plan.nz] .+= sum(plan.workimg[:, plan.nz + 1:plan.nz + plan.paddown], dims = 2)
+    return plan.workimg[1:plan.nx, 1:plan.nz]
 end
 """
     my_conv!(output, img, ker, plan)
@@ -147,18 +172,25 @@ function project!(
     # rotate = x -> my_rotate(x, plan.viewangle[viewidx], plan.interphow)
     # myrotate = x -> imrotate3emmt(x, plan.viewangle[viewidx], plan.nx, plan.ny; mode = :forward)
     # rotate image
-    imgr = mapslices(x -> plan.rotateforw(x, plan.viewangle[viewidx], plan.nx, plan.ny),
-                    image, dims = [1, 2])
+    for z = 1:plan.nz
+        plan.imgr[:, :, z] = plan.rotateforw(plan.pad_imgr, image[:,:,z],
+                                    plan.viewangle[viewidx], plan.nx, plan.ny,
+                                    plan.pad_rotate_x, plan.pad_rotate_y)
+        plan.mumapr[:, :, z] = plan.rotateforw(plan.pad_imgr, plan.mumap[:,:,z],
+                                    plan.viewangle[viewidx], plan.nx, plan.ny,
+                                    plan.pad_rotate_x, plan.pad_rotate_y)
+    end
     # rotate mumap
-    mumapr = mapslices(x -> plan.rotateforw(x, plan.viewangle[viewidx], plan.nx, plan.ny),
-                    plan.mumap, dims = [1, 2])
+    # plan.mumapr = mapslices(x -> plan.rotateforw(x, plan.viewangle[viewidx], plan.nx, plan.ny),
+    #                 plan.mumap, dims = [1, 2])
     # loop over image planes
         # use zero-padded fft (because big) or conv (if small) to convolve with psf
         # sum, account for mumap
+
     for i = 1:plan.ny
         # 0.5 account for the slice thickness
-        exp_mumapr = dropdims(exp.(-plan.dy*(sum(mumapr[:, 1:i, :], dims = 2) .- (mumapr[:,i:i,:]/2))); dims = 2) # nx * nz
-        view .+= my_conv(imgr[:, i, :] .* exp_mumapr, plan.psfs[:, :, i, viewidx], plan)
+        exp_mumapr = dropdims(exp.(-plan.dy*(sum(plan.mumapr[:, 1:i, :], dims = 2) .- (plan.mumapr[:,i:i,:]/2))); dims = 2)
+        view .+= my_conv(plan.imgr[:, i, :] .* exp_mumapr, plan.psfs[:, :, i, viewidx], plan, i, viewidx)
     end
     return view
 end
@@ -209,7 +241,6 @@ function project(
     kwargs...,
 )
     plan = SPECTplan(mumap, psfs, nview, dy; interpidx)
-    @assert minimum(image) >= 0 # image must be nonnegative
     project(plan, image; kwargs...)
 end
 
@@ -230,23 +261,32 @@ function backproject!(
     # myderotate = x -> imrotate3emmt(x, plan.viewangle[viewidx], plan.nx, plan.ny; mode = :adjoint)
 
     # rotate mumap
-    mumapr = mapslices(x -> plan.rotateforw(x, plan.viewangle[viewidx], plan.nx, plan.ny),
-                    plan.mumap, dims = [1, 2])
+    for z = 1:plan.nz
+        plan.mumapr[:,:,z] = plan.rotateforw(plan.pad_imgr, plan.mumap[:,:,z],
+                                plan.viewangle[viewidx], plan.nx, plan.ny,
+                                plan.pad_rotate_x, plan.pad_rotate_y)
+    end
+    # plan.mumapr = mapslices(x -> plan.rotateforw(x, plan.viewangle[viewidx], plan.nx, plan.ny),
+    #                 plan.mumap, dims = [1, 2])
 
     # adjoint of sum along y axis
-    imgr = repeat(reshape(view, nx, 1, nz), 1, ny, 1)
+    # plan.imgr = repeat(reshape(view, plan.nx, 1, plan.nz), 1, plan.ny, 1)
+    imgr = repeat(reshape(view, plan.nx, 1, plan.nz), 1, plan.ny, 1)
 
     for i = 1:plan.ny
-        exp_mumapr = dropdims(exp.(-plan.dy*(sum(mumapr[:, 1:i, :], dims = 2) .- (mumapr[:,i:i,:]/2))); dims = 2) # nx * nz
+        exp_mumapr = dropdims(exp.(-plan.dy*(sum(plan.mumapr[:, 1:i, :], dims = 2) .- (plan.mumapr[:,i:i,:]/2))); dims = 2) # nx * nz
         # adjoint of convolution, convolve with reverse of psfs
         # adjoint of multiplying with mumap
-        imgr[:, i, :] = my_conv_adj(imgr[:, i, :], plan.psfs[:, :, i, viewidx], plan) .* exp_mumapr
+        imgr[:, i, :] .= my_conv_adj(imgr[:, i, :], plan.psfs[:, :, i, viewidx], plan, i, viewidx) .* exp_mumapr
     end
-    # adjoint of imrotate
-    image = mapslices(x -> plan.rotateadjt(x, plan.viewangle[viewidx], plan.nx, plan.ny),
-                    imgr, dims = [1, 2])
 
-    return image
+    # adjoint of imrotate
+    for z = 1:plan.nz
+        imgr[:,:,z] = plan.rotateadjt(plan.pad_imgr, imgr[:,:,z],
+                                plan.viewangle[viewidx], plan.nx, plan.ny,
+                                plan.pad_rotate_x, plan.pad_rotate_y)
+    end
+    return imgr
 end
 
 
@@ -295,6 +335,5 @@ function backproject(
     kwargs...,
 )
     plan = SPECTplan(mumap, psfs, nview, dy; interpidx)
-    @assert minimum(views) >= 0 # views must be nonnegative
     backproject(plan, views; kwargs...)
 end
