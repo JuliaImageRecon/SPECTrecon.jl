@@ -170,7 +170,7 @@ function imrotate3emmt!(output, img, θ, M, N, pad_x, pad_y)
     elseif mod(θ, 2π) ≈ π
         return rot180(img)
     else
-        output = OffsetArrays.no_offset_view(BorderArray(img, Fill(0, (pad_x, pad_y))))
+        output .= OffsetArrays.no_offset_view(BorderArray(img, Fill(0, (pad_x, pad_y))))
         ker = LinearSpline(Float32)
         M_pad = M + 2 * pad_x
         N_pad = N + 2 * pad_y
