@@ -57,7 +57,7 @@ struct SPECTplan
     # other options for how to do the projection?
     function SPECTplan(mumap,
                         psfs::AbstractArray{<:Real,4},
-                        nview,
+                        nview::Int,
                         dy;
                         interpidx::Int = 1,
                         conv_alg::Symbol = :fft,
