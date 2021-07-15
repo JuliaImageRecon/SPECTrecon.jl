@@ -56,7 +56,7 @@ struct SPECTplan
     mumapr::AbstractArray{<:Real, 3} # rotated mumap
     # other options for how to do the projection?
     function SPECTplan(mumap,
-                        psfs,
+                        psfs::AbstractArray{<:Real,4},
                         nview,
                         dy;
                         interpidx::Int = 1,
