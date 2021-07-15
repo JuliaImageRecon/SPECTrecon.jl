@@ -9,7 +9,7 @@ using ImageFiltering
 
 
 """
-    rotate_x(output, img, θ, xi, yi)
+    rotate_x!(output, img, θ, xi, yi)
     rotate an image along x axis in clockwise direction using 1d linear interpolation,
     storing results in `output`
 """
