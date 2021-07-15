@@ -183,7 +183,7 @@ end
 """
 function imrotate3emmt_adj!(output, img, θ, M, N, pad_x, pad_y)
     if mod(θ, 2π) ≈ 0
-        return img
+        return copyto!(output, img)
     elseif mod(θ, 2π) ≈ π
         return rot180(img)
     else
