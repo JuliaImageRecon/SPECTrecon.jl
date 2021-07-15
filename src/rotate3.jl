@@ -69,6 +69,7 @@ end
 """
     rot_f90(img, m)
     rotate an image by 90/180/270 degrees
+    Note: these are all allocating.  Future work is to add rot180! etc. to Julia
 """
 function rot_f90(img, m)
     if m == 0
