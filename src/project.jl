@@ -62,7 +62,7 @@ struct SPECTplan
                         dy;
                         interpidx::Int = 1,
                         conv_alg::Symbol = :fft,
-                        padleft::Int = 0,
+                        padleft::Int = _padleft(mumap, psfs),
                         padright::Int = 0,
                         padup::Int = 0,
                         paddown::Int = 0)
