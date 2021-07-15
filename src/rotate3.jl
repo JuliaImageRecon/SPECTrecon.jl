@@ -199,3 +199,16 @@ function imrotate3emmt_adj!(output, img, θ, M, N, pad_x, pad_y)
         return (A' * output)[pad_x + 1 : pad_x + M, pad_y + 1 : pad_y + N]
     end
 end
+
+"""
+    rot180!(B::AbstractMatrix, A::AbstractMatrix)
+In place version of `rot180`, returning rotation of `A` in `B`.
+"""
+function rot180!(B::AbstractMatrix, A::AbstractMatrix)
+    ind1, ind2 = axes(A,1), axes(A,2)
+    m, n = first(ind1)+last(ind1), first(ind2)+last(ind2)
+    for j=ind2, i=ind1
+        B[m-i,n-j] .= A[i,j]
+    end
+    return B
+end
