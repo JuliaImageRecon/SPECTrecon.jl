@@ -2,6 +2,7 @@
 # Use BorderArray instead of PadArray
 include("rotate3.jl")
 
+const RealU = Number # Union{Real, Unitful.Length}
 """
     SPECTplan
 Struct for storing key factors for a SPECT system model
