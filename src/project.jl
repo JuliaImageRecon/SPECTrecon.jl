@@ -81,7 +81,7 @@ struct SPECTplan
         @assert all(mapslices(issym, psfs, dims = [1, 2]))
         # center the psfs
         psfs = OffsetArray(psfs, OffsetArrays.Origin(-Int((nx_psf-1)/2), -Int((nz_psf-1)/2), 1, 1))
-        # needs a rotation plan here
+        # todo: needs a rotation plan here
         if interpidx == 1
             rotateforw! = imrotate3!
             rotateadjt! = imrotate3_adj!
@@ -141,7 +141,6 @@ end
 function my_conv!(plan, img, ker, i, viewidx)
     imfilter!(plan.padimg, plan.padrepl(img), plan.psfs[:, :, i, viewidx], NoPad(), plan.alg)
     return @view plan.padimg[1:plan.nx, 1:plan.nz]
-    # return imfilter(plan.padrepl(img), plan.psfs[:, :, i, viewidx], plan.alg)[1:plan.nx, 1:plan.nz]
 end
 
 """
@@ -149,12 +148,6 @@ end
     The adjoint of convolving an image with a kernel using plan
 """
 function my_conv_adj!(plan, img, ker, i, viewidx)
-    # tmp = imfilter(plan.padzero(img), centered(ker), plan.alg)
-    # tmp[1:1, :] .+= sum(tmp[1 - plan.padleft:0, :], dims = 1)
-    # tmp[plan.nx:plan.nx, :] .+= sum(tmp[plan.nx + 1:end, :], dims = 1)
-    # tmp[:, 1:1] .+= sum(tmp[:, 1-plan.padup:0], dims = 2)
-    # tmp[:, plan.nz:plan.nz] .+= sum(tmp[:, plan.nz+1:end], dims = 2)
-    # return tmp[1:plan.nx, 1:plan.nz]
     imfilter!(plan.padimg, plan.padzero(img), plan.psfs[:, :, i, viewidx], NoPad(), plan.alg)
     plan.padimg[1:1, :] .+= sum(plan.padimg[plan.nx + plan.padright + 1:end, :], dims = 1)
     plan.padimg[plan.nx:plan.nx, :] .+= sum(plan.padimg[plan.nx + 1:plan.nx + plan.padright, :], dims = 1)
@@ -186,14 +179,14 @@ function project!(
     end
 
     for i = 1:plan.ny
-        # account for the final slice thickness
+        # account for half of the final slice thickness
         plan.exp_mumapr .= - plan.mumapr[:, i, :] / 2
         for j = 1:i
             plan.exp_mumapr .+= plan.mumapr[:, j, :]
         end
         plan.exp_mumapr .*= - plan.dy
         plan.exp_mumapr .= exp.(plan.exp_mumapr)
-        # exp_mumapr = dropdims(exp.(-plan.dy*(sum(plan.mumapr[:, 1:i, :], dims = 2) .- (plan.mumapr[:,i:i,:]/2))); dims = 2)
+
         view .+= my_conv!(plan, plan.imgr[:, i, :] .* plan.exp_mumapr, plan.psfs[:, :, i, viewidx], i, viewidx)
     end
     return view
@@ -268,14 +261,14 @@ function backproject!(
 
     for i = 1:plan.ny
 
-        # account for the final slice thickness
+        # account for half of the final slice thickness
         plan.exp_mumapr .= - plan.mumapr[:, i, :] / 2
         for j = 1:i
             plan.exp_mumapr .+= plan.mumapr[:, j, :]
         end
         plan.exp_mumapr .*= - plan.dy
         plan.exp_mumapr .= exp.(plan.exp_mumapr)
-        # exp_mumapr = dropdims(exp.(-plan.dy*(sum(plan.mumapr[:, 1:i, :], dims = 2) .- (plan.mumapr[:,i:i,:]/2))); dims = 2) # nx * nz
+
         # adjoint of convolution, convolve with reverse of psfs
         # adjoint of multiplying with mumap
         plan.imgr[:, i, :] .= my_conv_adj!(plan, view, plan.psfs[:, :, i, viewidx], i, viewidx) .* plan.exp_mumapr

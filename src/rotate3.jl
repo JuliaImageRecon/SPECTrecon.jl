@@ -12,8 +12,6 @@ function rotate_x!(output, img, θ, xi, yi)
     for (i, yin) in enumerate(yi)
         # note for future refinement: the rotate_x. step is allocating
         A = SparseInterpolator(LinearSpline(Float32), rotate_x.(xi, yin, θ), length(xi))
-        # ic = LinearInterpolation(xi, img[:, i], extrapolation_bc = 0)
-        # tmp[:, i] .= ic.(rotate_x.(xi, yin, θ))
         mul!((@view output[:, i]), A, img[:, i]) # need mul! to avoid allocating
     end
     return output
@@ -27,10 +25,7 @@ function rotate_x_adj!(output, img, θ, xi, yi)
     rotate_x(xin, yin, θ) = xin + (yin - (length(yi)+1)/2) * tan(θ/2)
     for (i, yin) in enumerate(yi)
         A = SparseInterpolator(LinearSpline(Float32), rotate_x.(xi, yin, θ), length(xi))
-        # ic = LinearInterpolation(xi, img[:, i], extrapolation_bc = 0)
-        # tmp[:, i] .= ic.(rotate_x.(xi, yin, θ))
         mul!((@view output[:, i]), A', img[:, i])
-        # @! output[:, i] .= I1' * img[:, i]
     end
     return output
 end
@@ -45,8 +40,6 @@ function rotate_y!(output, img, θ, xi, yi)
     for (i, xin) in enumerate(xi)
         A = SparseInterpolator(LinearSpline(Float32), rotate_y.(xin, yi, θ), length(yi))
         mul!((@view output[i, :]), A, img[i, :])
-        # ic = LinearInterpolation(yi, img[i, :], extrapolation_bc = 0)
-        # tmp[i, :] .= ic.(rotate_y.(xin, yi, θ))
     end
     return output
 end
@@ -61,8 +54,6 @@ function rotate_y_adj!(output, img, θ, xi, yi)
     for (i, xin) in enumerate(xi)
         A = SparseInterpolator(LinearSpline(Float32), rotate_y.(xin, yi, θ), length(yi))
         mul!((@view output[i, :]), A', img[i, :])
-        # ic = LinearInterpolation(yi, img[i, :], extrapolation_bc = 0)
-        # tmp[i, :] .= ic.(rotate_y.(xin, yi, θ))
     end
     return output
 end
