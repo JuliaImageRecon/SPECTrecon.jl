@@ -4,6 +4,10 @@ using LinearInterpolators
 using InterpolationKernels
 using OffsetArrays
 using ImageFiltering
+# todo: RotatePlan
+# set of thetas, workspace, choice of rotation method (3 pass, imrotate, emmt?)
+
+
 """
     rotate_x(output, img, θ, xi, yi)
     rotate an image along x axis in clockwise direction using 1d linear interpolation
