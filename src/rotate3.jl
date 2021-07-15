@@ -15,6 +15,7 @@ using ImageFiltering
 function rotate_x!(output, img, θ, xi, yi)
     rotate_x(xin, yin, θ) = xin + (yin - (length(yi)+1)/2) * tan(θ/2)
     for (i, yin) in enumerate(yi)
+        # note for future refinement: the rotate_x. step is allocating
         I1 = SparseInterpolator(LinearSpline(Float32), rotate_x.(xi, yin, θ), length(xi))
         # ic = LinearInterpolation(xi, img[:, i], extrapolation_bc = 0)
         # tmp[:, i] .= ic.(rotate_x.(xi, yin, θ))
