@@ -1,16 +1,18 @@
 # project.jl
-# Use BorderArray instead of PadArray
+
+include("helper.jl")
 include("rotate3.jl")
 
 const RealU = Number # Union{Real, Unitful.Length}
+
 """
     SPECTplan
 Struct for storing key factors for a SPECT system model
 - `mumap [nx,ny,nz]` attenuation map, must be 3D, possibly zeros()
 - `psfs [nx_psf,nz_psf,ny,nview]` point spread function, must be 4D, with `nx_psf` and `nz_psf` odd, and symmetric for each slice
 - `nview` number of views, must be integer
-- `rotateforw` rotation method, default is using 1d linear interpolation
-- `rotateadjt` adjoint of rotation method, default is using 1d linear interpolation
+- `rotateforw!` rotation method, default is using 1d linear interpolation
+- `rotateadjt!` adjoint of rotation method, default is using 1d linear interpolation
 - `dy` voxel size in y direction (dx is the same value)
 - `nx` number of voxels in x direction of the image, must be integer
 - `ny` number of voxels in y direction of the image, must be integer
@@ -33,8 +35,8 @@ struct SPECTplan
     mumap::AbstractArray{<:Real, 3} # [nx,ny,nz] attenuation map, must be 3D, possibly zeros()
     psfs::AbstractArray{<:Real, 4} # PSFs must be 4D, [nx_psf, nz_psf, ny, nview], finally be centered psf
     nview::Int
-    rotateforw::Function
-    rotateadjt::Function
+    rotateforw!::Function
+    rotateadjt!::Function
     viewangle::AbstractVector
     dy::Float32
     nx::Int
@@ -51,21 +53,23 @@ struct SPECTplan
     pad_rotate_x::Int
     pad_rotate_y::Int
     alg::Any
-    workimg::AbstractArray{<:Real, 2} # padded image
-    imgr::AbstractArray{<:Real, 3} # rotated image
-    pad_imgr::AbstractArray{<:Real, 2} # 2D padded rotated image
-    mumapr::AbstractArray{<:Real, 3} # rotated mumap
+    padimg::AbstractArray{<:Real, 2} # 2D padded image, (nx + padleft + padright, nz + padup + paddown)
+    imgr::AbstractArray{<:Real, 3} # 3D rotated image, (nx, ny, nz)
+    pad_imgr::AbstractArray{<:Real, 2} # 2D padded rotated image, (nx + 2 * pad_rotate_x, ny + 2 * pad_rotate_y)
+    pad_imgr_tmp::AbstractArray{<:Real, 2} # 2D tmp padded rotated image, (nx + 2 * pad_rotate_x, ny + 2 * pad_rotate_y)
+    mumapr::AbstractArray{<:Real, 3} # 3D rotated mumap, (nx, ny, nz)
+    exp_mumapr::AbstractArray{<:Real, 2} # 2D exp rotated mumap, (nx, nz)
     # other options for how to do the projection?
-    function SPECTplan(mumap,
+    function SPECTplan(mumap::AbstractArray{<:Real,3},
                         psfs::AbstractArray{<:Real,4},
                         nview::Int,
-                        dy;
+                        dy::RealU;
                         interpidx::Int = 1,
                         conv_alg::Symbol = :fft,
                         padleft::Int = _padleft(mumap, psfs),
-                        padright::Int = 0,
-                        padup::Int = 0,
-                        paddown::Int = 0)
+                        padright::Int = _padright(mumap, psfs),
+                        padup::Int = _padup(mumap, psfs),
+                        paddown::Int = _paddown(mumap, psfs))
         # check nx = ny ? typically 128 x 128 x 81
         nx, ny, nz = size(mumap)
         nx_psf = size(psfs, 1)
@@ -77,36 +81,42 @@ struct SPECTplan
         @assert all(mapslices(issym, psfs, dims = [1, 2]))
         # center the psfs
         psfs = OffsetArray(psfs, OffsetArrays.Origin(-Int((nx_psf-1)/2), -Int((nz_psf-1)/2), 1, 1))
+        # needs a rotation plan here
         if interpidx == 1
-            rotateforw = imrotate3!
-            rotateadjt = imrotate3_adj!
+            rotateforw! = imrotate3!
+            rotateadjt! = imrotate3_adj!
         elseif interpidx == 2
-            rotateforw = imrotate3emmt!
-            rotateadjt = imrotate3emmt_adj!
+            rotateforw! = imrotate3emmt!
+            rotateadjt! = imrotate3emmt_adj!
         else
             throw("invalid interpidx!")
         end
-        viewangle = (0:nview-1) / nview * (2π)
 
-        Power2 = x -> 2^(ceil(Int, log2(x)))
-
-        padleft = iszero(padleft) ? ceil(Int, (Power2(nx+nx_psf-1) - nx) / 2) : padleft
-        padright = iszero(padright) ? floor(Int, (Power2(nx+nx_psf-1) - nx) / 2) : padright
-        padup = iszero(padup) ? ceil(Int, (Power2(nz+nz_psf-1) - nz) / 2) : padup
-        paddown = iszero(paddown) ? floor(Int, (Power2(nz+nz_psf-1) - nz) / 2) : paddown
+        viewangle = (0:nview - 1) / nview * (2π)
         pad_rotate_x = ceil(Int, 1 + nx * sqrt(2)/2 - nx / 2)
         pad_rotate_y = ceil(Int, 1 + ny * sqrt(2)/2 - ny / 2)
         # mypad1 = x -> padarray(x, Pad(:replicate, (nx_psf, nz_psf), (nx_psf, nz_psf)))
         padrepl = x -> BorderArray(x, Pad(:replicate, (padleft, padup), (padright, paddown)))
         padzero = x -> BorderArray(x, Fill(0, (padleft, padup), (padright, paddown)))
 
-        # mypad = x -> mypad2(mypad1(x))
-        workimg = zeros(promote_type(eltype(mumap), Float32), nx + padleft + padright, nz + padup + paddown)
+
+        # allocate working buffers:
+        # padimg is used in convolution with psfs
+        padimg = zeros(promote_type(eltype(mumap), Float32), nx + padleft + padright, nz + padup + paddown)
+        # imgr stores 3D image in different view angles
         imgr = zeros(promote_type(eltype(mumap), Float32), nx, ny, nz)
+        # pad_imgr stores 2D rotated & padded image
         pad_imgr = zeros(promote_type(eltype(mumap), Float32),
                         nx + 2 * pad_rotate_x,
                         ny + 2 * pad_rotate_y)
+        # pad_imgr_tmp stores 2D rotated & padded image, used in inplace rotation operation
+        pad_imgr_tmp = zeros(promote_type(eltype(mumap), Float32),
+                        nx + 2 * pad_rotate_x,
+                        ny + 2 * pad_rotate_y)
+        # mumapr stores 3D mumap in different view angles
         mumapr = zeros(promote_type(eltype(mumap), Float32), nx, ny, nz)
+        # exp_mumapr stores 2D exponential mumap in different view angles
+        exp_mumapr = zeros(promote_type(eltype(mumap), Float32), nx, nz)
 
         if conv_alg === :fft
             alg = Algorithm.FFT()
@@ -115,48 +125,42 @@ struct SPECTplan
         else
             throw("unknown convolution algorithm choice!")
         end
-        new(mumap, psfs, nview, rotateforw, rotateadjt, viewangle, dy, nx, ny, nz,
+        new(mumap, psfs, nview, rotateforw!, rotateadjt!, viewangle, dy, nx, ny, nz,
                 nx_psf, nz_psf, padrepl, padzero, padleft, padright, padup, paddown,
-                pad_rotate_x, pad_rotate_y, alg, workimg, imgr, pad_imgr, mumapr)
+                pad_rotate_x, pad_rotate_y, alg, padimg, imgr, pad_imgr, pad_imgr_tmp,
+                mumapr, exp_mumapr)
         #  creates objects of the block's type (inner constructor methods).
     end
 end
 
+
 """
-    my_conv(img, ker, plan)
-    Convolve an image with a kernel
+    my_conv!(plan, img, ker, i, viewidx)
+    Convolve an image with a kernel using plan
 """
-function my_conv(img, ker, plan, i, viewidx)
-    return imfilter!(plan.workimg, plan.padrepl(img),
-                    plan.psfs[:, :, i, viewidx], NoPad(), plan.alg)[1:plan.nx, 1:plan.nz]
+function my_conv!(plan, img, ker, i, viewidx)
+    imfilter!(plan.padimg, plan.padrepl(img), plan.psfs[:, :, i, viewidx], NoPad(), plan.alg)
+    return @view plan.padimg[1:plan.nx, 1:plan.nz]
     # return imfilter(plan.padrepl(img), plan.psfs[:, :, i, viewidx], plan.alg)[1:plan.nx, 1:plan.nz]
 end
+
 """
-    my_conv_adj(img, ker, plan)
+    my_conv_adj!(plan, img, ker, i, viewidx)
+    The adjoint of convolving an image with a kernel using plan
 """
-function my_conv_adj(img, ker, plan, i, viewidx)
+function my_conv_adj!(plan, img, ker, i, viewidx)
     # tmp = imfilter(plan.padzero(img), centered(ker), plan.alg)
     # tmp[1:1, :] .+= sum(tmp[1 - plan.padleft:0, :], dims = 1)
     # tmp[plan.nx:plan.nx, :] .+= sum(tmp[plan.nx + 1:end, :], dims = 1)
     # tmp[:, 1:1] .+= sum(tmp[:, 1-plan.padup:0], dims = 2)
     # tmp[:, plan.nz:plan.nz] .+= sum(tmp[:, plan.nz+1:end], dims = 2)
     # return tmp[1:plan.nx, 1:plan.nz]
-    imfilter!(plan.workimg, plan.padzero(img), plan.psfs[:, :, i, viewidx], NoPad(), plan.alg)
-    plan.workimg[1:1, :] .+= sum(plan.workimg[plan.nx+plan.padright+1:end, :], dims = 1)
-    plan.workimg[plan.nx:plan.nx, :] .+= sum(plan.workimg[plan.nx+1:plan.nx+plan.padright, :], dims = 1)
-    plan.workimg[:, 1:1] .+= sum(plan.workimg[:, plan.nz+plan.paddown+1:end], dims = 2)
-    plan.workimg[:, plan.nz:plan.nz] .+= sum(plan.workimg[:, plan.nz + 1:plan.nz + plan.paddown], dims = 2)
-    return plan.workimg[1:plan.nx, 1:plan.nz]
-end
-"""
-    my_conv!(output, img, ker, plan)
-    Convolve an image with a kernel using in-place operation
-    This part is still under construction
-    centered(img) should be preallocated, get rid of if
-"""
-function my_conv!(output, img, ker, plan)
-    imfilter!(plan.workimg, plan.mypad!(img), centered(ker), plan.alg)
-    return map!(output, x -> max.(x, 0), @view plan.workimg[1:plan.nx, 1:plan.nz])
+    imfilter!(plan.padimg, plan.padzero(img), plan.psfs[:, :, i, viewidx], NoPad(), plan.alg)
+    plan.padimg[1:1, :] .+= sum(plan.padimg[plan.nx + plan.padright + 1:end, :], dims = 1)
+    plan.padimg[plan.nx:plan.nx, :] .+= sum(plan.padimg[plan.nx + 1:plan.nx + plan.padright, :], dims = 1)
+    plan.padimg[:, 1:1] .+= sum(plan.padimg[:, plan.nz + plan.paddown + 1:end], dims = 2)
+    plan.padimg[:, plan.nz:plan.nz] .+= sum(plan.padimg[:, plan.nz + 1:plan.nz + plan.paddown], dims = 2)
+    return @view plan.padimg[1:plan.nx, 1:plan.nz]
 end
 
 """
@@ -169,29 +173,28 @@ function project!(
     image::AbstractArray{<:Real,3},
     viewidx::Int,
 )
-    # todo : read multiple dispatch
-    # rotate = x -> my_rotate(x, plan.viewangle[viewidx], plan.interphow)
-    # myrotate = x -> imrotate3emmt(x, plan.viewangle[viewidx], plan.nx, plan.ny; mode = :forward)
-    # rotate image
+
     for z = 1:plan.nz
-        plan.imgr[:, :, z] = plan.rotateforw(plan.pad_imgr, image[:,:,z],
-                                    plan.viewangle[viewidx], plan.nx, plan.ny,
-                                    plan.pad_rotate_x, plan.pad_rotate_y)
-        plan.mumapr[:, :, z] = plan.rotateforw(plan.pad_imgr, plan.mumap[:,:,z],
-                                    plan.viewangle[viewidx], plan.nx, plan.ny,
-                                    plan.pad_rotate_x, plan.pad_rotate_y)
+        # rotate image
+        plan.imgr[:, :, z] .= plan.rotateforw!(plan.pad_imgr, plan.pad_imgr_tmp,
+                                    image[:,:,z], plan.viewangle[viewidx], plan.nx,
+                                    plan.ny, plan.pad_rotate_x, plan.pad_rotate_y)
+        # rotate mumap
+        plan.mumapr[:, :, z] .= plan.rotateforw!(plan.pad_imgr, plan.pad_imgr_tmp,
+                                    plan.mumap[:,:,z], plan.viewangle[viewidx], plan.nx,
+                                    plan.ny, plan.pad_rotate_x, plan.pad_rotate_y)
     end
-    # rotate mumap
-    # plan.mumapr = mapslices(x -> plan.rotateforw(x, plan.viewangle[viewidx], plan.nx, plan.ny),
-    #                 plan.mumap, dims = [1, 2])
-    # loop over image planes
-        # use zero-padded fft (because big) or conv (if small) to convolve with psf
-        # sum, account for mumap
 
     for i = 1:plan.ny
-        # 0.5 account for the slice thickness
-        exp_mumapr = dropdims(exp.(-plan.dy*(sum(plan.mumapr[:, 1:i, :], dims = 2) .- (plan.mumapr[:,i:i,:]/2))); dims = 2)
-        view .+= my_conv(plan.imgr[:, i, :] .* exp_mumapr, plan.psfs[:, :, i, viewidx], plan, i, viewidx)
+        # account for the final slice thickness
+        plan.exp_mumapr .= - plan.mumapr[:, i, :] / 2
+        for j = 1:i
+            plan.exp_mumapr .+= plan.mumapr[:, j, :]
+        end
+        plan.exp_mumapr .*= - plan.dy
+        plan.exp_mumapr .= exp.(plan.exp_mumapr)
+        # exp_mumapr = dropdims(exp.(-plan.dy*(sum(plan.mumapr[:, 1:i, :], dims = 2) .- (plan.mumapr[:,i:i,:]/2))); dims = 2)
+        view .+= my_conv!(plan, plan.imgr[:, i, :] .* plan.exp_mumapr, plan.psfs[:, :, i, viewidx], i, viewidx)
     end
     return view
 end
@@ -255,39 +258,36 @@ function backproject!(
     viewidx::Int
 )
 
-    # todo : read multiple dispatch
-    # rotate = x -> my_rotate(x, plan.viewangle[viewidx], plan.interphow)
-
-    # myrotate = x -> imrotate3emmt(x, plan.viewangle[viewidx], plan.nx, plan.ny; mode = :forward)
-    # myderotate = x -> imrotate3emmt(x, plan.viewangle[viewidx], plan.nx, plan.ny; mode = :adjoint)
-
-    # rotate mumap
     for z = 1:plan.nz
-        plan.mumapr[:,:,z] = plan.rotateforw(plan.pad_imgr, plan.mumap[:,:,z],
-                                plan.viewangle[viewidx], plan.nx, plan.ny,
-                                plan.pad_rotate_x, plan.pad_rotate_y)
+        # rotate mumap
+        plan.mumapr[:,:,z] .= plan.rotateforw!(plan.pad_imgr, plan.pad_imgr_tmp,
+                                plan.mumap[:,:,z], plan.viewangle[viewidx], plan.nx,
+                                plan.ny, plan.pad_rotate_x, plan.pad_rotate_y)
     end
-    # plan.mumapr = mapslices(x -> plan.rotateforw(x, plan.viewangle[viewidx], plan.nx, plan.ny),
-    #                 plan.mumap, dims = [1, 2])
 
-    # adjoint of sum along y axis
-    # plan.imgr = repeat(reshape(view, plan.nx, 1, plan.nz), 1, plan.ny, 1)
-    imgr = repeat(reshape(view, plan.nx, 1, plan.nz), 1, plan.ny, 1)
 
     for i = 1:plan.ny
-        exp_mumapr = dropdims(exp.(-plan.dy*(sum(plan.mumapr[:, 1:i, :], dims = 2) .- (plan.mumapr[:,i:i,:]/2))); dims = 2) # nx * nz
+
+        # account for the final slice thickness
+        plan.exp_mumapr .= - plan.mumapr[:, i, :] / 2
+        for j = 1:i
+            plan.exp_mumapr .+= plan.mumapr[:, j, :]
+        end
+        plan.exp_mumapr .*= - plan.dy
+        plan.exp_mumapr .= exp.(plan.exp_mumapr)
+        # exp_mumapr = dropdims(exp.(-plan.dy*(sum(plan.mumapr[:, 1:i, :], dims = 2) .- (plan.mumapr[:,i:i,:]/2))); dims = 2) # nx * nz
         # adjoint of convolution, convolve with reverse of psfs
         # adjoint of multiplying with mumap
-        imgr[:, i, :] .= my_conv_adj(imgr[:, i, :], plan.psfs[:, :, i, viewidx], plan, i, viewidx) .* exp_mumapr
+        plan.imgr[:, i, :] .= my_conv_adj!(plan, view, plan.psfs[:, :, i, viewidx], i, viewidx) .* plan.exp_mumapr
     end
 
     # adjoint of imrotate
     for z = 1:plan.nz
-        imgr[:,:,z] = plan.rotateadjt(plan.pad_imgr, imgr[:,:,z],
-                                plan.viewangle[viewidx], plan.nx, plan.ny,
-                                plan.pad_rotate_x, plan.pad_rotate_y)
+        plan.imgr[:,:,z] .= plan.rotateadjt!(plan.pad_imgr, plan.pad_imgr_tmp,
+                                plan.imgr[:,:,z], plan.viewangle[viewidx], plan.nx,
+                                plan.ny, plan.pad_rotate_x, plan.pad_rotate_y)
     end
-    return imgr
+    return plan.imgr
 end
 
 
