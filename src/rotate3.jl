@@ -18,7 +18,7 @@ function rotate_x!(output, img, θ, xi, yi)
         I1 = SparseInterpolator(LinearSpline(Float32), rotate_x.(xi, yin, θ), length(xi))
         # ic = LinearInterpolation(xi, img[:, i], extrapolation_bc = 0)
         # tmp[:, i] .= ic.(rotate_x.(xi, yin, θ))
-        output[:, i] .= I1 * img[:, i]
+        @! output[:, i] .= I1 * img[:, i] # need mul! to avoid allocating
     end
     return output
 end
