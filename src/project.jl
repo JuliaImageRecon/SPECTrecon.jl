@@ -13,6 +13,7 @@ Struct for storing key factors for a SPECT system model
 - `nview` number of views, must be integer
 - `rotateforw!` rotation method, default is using 1d linear interpolation
 - `rotateadjt!` adjoint of rotation method, default is using 1d linear interpolation
+- `viewangle` set of view angles, must be from 0 to 2π
 - `dy` voxel size in y direction (dx is the same value)
 - `nx` number of voxels in x direction of the image, must be integer
 - `ny` number of voxels in y direction of the image, must be integer
@@ -21,11 +22,14 @@ Struct for storing key factors for a SPECT system model
 - `nz_psf` number of voxels in z direction of the psf, must be integer
 - `padrepl` padding function using replicate border condition
 - `padzero` padding function using zero border condition
-- {padleft,padright,padup,paddown} pixels padded along {left,right,up,down} direction
+- {padleft,padright,padup,paddown} pixels padded along {left,right,up,down} direction for convolution with psfs
 - `alg` algorithms used for convolution, default is FFT
-- `workimg` 2D padded image for imfilter
+- `padimg` 2D padded image for imfilter
 - `imgr` 3D rotated image
+- `pad_imgr` padded 2D rotated image
+- `pad_imgr_tmp` 2D tmp padded rotated image, need this because rot{l90, 180, r90} require 2 different input args.
 - `mumapr` 3D rotated mumap
+- `exp_mumapr` 2D exponential rotated mumap
 Currently code assumes each of the `nview` projection views is `[nx,nz]`
 Currently code assumes `nx = ny`
 Currently code assumes uniform angular sampling
@@ -64,8 +68,9 @@ struct SPECTplan
                         psfs::AbstractArray{<:Real,4},
                         nview::Int,
                         dy::RealU;
-                        interpidx::Int = 1,
-                        conv_alg::Symbol = :fft,
+                        viewangle::AbstractVector = (0:nview - 1) / nview * (2π), # set of view angles
+                        interpidx::Int = 1, # 1 is for 1d interpolation, 2 is for 2d interpolation
+                        conv_alg::Symbol = :fft, # convolution algorithms, default is fft
                         padleft::Int = _padleft(mumap, psfs),
                         padright::Int = _padright(mumap, psfs),
                         padup::Int = _padup(mumap, psfs),
@@ -77,8 +82,7 @@ struct SPECTplan
         @assert isequal(nx, ny)
         @assert iseven(nx) && iseven(ny)
         @assert isodd(nx_psf) && isodd(nz_psf)
-        issym = x -> x == reverse(x)
-        @assert all(mapslices(issym, psfs, dims = [1, 2]))
+        @assert all(mapslices(x -> x == reverse(x), psfs, dims = [1, 2]))
         # center the psfs
         psfs = OffsetArray(psfs, OffsetArrays.Origin(-Int((nx_psf-1)/2), -Int((nz_psf-1)/2), 1, 1))
         # todo: needs a rotation plan here
@@ -92,7 +96,6 @@ struct SPECTplan
             throw("invalid interpidx!")
         end
 
-        viewangle = (0:nview - 1) / nview * (2π)
         pad_rotate_x = ceil(Int, 1 + nx * sqrt(2)/2 - nx / 2)
         pad_rotate_y = ceil(Int, 1 + ny * sqrt(2)/2 - ny / 2)
         # mypad1 = x -> padarray(x, Pad(:replicate, (nx_psf, nz_psf), (nx_psf, nz_psf)))
@@ -123,7 +126,7 @@ struct SPECTplan
         elseif conv_alg === :fir
             alg = Algorithm.FIR()
         else
-            throw("unknown convolution algorithm choice!")
+            throw("invalid convolution algorithm choice!")
         end
         new(mumap, psfs, nview, rotateforw!, rotateadjt!, viewangle, dy, nx, ny, nz,
                 nx_psf, nz_psf, padrepl, padzero, padleft, padright, padup, paddown,

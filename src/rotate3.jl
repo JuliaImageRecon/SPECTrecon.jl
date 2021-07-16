@@ -4,7 +4,7 @@
 # I won't use imrotate3jl because it cannot pass the adjoint test
 """
     rotate_x!(output, img, θ, xi, yi)
-    rotate an image along x axis in clockwise direction using 1d linear interpolation,
+    Rotate an image along x axis in clockwise direction using 1d linear interpolation,
     storing results in `output`
 """
 function rotate_x!(output, img, θ, xi, yi)
@@ -32,7 +32,7 @@ end
 
 """
     rotate_y!(output, img, θ, xi, yi)
-    rotate an image along y axis in clockwise direction using 1d linear interpolation,
+    Rotate an image along y axis in clockwise direction using 1d linear interpolation,
     storing results in `output`
 """
 function rotate_y!(output, img, θ, xi, yi)
@@ -99,8 +99,7 @@ end
 
 """
     rot_f90!(output, img, m)
-    rotate an image by 90/180/270 degrees
-    Note: these are all allocating.  Future work is to add rot180! etc. to Julia
+    Inplace version of rotating an image by 90/180/270 degrees
 """
 function rot_f90!(output, img, m)
     if m == 0
@@ -135,7 +134,8 @@ function rot_f90_adj!(output, img, m)
 end
 """
     imrotate3!(output, tmp, img, θ, M, N, pad_x, pad_y)
-    rotate an image by angle θ (must be ranging from 0 to 2π) in clockwise direction using a series of 1d linear interpolation
+    Rotate an image by angle θ (must be ranging from 0 to 2π) in clockwise direction
+    using a series of 1d linear interpolation
 """
 function imrotate3!(output, tmp, img, θ, M, N, pad_x, pad_y)
     m = mod(floor(Int, 0.5 + θ/(π/2)), 4)
@@ -152,7 +152,8 @@ end
 
 """
     imrotate3_adj!(output, tmp, img, θ, M, N, pad_x, pad_y)
-    The adjoint of rotating an image by angle θ (must be ranging from 0 to 2π) in clockwise direction using a series of 1d linear interpolation
+    The adjoint of rotating an image by angle θ (must be ranging from 0 to 2π) in clockwise direction
+    using a series of 1d linear interpolation
 """
 function imrotate3_adj!(output, tmp, img, θ, M, N, pad_x, pad_y)
     m = mod(floor(Int, 0.5 + θ/(π/2)), 4)
@@ -170,7 +171,7 @@ end
 
 """
     imrotate3emmt!(output, tmp, img, θ, M, N, pad_x, pad_y)
-    Rotate an image by angle θ in counter clockwise direction using 2d linear interpolation
+    Rotate an image by angle θ in clockwise direction using 2d linear interpolation
     Source code is here: https://github.com/emmt/LinearInterpolators.jl
 """
 function imrotate3emmt!(output, tmp, img, θ, M, N, pad_x, pad_y)
@@ -193,7 +194,7 @@ end
 
 """
     imrotate3emmt_adj!(output, tmp, img, θ, M, N, pad_x, pad_y)
-    The adjoint of rotating an image by angle θ in counter clockwise direction using 2d linear interpolation
+    The adjoint of rotating an image by angle θ in clockwise direction using 2d linear interpolation
     Source code is here: https://github.com/emmt/LinearInterpolators.jl
 """
 function imrotate3emmt_adj!(output, tmp, img, θ, M, N, pad_x, pad_y)
