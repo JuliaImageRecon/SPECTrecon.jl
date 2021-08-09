@@ -21,7 +21,6 @@ Struct for storing key factors for a SPECT system model
 - {padleft,padright,padup,paddown} pixels padded along {left,right,up,down} direction for convolution with psfs, must be integer
 - `pad_rotate_x` padded pixels for rotating along x axis, must be integer
 - `pad_rotate_y` padded pixels for rotating along y axis, must be integer
-- `alg` algorithms used for convolution, default is FFT
 - `imgr` 3D rotated image
 - `mumapr` 3D rotated mumap
 - `ncore_iter_y` # of outer iterations through ny using multi-processing, must be integer
@@ -57,7 +56,6 @@ struct SPECTplan
     paddown::Int
     pad_rotate_x::Int
     pad_rotate_y::Int
-    alg::Any
     imgr::AbstractArray{<:Real, 3} # 3D rotated image, (nx, ny, nz)
     mumapr::AbstractArray{<:Real, 3} # 3D rotated mumap, (nx, ny, nz)
     ncore_iter_y::Int
@@ -72,7 +70,6 @@ struct SPECTplan
                         dy::RealU ;
                         viewangle::AbstractVector = (0:nview - 1) / nview * (2π), # set of view angles
                         interpidx::Int = 1, # 1 is for 1d interpolation, 2 is for 2d interpolation
-                        conv_alg::Symbol = :fft, # convolution algorithms, default is fft
                         padleft::Int = _padleft(mumap, psfs),
                         padright::Int = _padright(mumap, psfs),
                         padup::Int = _padup(mumap, psfs),
@@ -112,14 +109,6 @@ struct SPECTplan
         # mumapr stores 3D mumap in different view angles
         mumapr = zeros(promote_type(eltype(mumap), Float32), nx, ny, nz)
 
-        if conv_alg === :fft
-            alg = Algorithm.FFT()
-        elseif conv_alg === :fir
-            alg = Algorithm.FIR()
-        else
-            throw("invalid convolution algorithm choice!")
-        end
-
         ncore_iter_y = ceil(Int, ny / ncore) # 16
         ncore_array_y = ncore * ones(Int, ncore_iter_y) # [8, 8, 8, ..., 8]
         ncore_array_y[end] = ny - (ncore_iter_y - 1) * ncore # [8, 8, 8, ..., 8]
@@ -131,7 +120,7 @@ struct SPECTplan
         new(mumap, psfs, nview, ncore, rotateforw!, rotateadjt!, viewangle,
             dy, nx, ny, nz, nx_psf, nz_psf, padrepl, padzero,
             padleft, padright, padup, paddown, pad_rotate_x, pad_rotate_y,
-            alg, imgr, mumapr, ncore_iter_y, ncore_array_y, ncore_iter_z, ncore_array_z)
+            imgr, mumapr, ncore_iter_y, ncore_array_y, ncore_iter_z, ncore_array_z)
         #  creates objects of the block's type (inner constructor methods).
     end
 end
@@ -170,14 +159,13 @@ struct Workarray_s
     end
 end
 
-
 """
     my_conv!(img, ker, padimg, plan)
     Convolve an image with a kernel using plan
 """
 function my_conv!(img, ker, padimg, plan)
-    # filter the image with a kernel, using replicate padding
-    imfilter!(padimg, plan.padrepl(img), ker, NoPad(), plan.alg)
+    # filter the image with a kernel, using replicate padding and fft convolution
+    imfilter!(padimg, plan.padrepl(img), ker, NoPad(), Algorithm.FFT())
     return @view padimg[1:plan.nx, 1:plan.nz]
 end
 
@@ -186,8 +174,8 @@ end
     The adjoint of convolving an image with a kernel using plan
 """
 function my_conv_adj!(img, ker, padimg, plan)
-    # filter the image with a kernel, using zero padding
-    imfilter!(padimg, plan.padzero(img), ker, NoPad(), plan.alg)
+    # filter the image with a kernel, using zero padding and fft convolution
+    imfilter!(padimg, plan.padzero(img), ker, NoPad(), Algorithm.FFT())
     # adjoint of replicate padding
     padimg[1:1, :] .+= sum(padimg[plan.nx + plan.padright + 1:end, :], dims = 1)
     padimg[plan.nx:plan.nx, :] .+= sum(padimg[plan.nx + 1:plan.nx + plan.padright, :], dims = 1)
