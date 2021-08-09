@@ -1,7 +1,7 @@
 # rotate3.jl
 # todo: RotatePlan
-# set of thetas, workspace, choice of rotation method (3 pass, imrotate, emmt?)
-# I won't use imrotate3jl because it cannot pass the adjoint test
+# set of thetas, workspace, choice of rotation method (3 pass and emmt)
+# I deleted imrotate3jl because it cannot pass the adjoint test
 """
     rotate_x!(output, img, θ, xi, yi)
     Rotate an image along x axis in clockwise direction using 1d linear interpolation,
