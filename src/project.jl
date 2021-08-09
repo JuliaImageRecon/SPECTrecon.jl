@@ -245,10 +245,10 @@ function project!(
             # account for half of the final slice thickness
             idx = (yout - 1) * plan.ncore + yin
             thid = Threads.threadid()
-            workarray[thid].exp_mumapr .= - plan.mumapr[:, idx, :] / 2
+            workarray[thid].exp_mumapr .= - (@view plan.mumapr[:, idx, :]) / 2
 
             for j = 1:idx
-                workarray[thid].exp_mumapr .+= plan.mumapr[:, j, :]
+                workarray[thid].exp_mumapr .+= (@view plan.mumapr[:, j, :])
             end
             workarray[thid].exp_mumapr .*= - plan.dy
             workarray[thid].exp_mumapr .= exp.(workarray[thid].exp_mumapr)
@@ -357,10 +357,10 @@ function backproject!(
             # account for half of the final slice thickness
             idx = (yout - 1) * plan.ncore + yin
             thid = Threads.threadid()
-            workarray[thid].exp_mumapr .= - plan.mumapr[:, idx, :] / 2
+            workarray[thid].exp_mumapr .= - (@view plan.mumapr[:, idx, :]) / 2
 
             for j = 1:idx
-                workarray[thid].exp_mumapr .+= plan.mumapr[:, j, :]
+                workarray[thid].exp_mumapr .+= (@view plan.mumapr[:, j, :])
             end
             workarray[thid].exp_mumapr .*= - plan.dy
             workarray[thid].exp_mumapr .= exp.(workarray[thid].exp_mumapr)
@@ -411,7 +411,7 @@ function backproject!(
 
     # loop over each view index
     for i in index
-        image .+= backproject!(views[:,:,i], plan, workarray, i)
+        image .+= backproject!((@view views[:,:,i]), plan, workarray, i)
     end
     return image
 end

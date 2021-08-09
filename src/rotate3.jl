@@ -142,7 +142,7 @@ function imrotate3!(output, tmp, img, θ, M, N, pad_x, pad_y)
     mod_theta = θ - m * (π/2) # make sure it is between -45 and 45 degree
     xi = 1 : M + 2 * pad_x
     yi = 1 : N + 2 * pad_y
-    tmp .= OffsetArrays.no_offset_view(BorderArray(img, Fill(0, (pad_x, pad_y))))
+    copyto!(tmp, OffsetArrays.no_offset_view(BorderArray(img, Fill(0, (pad_x, pad_y)))))
     rot_f90!(output, tmp, m)
     rotate_x!(output, output, mod_theta, xi, yi)
     rotate_y!(output, output, mod_theta, xi, yi)
@@ -160,7 +160,7 @@ function imrotate3_adj!(output, tmp, img, θ, M, N, pad_x, pad_y)
     mod_theta = θ - m * (π/2) # make sure it is between -45 and 45 degree
     xi = 1 : M + 2 * pad_x
     yi = 1 : N + 2 * pad_y
-    tmp .= OffsetArrays.no_offset_view(BorderArray(img, Fill(0, (pad_x, pad_y))))
+    copyto!(tmp, OffsetArrays.no_offset_view(BorderArray(img, Fill(0, (pad_x, pad_y)))))
     rotate_x_adj!(tmp, tmp, mod_theta, xi, yi)
     rotate_y_adj!(tmp, tmp, mod_theta, xi, yi)
     rotate_x_adj!(tmp, tmp, mod_theta, xi, yi)
@@ -186,7 +186,7 @@ function imrotate3emmt!(output, tmp, img, θ, M, N, pad_x, pad_y)
         c = ((1 + M_pad) / 2, (1 + N_pad) / 2)
         R = c + rotate(2π - θ, AffineTransform2D{Float32}() - c)
         A = TwoDimensionalTransformInterpolator(rows, cols, ker, R)
-        tmp .= OffsetArrays.no_offset_view(BorderArray(img, Fill(0, (pad_x, pad_y))))
+        copyto!(tmp, OffsetArrays.no_offset_view(BorderArray(img, Fill(0, (pad_x, pad_y)))))
         mul!(output, A, tmp)
         return @view output[pad_x + 1 : pad_x + M, pad_y + 1 : pad_y + N]
     end
@@ -209,7 +209,7 @@ function imrotate3emmt_adj!(output, tmp, img, θ, M, N, pad_x, pad_y)
         c = ((1 + M_pad) / 2, (1 + N_pad) / 2)
         R = c + rotate(2π - θ, AffineTransform2D{Float32}() - c)
         A = TwoDimensionalTransformInterpolator(rows, cols, ker, R)
-        tmp .= OffsetArrays.no_offset_view(BorderArray(img, Fill(0, (pad_x, pad_y))))
+        copyto!(tmp, OffsetArrays.no_offset_view(BorderArray(img, Fill(0, (pad_x, pad_y)))))
         mul!(output, A', tmp)
         return @view output[pad_x + 1 : pad_x + M, pad_y + 1 : pad_y + N]
     end
