@@ -1,6 +1,8 @@
 using Main.SPECTrecon:imrotate3!, imrotate3_adj!, imrotate3emmt!, imrotate3emmt_adj!
 using Test: @test, @testset, @test_throws, @inferred
-
+using OffsetArrays
+using ImageFiltering
+using LazyAlgebra
 @testset "imrotate3" begin
     M = 16
     N = 16

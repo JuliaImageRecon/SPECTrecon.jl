@@ -1,6 +1,6 @@
 using Main.SPECTrecon:project, backproject
 using Test: @test, @testset, @test_throws, @inferred
-
+using LinearMapsAA
 @testset "project" begin
     nx = 16
     ny = 16
