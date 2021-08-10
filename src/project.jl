@@ -23,10 +23,7 @@ Struct for storing key factors for a SPECT system model
 - `pad_rotate_y` padded pixels for rotating along y axis, must be integer
 - `imgr` 3D rotated image
 - `mumapr` 3D rotated mumap
-- `ncore_iter_y` # of outer iterations through ny using multi-processing, must be integer
-- `ncore_array_y` array that stores how many cores are used when iterating through ny
-- `ncore_iter_z` # of outer iterations through nz using multi-processing, must be integer
-- `ncore_array_z` array that stores how many cores are used when iterating through nz
+- `T` datatype of work arrays
 
 Currently code assumes each of the `nview` projection views is `[nx,nz]`
 Currently code assumes `nx = ny`
@@ -58,10 +55,6 @@ struct SPECTplan
     pad_rotate_y::Int
     imgr::AbstractArray{<:Real, 3} # 3D rotated image, (nx, ny, nz)
     mumapr::AbstractArray{<:Real, 3} # 3D rotated mumap, (nx, ny, nz)
-    ncore_iter_y::Int
-    ncore_array_y::AbstractVector
-    ncore_iter_z::Int
-    ncore_array_z::AbstractVector
     T::DataType # default type for work arrays etc.
 
     # other options for how to do the projection?
@@ -75,8 +68,8 @@ struct SPECTplan
                         padright::Int = _padright(mumap, psfs),
                         padup::Int = _padup(mumap, psfs),
                         paddown::Int = _paddown(mumap, psfs),
-                        T::DataType = promote_type(eltype(mumap), Float32),
-    )
+                        T::DataType = promote_type(eltype(mumap), Float32)
+                        )
         # check nx = ny ? typically 128 x 128 x 81
         nx, ny, nz = size(mumap)
         nx_psf = size(psfs, 1)
@@ -86,7 +79,12 @@ struct SPECTplan
         @assert isodd(nx_psf) && isodd(nz_psf)
         @assert all(mapslices(x -> x == reverse(x), psfs, dims = [1, 2]))
         # center the psfs
-        psfs = OffsetArray(psfs, OffsetArrays.Origin(-Int((nx_psf-1)/2), -Int((nz_psf-1)/2), 1, 1))
+        psfs = OffsetArray(psfs,
+                        OffsetArrays.Origin(-Int((nx_psf-1)/2),
+                                            -Int((nz_psf-1)/2),
+                                            1,
+                                            1)
+                           )
         # todo: needs a rotation plan here
         if interpidx == 1
             rotateforw! = imrotate3!
@@ -112,28 +110,19 @@ struct SPECTplan
         # mumapr stores 3D mumap in different view angles
         mumapr = zeros(T, nx, ny, nz)
 
-        ncore_iter_y = ceil(Int, ny / ncore) # 16
-        ncore_array_y = ncore * ones(Int, ncore_iter_y) # [8, 8, 8, ..., 8]
-        ncore_array_y[end] = ny - (ncore_iter_y - 1) * ncore # [8, 8, 8, ..., 8]
-
-        ncore_iter_z = ceil(Int, nz / ncore) # 12
-        ncore_array_z = ncore * ones(Int, ncore_iter_z) # [8, 8, 8, ..., 8]
-        ncore_array_z[end] = nz - (ncore_iter_z - 1) * ncore # [8, 8, 8, ..., 1]
-
         new(mumap, psfs, nview, ncore, rotateforw!, rotateadjt!, viewangle,
-            dy, nx, ny, nz, nx_psf, nz_psf, padrepl, padzero,
-            padleft, padright, padup, paddown, pad_rotate_x, pad_rotate_y,
-            imgr, mumapr, ncore_iter_y, ncore_array_y, ncore_iter_z, ncore_array_z)
+            dy, nx, ny, nz, nx_psf, nz_psf, padrepl, padzero, padleft, padright,
+            padup, paddown, pad_rotate_x, pad_rotate_y, imgr, mumapr, T)
         #  creates objects of the block's type (inner constructor methods).
     end
 end
 
 """
     Workarray_s
-    Struct for storing keys of the work array for a single thread
+Struct for storing keys of the work array for a single thread
 - `padimg` 2D padded image for imfilter
 - `pad_imgr` padded 2D rotated image
-- `pad_imgr_tmp` 2D (temporarily used) padded rotated image, need this because rot{l90, 180, r90} require 2 different input args.
+- `pad_imgr_tmp` 2D (temporarily used) padded rotated image, need this because some functions require 2 different input args.
 - `exp_mumapr` 2D exponential rotated mumap
 """
 struct Workarray_s
@@ -145,17 +134,18 @@ struct Workarray_s
             # allocate working buffers for each thread:
             # padimg is used in convolution with psfs
             padimg = zeros(plan.T,
-                            plan.nx + plan.padleft + plan.padright, plan.nz + plan.padup + plan.paddown)
+                            plan.nx + plan.padleft + plan.padright,
+                            plan.nz + plan.padup + plan.paddown)
             # pad_imgr stores 2D rotated & padded image
-            pad_imgr = zeros(promote_type(eltype(plan.mumap), Float32),
+            pad_imgr = zeros(plan.T,
                             plan.nx + 2 * plan.pad_rotate_x,
                             plan.ny + 2 * plan.pad_rotate_y)
             # pad_imgr_tmp stores 2D (temporarily used) rotated & padded image, need this in inplace rotation operation
-            pad_imgr_tmp = zeros(promote_type(eltype(plan.mumap), Float32),
+            pad_imgr_tmp = zeros(plan.T,
                             plan.nx + 2 * plan.pad_rotate_x,
                             plan.ny + 2 * plan.pad_rotate_y)
             # exp_mumapr stores 2D exponential mumap in different view angles
-            exp_mumapr = zeros(promote_type(eltype(plan.mumap), Float32), plan.nx, plan.nz)
+            exp_mumapr = zeros(plan.T, plan.nx, plan.nz)
 
             new(padimg, pad_imgr, pad_imgr_tmp, exp_mumapr)
 
@@ -164,7 +154,7 @@ end
 
 """
     my_conv!(img, ker, padimg, plan)
-    Convolve an image with a kernel using plan
+Convolve `img` with `ker` and store in `padimg`
 """
 function my_conv!(img, ker, padimg, plan)
     # filter the image with a kernel, using replicate padding and fft convolution
@@ -174,7 +164,7 @@ end
 
 """
     my_conv_adj!(img, ker, padimg, plan)
-    The adjoint of convolving an image with a kernel using plan
+The adjoint of convolving `img` with `ker` and storing in `padimg`
 """
 function my_conv_adj!(img, ker, padimg, plan)
     # filter the image with a kernel, using zero padding and fft convolution
@@ -189,7 +179,7 @@ end
 
 """
     project!(view, plan, workarray, image, viewidx)
-    project a single view
+Project a single view
 """
 function project!(
     view::AbstractMatrix{<:AbstractFloat},
@@ -198,61 +188,51 @@ function project!(
     image::AbstractArray{<:Real,3},
     viewidx::Int
 )
+    # rotate image and mumap using multiple processors
+    Threads.@threads for z = 1:plan.nz
 
-    for zout = 1:plan.ncore_iter_z
-        Threads.@threads for zin = 1:plan.ncore_array_z[zout]
-            # rotate image
-            idx = (zout - 1) * plan.ncore + zin
-            thid = Threads.threadid()
+        thid = Threads.threadid()
+        # rotate image and store in plan.imgr
+        copyto!((@view plan.imgr[:, :, z]),
+                plan.rotateforw!(workarray[thid].pad_imgr,
+                                workarray[thid].pad_imgr_tmp,
+                                (@view image[:, :, z]),
+                                plan.viewangle[viewidx],
+                                plan.nx,
+                                plan.ny,
+                                plan.pad_rotate_x,
+                                plan.pad_rotate_y))
 
-            copyto!((@view plan.imgr[:, :, idx]),
-                    plan.rotateforw!(workarray[thid].pad_imgr,
-                                    workarray[thid].pad_imgr_tmp,
-                                    (@view image[:, :, idx]),
-                                    plan.viewangle[viewidx],
-                                    plan.nx,
-                                    plan.ny,
-                                    plan.pad_rotate_x,
-                                    plan.pad_rotate_y))
-
-            # rotate mumap
-
-            copyto!((@view plan.mumapr[:, :, idx]),
-                    plan.rotateforw!(workarray[thid].pad_imgr,
-                                    workarray[thid].pad_imgr_tmp,
-                                    (@view plan.mumap[:, :, idx]),
-                                    plan.viewangle[viewidx],
-                                    plan.nx,
-                                    plan.ny,
-                                    plan.pad_rotate_x,
-                                    plan.pad_rotate_y))
-        end
+        # rotate mumap and store in plan.mumapr
+        copyto!((@view plan.mumapr[:, :, z]),
+                plan.rotateforw!(workarray[thid].pad_imgr,
+                                workarray[thid].pad_imgr_tmp,
+                                (@view plan.mumap[:, :, z]),
+                                plan.viewangle[viewidx],
+                                plan.nx,
+                                plan.ny,
+                                plan.pad_rotate_x,
+                                plan.pad_rotate_y))
     end
 
 
-    for yout = 1:plan.ncore_iter_y
-        Threads.@threads for yin = 1:plan.ncore_array_y[yout]
-
-            # account for half of the final slice thickness
-            idx = (yout - 1) * plan.ncore + yin
-            thid = Threads.threadid()
-            workarray[thid].exp_mumapr .= - (@view plan.mumapr[:, idx, :]) / 2
-
-            for j = 1:idx
-                workarray[thid].exp_mumapr .+= (@view plan.mumapr[:, j, :])
-            end
-            workarray[thid].exp_mumapr .*= - plan.dy
-            workarray[thid].exp_mumapr .= exp.(workarray[thid].exp_mumapr)
-
-            # convolve img with psf and consider attenuation, then store the result in view
-            plan.imgr[:, idx, :] .*= workarray[thid].exp_mumapr # depth-dependent attenuation
-            view .+= my_conv!(broadcast!(*, (@view plan.imgr[:, idx, :]),
-                                            (@view plan.imgr[:, idx, :]),
-                                            workarray[thid].exp_mumapr),
-                              (@view plan.psfs[:, :, idx, viewidx]),
-                              workarray[thid].padimg,
-                              plan)
+    Threads.@threads for y = 1:plan.ny
+        thid = Threads.threadid()
+        # account for half of the final slice thickness
+        workarray[thid].exp_mumapr .= - (@view plan.mumapr[:, y, :]) / 2
+        for j = 1:y
+            workarray[thid].exp_mumapr .+= (@view plan.mumapr[:, j, :])
         end
+        workarray[thid].exp_mumapr .*= - plan.dy
+        workarray[thid].exp_mumapr .= exp.(workarray[thid].exp_mumapr)
+        # apply depth-dependent attenuation
+        (@view plan.imgr[:, y, :]) .*= workarray[thid].exp_mumapr
+
+        # convolve img with psf and add up to view
+        view .+= my_conv!((@view plan.imgr[:, y, :]),
+                        (@view plan.psfs[:, :, y, viewidx]),
+                        workarray[thid].padimg,
+                        plan)
     end
     return view
 end
@@ -260,7 +240,7 @@ end
 
 """
     project!(views, plan, workarray, image ; index)
-    project multiple views
+Project multiple views
 """
 function project!(
     views::AbstractArray{<:AbstractFloat,3},
@@ -279,7 +259,7 @@ end
 
 """
     views = project(plan, workarray, image ; kwargs...)
-    initialize views
+Initialize views
 """
 function project(
     plan::SPECTplan,
@@ -293,8 +273,8 @@ end
 
 
 """
-    views = project(image, mumap, psfs, nview, dy, interpidx; kwargs...)
-    initialize plan and workarray
+    views = project(image, mumap, psfs, nview, dy; interpidx, kwargs...)
+Initialize plan and workarray
 """
 function project(
     image::AbstractArray{<:Real,3},
@@ -305,7 +285,7 @@ function project(
     interpidx::Int = 1,
     kwargs...,
 )
-    plan = SPECTplan(mumap, psfs, nview, dy; interpidx)
+    plan = SPECTplan(mumap, psfs, nview, dy; interpidx, kwargs...)
     workarray = Vector{Workarray_s}(undef, plan.ncore)
     for i = 1:plan.ncore
         workarray[i] = Workarray_s(plan) # allocate
@@ -315,7 +295,7 @@ end
 
 """
     backproject!(view, plan, workarray, viewidx)
-    backproject a single view
+Backproject a single view
 """
 function backproject!(
     view::AbstractMatrix{<:AbstractFloat},
@@ -324,65 +304,57 @@ function backproject!(
     viewidx::Int
 )
 
-    # rotate mumap
-    for zout = 1:plan.ncore_iter_z
-        Threads.@threads for zin = 1:plan.ncore_array_z[zout]
-            # rotate mumap
-            idx = (zout - 1) * plan.ncore + zin
-            thid = Threads.threadid()
-            copyto!((@view plan.mumapr[:, :, idx]),
-                    plan.rotateforw!(workarray[thid].pad_imgr,
-                                    workarray[thid].pad_imgr_tmp,
-                                    (@view plan.mumap[:, :, idx]),
-                                    plan.viewangle[viewidx],
-                                    plan.nx,
-                                    plan.ny,
-                                    plan.pad_rotate_x,
-                                    plan.pad_rotate_y))
-        end
+    # rotate mumap and store in plan.mumapr
+    Threads.@threads for z = 1:plan.nz
+        # get thread id
+        thid = Threads.threadid()
+        copyto!((@view plan.mumapr[:, :, z]),
+                plan.rotateforw!(workarray[thid].pad_imgr,
+                                workarray[thid].pad_imgr_tmp,
+                                (@view plan.mumap[:, :, z]),
+                                plan.viewangle[viewidx],
+                                plan.nx,
+                                plan.ny,
+                                plan.pad_rotate_x,
+                                plan.pad_rotate_y))
     end
 
-    # adjoint of convolving img with psf and considering attenuation map
-    for yout = 1:plan.ncore_iter_y
-        Threads.@threads for yin = 1:plan.ncore_array_y[yout]
+    # adjoint of convolving img with psf and applying attenuation map
+    Threads.@threads for y = 1:plan.ny
+        # get thread id
+        thid = Threads.threadid()
+        # account for half of the final slice thickness
+        workarray[thid].exp_mumapr .= - (@view plan.mumapr[:, y, :]) / 2
 
-            # account for half of the final slice thickness
-            idx = (yout - 1) * plan.ncore + yin
-            thid = Threads.threadid()
-            workarray[thid].exp_mumapr .= - (@view plan.mumapr[:, idx, :]) / 2
-
-            for j = 1:idx
-                workarray[thid].exp_mumapr .+= (@view plan.mumapr[:, j, :])
-            end
-            workarray[thid].exp_mumapr .*= - plan.dy
-            workarray[thid].exp_mumapr .= exp.(workarray[thid].exp_mumapr)
-
-            broadcast!(*, (@view plan.imgr[:, idx, :]),
-                            my_conv_adj!(view,
-                                        (@view plan.psfs[:, :, idx, viewidx]),
-                                        workarray[thid].padimg,
-                                        plan),
-                            workarray[thid].exp_mumapr)
+        for j = 1:y
+            workarray[thid].exp_mumapr .+= (@view plan.mumapr[:, j, :])
         end
+        workarray[thid].exp_mumapr .*= - plan.dy
+        workarray[thid].exp_mumapr .= exp.(workarray[thid].exp_mumapr)
+
+        copyto!((@view plan.imgr[:, y, :]),
+                my_conv_adj!(view,
+                            (@view plan.psfs[:, :, y, viewidx]),
+                            workarray[thid].padimg,
+                            plan))
+        (@view plan.imgr[:, y, :]) .*= workarray[thid].exp_mumapr
+
+
     end
 
     # adjoint of rotating image
-
-    for zout = 1:plan.ncore_iter_z
-        Threads.@threads for zin = 1:plan.ncore_array_z[zout]
-            idx = (zout - 1) * plan.ncore + zin
-            thid = Threads.threadid()
-
-            copyto!((@view plan.imgr[:, :, idx]),
-                    plan.rotateadjt!(workarray[thid].pad_imgr,
-                                    workarray[thid].pad_imgr_tmp,
-                                    (@view plan.imgr[:, :, idx]),
-                                    plan.viewangle[viewidx],
-                                    plan.nx,
-                                    plan.ny,
-                                    plan.pad_rotate_x,
-                                    plan.pad_rotate_y))
-        end
+    Threads.@threads for z = 1:plan.nz
+        # get thread id
+        thid = Threads.threadid()
+        copyto!((@view plan.imgr[:, :, z]),
+                plan.rotateadjt!(workarray[thid].pad_imgr,
+                                workarray[thid].pad_imgr_tmp,
+                                (@view plan.imgr[:, :, z]),
+                                plan.viewangle[viewidx],
+                                plan.nx,
+                                plan.ny,
+                                plan.pad_rotate_x,
+                                plan.pad_rotate_y))
     end
 
     return plan.imgr
@@ -391,7 +363,7 @@ end
 
 """
     backproject!(views, plan, workarray, image ; index)
-    backproject multiple views
+Backproject multiple views
 """
 function backproject!(
     views::AbstractArray{<:AbstractFloat,3},
@@ -409,8 +381,8 @@ function backproject!(
 end
 
 """
-    image = backproject(plan, workarray, views ; index)
-    initialize the image
+    image = backproject(plan, workarray, views ; kwargs...)
+Initialize the image
 """
 function backproject(
     plan::SPECTplan,
@@ -424,8 +396,8 @@ end
 
 
 """
-    image = backproject(views, mumap, psfs, nview, dy, interpidx; kwargs...)
-    initialize plan and workarray
+    image = backproject(views, mumap, psfs, nview, dy; interpidx, kwargs...)
+Initialize plan and workarray
 """
 function backproject(
     views::AbstractArray{<:Real,3},
@@ -436,7 +408,7 @@ function backproject(
     interpidx::Int = 1,
     kwargs...,
 )
-    plan = SPECTplan(mumap, psfs, nview, dy; interpidx)
+    plan = SPECTplan(mumap, psfs, nview, dy; interpidx, kwargs...)
     workarray = Vector{Workarray_s}(undef, plan.ncore)
     for i = 1:plan.ncore
         workarray[i] = Workarray_s(plan) # allocate

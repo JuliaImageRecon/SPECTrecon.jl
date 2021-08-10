@@ -1,5 +1,5 @@
 # rotate3.jl
-# todo: RotatePlan
+# todo: RotatePlan, use permutedims!, simplify Threads.@threads
 # set of thetas, workspace, choice of rotation method (3 pass and emmt)
 # I deleted imrotate3jl because it cannot pass the adjoint test
 """
@@ -12,7 +12,7 @@ function rotate_x!(output, img, θ, xi, yi)
     for (i, yin) in enumerate(yi)
         # note for future refinement: the rotate_x. step is allocating
         A = SparseInterpolator(LinearSpline(Float32), rotate_x.(xi, yin, θ), length(xi))
-        mul!((@view output[:, i]), A, img[:, i]) # need mul! to avoid allocating
+        mul!((@view output[:, i]), A, (@view img[:, i])) # need mul! to avoid allocating
     end
     return output
 end
@@ -25,7 +25,7 @@ function rotate_x_adj!(output, img, θ, xi, yi)
     rotate_x(xin, yin, θ) = xin + (yin - (length(yi)+1)/2) * tan(θ/2)
     for (i, yin) in enumerate(yi)
         A = SparseInterpolator(LinearSpline(Float32), rotate_x.(xi, yin, θ), length(xi))
-        mul!((@view output[:, i]), A', img[:, i])
+        mul!((@view output[:, i]), A', (@view img[:, i]))
     end
     return output
 end
@@ -39,7 +39,7 @@ function rotate_y!(output, img, θ, xi, yi)
     rotate_y(xin, yin, θ) = (xin - (length(xi)+1)/2) * (-sin(θ)) + yin
     for (i, xin) in enumerate(xi)
         A = SparseInterpolator(LinearSpline(Float32), rotate_y.(xin, yi, θ), length(yi))
-        mul!((@view output[i, :]), A, img[i, :])
+        mul!((@view output[i, :]), A, (@view img[i, :]))
     end
     return output
 end
@@ -53,7 +53,7 @@ function rotate_y_adj!(output, img, θ, xi, yi)
     rotate_y(xin, yin, θ) = (xin - (length(xi)+1)/2) * (-sin(θ)) + yin
     for (i, xin) in enumerate(xi)
         A = SparseInterpolator(LinearSpline(Float32), rotate_y.(xin, yi, θ), length(yi))
-        mul!((@view output[i, :]), A', img[i, :])
+        mul!((@view output[i, :]), A', (@view img[i, :]))
     end
     return output
 end
@@ -144,10 +144,10 @@ function imrotate3!(output, tmp, img, θ, M, N, pad_x, pad_y)
     yi = 1 : N + 2 * pad_y
     copyto!(tmp, OffsetArrays.no_offset_view(BorderArray(img, Fill(0, (pad_x, pad_y)))))
     rot_f90!(output, tmp, m)
-    rotate_x!(output, output, mod_theta, xi, yi)
-    rotate_y!(output, output, mod_theta, xi, yi)
-    rotate_x!(output, output, mod_theta, xi, yi)
-    return @view output[pad_x + 1 : pad_x + M, pad_y + 1 : pad_y + N]
+    rotate_x!(tmp, output, mod_theta, xi, yi)
+    rotate_y!(output, tmp, mod_theta, xi, yi)
+    rotate_x!(tmp, output, mod_theta, xi, yi)
+    return @view tmp[pad_x + 1 : pad_x + M, pad_y + 1 : pad_y + N]
 end
 
 """
@@ -161,11 +161,11 @@ function imrotate3_adj!(output, tmp, img, θ, M, N, pad_x, pad_y)
     xi = 1 : M + 2 * pad_x
     yi = 1 : N + 2 * pad_y
     copyto!(tmp, OffsetArrays.no_offset_view(BorderArray(img, Fill(0, (pad_x, pad_y)))))
-    rotate_x_adj!(tmp, tmp, mod_theta, xi, yi)
-    rotate_y_adj!(tmp, tmp, mod_theta, xi, yi)
-    rotate_x_adj!(tmp, tmp, mod_theta, xi, yi)
-    rot_f90_adj!(output, tmp, m) # must be two different arguments
-    return @view output[pad_x + 1 : pad_x + M, pad_y + 1 : pad_y + N]
+    rotate_x_adj!(output, tmp, mod_theta, xi, yi)
+    rotate_y_adj!(tmp, output, mod_theta, xi, yi)
+    rotate_x_adj!(output, tmp, mod_theta, xi, yi)
+    rot_f90_adj!(tmp, output, m) # must be two different arguments
+    return @view tmp[pad_x + 1 : pad_x + M, pad_y + 1 : pad_y + N]
 end
 
 
