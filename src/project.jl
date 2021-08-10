@@ -62,6 +62,7 @@ struct SPECTplan
     ncore_array_y::AbstractVector
     ncore_iter_z::Int
     ncore_array_z::AbstractVector
+    T::DataType # default type for work arrays etc.
 
     # other options for how to do the projection?
     function SPECTplan(mumap::AbstractArray{<:Real,3},
@@ -73,7 +74,9 @@ struct SPECTplan
                         padleft::Int = _padleft(mumap, psfs),
                         padright::Int = _padright(mumap, psfs),
                         padup::Int = _padup(mumap, psfs),
-                        paddown::Int = _paddown(mumap, psfs))
+                        paddown::Int = _paddown(mumap, psfs),
+                        T::DataType = promote_type(eltype(mumap), Float32),
+    )
         # check nx = ny ? typically 128 x 128 x 81
         nx, ny, nz = size(mumap)
         nx_psf = size(psfs, 1)
@@ -105,9 +108,9 @@ struct SPECTplan
 
         # allocate working buffers:
         # imgr stores 3D image in different view angles
-        imgr = zeros(promote_type(eltype(mumap), Float32), nx, ny, nz)
+        imgr = zeros(T, nx, ny, nz)
         # mumapr stores 3D mumap in different view angles
-        mumapr = zeros(promote_type(eltype(mumap), Float32), nx, ny, nz)
+        mumapr = zeros(T, nx, ny, nz)
 
         ncore_iter_y = ceil(Int, ny / ncore) # 16
         ncore_array_y = ncore * ones(Int, ncore_iter_y) # [8, 8, 8, ..., 8]
@@ -141,7 +144,7 @@ struct Workarray_s
     function Workarray_s(plan::SPECTplan)
             # allocate working buffers for each thread:
             # padimg is used in convolution with psfs
-            padimg = zeros(promote_type(eltype(plan.mumap), Float32),
+            padimg = zeros(plan.T,
                             plan.nx + plan.padleft + plan.padright, plan.nz + plan.padup + plan.paddown)
             # pad_imgr stores 2D rotated & padded image
             pad_imgr = zeros(promote_type(eltype(plan.mumap), Float32),
