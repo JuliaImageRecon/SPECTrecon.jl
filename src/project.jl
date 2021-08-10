@@ -242,6 +242,7 @@ function project!(
             workarray[thid].exp_mumapr .= exp.(workarray[thid].exp_mumapr)
 
             # convolve img with psf and consider attenuation, then store the result in view
+            plan.imgr[:, idx, :] .*= workarray[thid].exp_mumapr # depth-dependent attenuation
             view .+= my_conv!(broadcast!(*, (@view plan.imgr[:, idx, :]),
                                             (@view plan.imgr[:, idx, :]),
                                             workarray[thid].exp_mumapr),
