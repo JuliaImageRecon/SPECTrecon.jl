@@ -2,57 +2,91 @@
 # todo: RotatePlan, use permutedims!, simplify Threads.@threads
 # set of thetas, workspace, choice of rotation method (3 pass and emmt)
 # I deleted imrotate3jl because it cannot pass the adjoint test
+function assign_A!(A::SparseInterpolator,
+                   x::AbstractVector)
+        # x was created in increasing order
+        dec = ceil(Int, x[1]) - x[1]
+        ncoeff = length(A.C)
+        ncol = length(x)
+        for i = 1:ncoeff
+            if isodd(i)
+                A.C[i] = dec
+            else
+                A.C[i] = 1 - dec
+            end
+        end
+        if x[end] <= ncol
+            A.J[end] = ceil(Int, x[end])
+            for i = ncoeff-1:-1:1
+                A.J[i] = max(1, A.J[end] - ceil(Int, (ncoeff - i) / 2))
+            end
+        else
+            A.J[1] = floor(Int, x[1])
+            for i = 2:ncoeff
+                A.J[i] = min(ncol, A.J[1] + ceil(Int, (i - 1) / 2))
+            end
+        end
+end
+
 """
-    rotate_x!(output, img, θ, xi, yi)
+    rotate_x!(output, img, θ, xi, yi, A, vec_x)
     Rotate an image along x axis in clockwise direction using 1d linear interpolation,
     storing results in `output`
 """
-function rotate_x!(output, img, θ, xi, yi)
+function rotate_x!(output, img, θ, xi, yi, A, vec_x)
     rotate_x(xin, yin, θ) = xin + (yin - (length(yi)+1)/2) * tan(θ/2)
     for (i, yin) in enumerate(yi)
         # note for future refinement: the rotate_x. step is allocating
-        A = SparseInterpolator(LinearSpline(Float32), rotate_x.(xi, yin, θ), length(xi))
+        vec_x .= rotate_x.(xi, yin, θ)
+        assign_A!(A, vec_x)
         mul!((@view output[:, i]), A, (@view img[:, i])) # need mul! to avoid allocating
     end
     return output
 end
+
+# @btime for j = 1:length(xi)
+#     vec_x[j] = xi[j] + (yi[1] - (length(yi)+1)/2) * tan(θ_list[1]/2)
+# end
 """
-    rotate_x_adj!(output, img, θ, xi, yi)
+    rotate_x_adj!(output, img, θ, xi, yi, A, vec_x)
     The adjoint of rotating an image along x axis in clockwise direction using 1d linear interpolation,
     storing results in `output`
 """
-function rotate_x_adj!(output, img, θ, xi, yi)
+function rotate_x_adj!(output, img, θ, xi, yi, A, vec_x)
     rotate_x(xin, yin, θ) = xin + (yin - (length(yi)+1)/2) * tan(θ/2)
     for (i, yin) in enumerate(yi)
-        A = SparseInterpolator(LinearSpline(Float32), rotate_x.(xi, yin, θ), length(xi))
+        vec_x .= rotate_x.(xi, yin, θ)
+        assign_A!(A, vec_x)
         mul!((@view output[:, i]), A', (@view img[:, i]))
     end
     return output
 end
 
 """
-    rotate_y!(output, img, θ, xi, yi)
+    rotate_y!(output, img, θ, xi, yi, A, vec_y)
     Rotate an image along y axis in clockwise direction using 1d linear interpolation,
     storing results in `output`
 """
-function rotate_y!(output, img, θ, xi, yi)
+function rotate_y!(output, img, θ, xi, yi, A, vec_y)
     rotate_y(xin, yin, θ) = (xin - (length(xi)+1)/2) * (-sin(θ)) + yin
     for (i, xin) in enumerate(xi)
-        A = SparseInterpolator(LinearSpline(Float32), rotate_y.(xin, yi, θ), length(yi))
+        vec_y .= rotate_y.(xin, yi, θ)
+        assign_A!(A, vec_y)
         mul!((@view output[i, :]), A, (@view img[i, :]))
     end
     return output
 end
 
 """
-    rotate_y_adj!(output, img, θ, xi, yi)
+    rotate_y_adj!(output, img, θ, xi, yi, vec_y)
     The adjoint of rotating an image along y axis in clockwise direction using 1d linear interpolation,
     storing results in `output`
 """
-function rotate_y_adj!(output, img, θ, xi, yi)
+function rotate_y_adj!(output, img, θ, xi, yi, A, vec_y)
     rotate_y(xin, yin, θ) = (xin - (length(xi)+1)/2) * (-sin(θ)) + yin
     for (i, xin) in enumerate(xi)
-        A = SparseInterpolator(LinearSpline(Float32), rotate_y.(xin, yi, θ), length(yi))
+        vec_y .= rotate_y.(xin, yi, θ)
+        assign_A!(A, vec_y)
         mul!((@view output[i, :]), A', (@view img[i, :]))
     end
     return output
@@ -133,48 +167,52 @@ function rot_f90_adj!(output, img, m)
     end
 end
 """
-    imrotate3!(output, tmp, img, θ, M, N, pad_x, pad_y)
+    imrotate3!(output, tmp, img, θ, M, N, pad_x, pad_y, A_x, A_y, vec_x, vec_y)
     Rotate an image by angle θ (must be ranging from 0 to 2π) in clockwise direction
     using a series of 1d linear interpolation
 """
-function imrotate3!(output, tmp, img, θ, M, N, pad_x, pad_y)
+function imrotate3!(output, tmp, img, θ, M, N, pad_x, pad_y, A_x, A_y, vec_x, vec_y)
     m = mod(floor(Int, 0.5 + θ/(π/2)), 4)
     mod_theta = θ - m * (π/2) # make sure it is between -45 and 45 degree
+    # pad_x = Int((xi[end] - M) / 2)
+    # pad_y = Int((yi[end] - N) / 2)
     xi = 1 : M + 2 * pad_x
     yi = 1 : N + 2 * pad_y
     copyto!(tmp, OffsetArrays.no_offset_view(BorderArray(img, Fill(0, (pad_x, pad_y)))))
     rot_f90!(output, tmp, m)
-    rotate_x!(tmp, output, mod_theta, xi, yi)
-    rotate_y!(output, tmp, mod_theta, xi, yi)
-    rotate_x!(tmp, output, mod_theta, xi, yi)
+    rotate_x!(tmp, output, mod_theta, xi, yi, A_x, vec_x)
+    rotate_y!(output, tmp, mod_theta, xi, yi, A_y, vec_y)
+    rotate_x!(tmp, output, mod_theta, xi, yi, A_x, vec_x)
     return @view tmp[pad_x + 1 : pad_x + M, pad_y + 1 : pad_y + N]
 end
 
 """
-    imrotate3_adj!(output, tmp, img, θ, M, N, pad_x, pad_y)
+    imrotate3_adj!(output, tmp, img, θ, M, N, pad_x, pad_y, A_x, A_y, vec_x, vec_y)
     The adjoint of rotating an image by angle θ (must be ranging from 0 to 2π) in clockwise direction
     using a series of 1d linear interpolation
 """
-function imrotate3_adj!(output, tmp, img, θ, M, N, pad_x, pad_y)
+function imrotate3_adj!(output, tmp, img, θ, M, N, pad_x, pad_y, A_x, A_y, vec_x, vec_y)
     m = mod(floor(Int, 0.5 + θ/(π/2)), 4)
     mod_theta = θ - m * (π/2) # make sure it is between -45 and 45 degree
+    # pad_x = Int((xi[end] - M) / 2)
+    # pad_y = Int((yi[end] - N) / 2)
     xi = 1 : M + 2 * pad_x
     yi = 1 : N + 2 * pad_y
     copyto!(tmp, OffsetArrays.no_offset_view(BorderArray(img, Fill(0, (pad_x, pad_y)))))
-    rotate_x_adj!(output, tmp, mod_theta, xi, yi)
-    rotate_y_adj!(tmp, output, mod_theta, xi, yi)
-    rotate_x_adj!(output, tmp, mod_theta, xi, yi)
+    rotate_x_adj!(output, tmp, mod_theta, xi, yi, A_x, vec_x)
+    rotate_y_adj!(tmp, output, mod_theta, xi, yi, A_y, vec_y)
+    rotate_x_adj!(output, tmp, mod_theta, xi, yi, A_x, vec_x)
     rot_f90_adj!(tmp, output, m) # must be two different arguments
     return @view tmp[pad_x + 1 : pad_x + M, pad_y + 1 : pad_y + N]
 end
 
 
 """
-    imrotate3emmt!(output, tmp, img, θ, M, N, pad_x, pad_y)
+    imrotate3!(output, tmp, img, θ, M, N, pad_x, pad_y)
     Rotate an image by angle θ in clockwise direction using 2d linear interpolation
     Source code is here: https://github.com/emmt/LinearInterpolators.jl
 """
-function imrotate3emmt!(output, tmp, img, θ, M, N, pad_x, pad_y)
+function imrotate3!(output, tmp, img, θ, M, N, pad_x, pad_y)
     if mod(θ, 2π) ≈ 0
         return img
     else
@@ -193,11 +231,11 @@ function imrotate3emmt!(output, tmp, img, θ, M, N, pad_x, pad_y)
 end
 
 """
-    imrotate3emmt_adj!(output, tmp, img, θ, M, N, pad_x, pad_y)
+    imrotate3_adj!(output, tmp, img, θ, M, N, pad_x, pad_y)
     The adjoint of rotating an image by angle θ in clockwise direction using 2d linear interpolation
     Source code is here: https://github.com/emmt/LinearInterpolators.jl
 """
-function imrotate3emmt_adj!(output, tmp, img, θ, M, N, pad_x, pad_y)
+function imrotate3_adj!(output, tmp, img, θ, M, N, pad_x, pad_y)
     if mod(θ, 2π) ≈ 0
         return img
     else

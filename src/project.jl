@@ -7,9 +7,8 @@ Struct for storing key factors for a SPECT system model
 - `psfs [nx_psf,nz_psf,ny,nview]` point spread function, must be 4D, with `nx_psf` and `nz_psf` odd, and symmetric for each slice
 - `nview` number of views, must be integer
 - `ncore` number of cores, must be integer
-- `rotateforw!` forward rotation operation, default is using 1d linear interpolation
-- `rotateadjt!` adjoint rotation operation, default is using 1d linear interpolation
 - `viewangle` set of view angles, must be from 0 to 2π
+- `interpidx` interpolation method, 1 is 1d, 2 is 2d
 - `dy` voxel size in y direction (dx is the same value)
 - `nx` number of voxels in x direction of the image, must be integer
 - `ny` number of voxels in y direction of the image, must be integer
@@ -36,9 +35,8 @@ struct SPECTplan
     psfs::AbstractArray{<:Real, 4} # PSFs must be 4D, [nx_psf, nz_psf, ny, nview], finally be centered psf
     nview::Int # number of views
     ncore::Int # number of cores
-    rotateforw!::Function
-    rotateadjt!::Function
     viewangle::AbstractVector
+    interpidx::Int
     dy::Float32
     nx::Int
     ny::Int
@@ -85,17 +83,7 @@ struct SPECTplan
                                             1,
                                             1)
                            )
-        # todo: needs a rotation plan here
-        if interpidx == 1
-            rotateforw! = imrotate3!
-            rotateadjt! = imrotate3_adj!
-        elseif interpidx == 2
-            rotateforw! = imrotate3emmt!
-            rotateadjt! = imrotate3emmt_adj!
-        else
-            throw("invalid interpidx!")
-        end
-
+        @assert interpidx == 1 || interpidx == 2
         pad_rotate_x = ceil(Int, 1 + nx * sqrt(2)/2 - nx / 2)
         pad_rotate_y = ceil(Int, 1 + ny * sqrt(2)/2 - ny / 2)
         # mypad1 = x -> padarray(x, Pad(:replicate, (nx_psf, nz_psf), (nx_psf, nz_psf)))
@@ -110,8 +98,8 @@ struct SPECTplan
         # mumapr stores 3D mumap in different view angles
         mumapr = zeros(T, nx, ny, nz)
 
-        new(mumap, psfs, nview, ncore, rotateforw!, rotateadjt!, viewangle,
-            dy, nx, ny, nz, nx_psf, nz_psf, padrepl, padzero, padleft, padright,
+        new(mumap, psfs, nview, ncore, viewangle, interpidx, dy,
+            nx, ny, nz, nx_psf, nz_psf, padrepl, padzero, padleft, padright,
             padup, paddown, pad_rotate_x, pad_rotate_y, imgr, mumapr, T)
         #  creates objects of the block's type (inner constructor methods).
     end
@@ -120,16 +108,23 @@ end
 """
     Workarray_s
 Struct for storing keys of the work array for a single thread
+add tmp vectors to avoid allocating in rotate_x and rotate_y
 - `padimg` 2D padded image for imfilter
 - `pad_imgr` padded 2D rotated image
 - `pad_imgr_tmp` 2D (temporarily used) padded rotated image, need this because some functions require 2 different input args.
 - `exp_mumapr` 2D exponential rotated mumap
+- `vec_rotate_x` 1D vector storing rotated axis in rotate_x function
+- `vec_rotate_y` 1D vector storing rotated axis in rotate_y function
 """
 struct Workarray_s
     padimg::AbstractArray{<:Real, 2} # 2D padded image, (nx + padleft + padright, nz + padup + paddown)
     pad_imgr::AbstractArray{<:Real, 2} # 2D padded rotated image, (nx + 2 * pad_rotate_x, ny + 2 * pad_rotate_y)
     pad_imgr_tmp::AbstractArray{<:Real, 2} # 2D (temporarily used) padded rotated image, (nx + 2 * pad_rotate_x, ny + 2 * pad_rotate_y)
     exp_mumapr::AbstractArray{<:Real, 2} # 2D exp rotated mumap, (nx, nz)
+    vec_rotate_x::AbstractVector
+    vec_rotate_y::AbstractVector
+    A_x::SparseInterpolator
+    A_y::SparseInterpolator
     function Workarray_s(plan::SPECTplan)
             # allocate working buffers for each thread:
             # padimg is used in convolution with psfs
@@ -146,9 +141,17 @@ struct Workarray_s
                             plan.ny + 2 * plan.pad_rotate_y)
             # exp_mumapr stores 2D exponential mumap in different view angles
             exp_mumapr = zeros(plan.T, plan.nx, plan.nz)
+            if plan.interpidx == 1
+                # vec_rotate_x and vec_rotate_y store rotated axis
+                vec_rotate_x = zeros(plan.T, plan.nx + 2 * plan.pad_rotate_x)
+                vec_rotate_y = zeros(plan.T, plan.ny + 2 * plan.pad_rotate_y)
 
-            new(padimg, pad_imgr, pad_imgr_tmp, exp_mumapr)
-
+                A_x = SparseInterpolator(LinearSpline(plan.T), vec_rotate_x, length(vec_rotate_x))
+                A_y = SparseInterpolator(LinearSpline(plan.T), vec_rotate_y, length(vec_rotate_y))
+                new(padimg, pad_imgr, pad_imgr_tmp, exp_mumapr, vec_rotate_x, vec_rotate_y, A_x, A_y)
+            else
+                new(padimg, pad_imgr, pad_imgr_tmp, exp_mumapr)
+            end
     end
 end
 
@@ -192,27 +195,60 @@ function project!(
     Threads.@threads for z = 1:plan.nz
 
         thid = Threads.threadid()
-        # rotate image and store in plan.imgr
-        copyto!((@view plan.imgr[:, :, z]),
-                plan.rotateforw!(workarray[thid].pad_imgr,
-                                workarray[thid].pad_imgr_tmp,
-                                (@view image[:, :, z]),
-                                plan.viewangle[viewidx],
-                                plan.nx,
-                                plan.ny,
-                                plan.pad_rotate_x,
-                                plan.pad_rotate_y))
+        if plan.interpidx == 1
+            # rotate image and store in plan.imgr
+            copyto!((@view plan.imgr[:, :, z]),
+                    imrotate3!(workarray[thid].pad_imgr,
+                                    workarray[thid].pad_imgr_tmp,
+                                    (@view image[:, :, z]),
+                                    plan.viewangle[viewidx],
+                                    plan.nx,
+                                    plan.ny,
+                                    plan.pad_rotate_x,
+                                    plan.pad_rotate_y,
+                                    workarray[thid].A_x,
+                                    workarray[thid].A_y,
+                                    workarray[thid].vec_rotate_x,
+                                    workarray[thid].vec_rotate_y))
 
         # rotate mumap and store in plan.mumapr
-        copyto!((@view plan.mumapr[:, :, z]),
-                plan.rotateforw!(workarray[thid].pad_imgr,
-                                workarray[thid].pad_imgr_tmp,
-                                (@view plan.mumap[:, :, z]),
-                                plan.viewangle[viewidx],
-                                plan.nx,
-                                plan.ny,
-                                plan.pad_rotate_x,
-                                plan.pad_rotate_y))
+            copyto!((@view plan.mumapr[:, :, z]),
+                    imrotate3!(workarray[thid].pad_imgr,
+                                    workarray[thid].pad_imgr_tmp,
+                                    (@view plan.mumap[:, :, z]),
+                                    plan.viewangle[viewidx],
+                                    plan.nx,
+                                    plan.ny,
+                                    plan.pad_rotate_x,
+                                    plan.pad_rotate_y,
+                                    workarray[thid].A_x,
+                                    workarray[thid].A_y,
+                                    workarray[thid].vec_rotate_x,
+                                    workarray[thid].vec_rotate_y))
+        else
+            # rotate image and store in plan.imgr
+            copyto!((@view plan.imgr[:, :, z]),
+                    imrotate3!(workarray[thid].pad_imgr,
+                                    workarray[thid].pad_imgr_tmp,
+                                    (@view image[:, :, z]),
+                                    plan.viewangle[viewidx],
+                                    plan.nx,
+                                    plan.ny,
+                                    plan.pad_rotate_x,
+                                    plan.pad_rotate_y))
+
+        # rotate mumap and store in plan.mumapr
+            copyto!((@view plan.mumapr[:, :, z]),
+                    imrotate3!(workarray[thid].pad_imgr,
+                                    workarray[thid].pad_imgr_tmp,
+                                    (@view plan.mumap[:, :, z]),
+                                    plan.viewangle[viewidx],
+                                    plan.nx,
+                                    plan.ny,
+                                    plan.pad_rotate_x,
+                                    plan.pad_rotate_y))
+
+        end
     end
 
 
@@ -308,15 +344,32 @@ function backproject!(
     Threads.@threads for z = 1:plan.nz
         # get thread id
         thid = Threads.threadid()
-        copyto!((@view plan.mumapr[:, :, z]),
-                plan.rotateforw!(workarray[thid].pad_imgr,
-                                workarray[thid].pad_imgr_tmp,
-                                (@view plan.mumap[:, :, z]),
-                                plan.viewangle[viewidx],
-                                plan.nx,
-                                plan.ny,
-                                plan.pad_rotate_x,
-                                plan.pad_rotate_y))
+        if plan.interpidx == 1
+            copyto!((@view plan.mumapr[:, :, z]),
+                    imrotate3!(workarray[thid].pad_imgr,
+                                    workarray[thid].pad_imgr_tmp,
+                                    (@view plan.mumap[:, :, z]),
+                                    plan.viewangle[viewidx],
+                                    plan.nx,
+                                    plan.ny,
+                                    plan.pad_rotate_x,
+                                    plan.pad_rotate_y,
+                                    workarray[thid].A_x,
+                                    workarray[thid].A_y,
+                                    workarray[thid].vec_rotate_x,
+                                    workarray[thid].vec_rotate_y))
+        else
+            copyto!((@view plan.mumapr[:, :, z]),
+                    imrotate3!(workarray[thid].pad_imgr,
+                                    workarray[thid].pad_imgr_tmp,
+                                    (@view plan.mumap[:, :, z]),
+                                    plan.viewangle[viewidx],
+                                    plan.nx,
+                                    plan.ny,
+                                    plan.pad_rotate_x,
+                                    plan.pad_rotate_y))
+        end
+
     end
 
     # adjoint of convolving img with psf and applying attenuation map
@@ -346,15 +399,31 @@ function backproject!(
     Threads.@threads for z = 1:plan.nz
         # get thread id
         thid = Threads.threadid()
-        copyto!((@view plan.imgr[:, :, z]),
-                plan.rotateadjt!(workarray[thid].pad_imgr,
-                                workarray[thid].pad_imgr_tmp,
-                                (@view plan.imgr[:, :, z]),
-                                plan.viewangle[viewidx],
-                                plan.nx,
-                                plan.ny,
-                                plan.pad_rotate_x,
-                                plan.pad_rotate_y))
+        if plan.interpidx == 1
+            copyto!((@view plan.imgr[:, :, z]),
+                    imrotate3_adj!(workarray[thid].pad_imgr,
+                                    workarray[thid].pad_imgr_tmp,
+                                    (@view plan.imgr[:, :, z]),
+                                    plan.viewangle[viewidx],
+                                    plan.nx,
+                                    plan.ny,
+                                    plan.pad_rotate_x,
+                                    plan.pad_rotate_y,
+                                    workarray[thid].A_x,
+                                    workarray[thid].A_y,
+                                    workarray[thid].vec_rotate_x,
+                                    workarray[thid].vec_rotate_y))
+        else
+            copyto!((@view plan.imgr[:, :, z]),
+                    imrotate3_adj!(workarray[thid].pad_imgr,
+                                    workarray[thid].pad_imgr_tmp,
+                                    (@view plan.imgr[:, :, z]),
+                                    plan.viewangle[viewidx],
+                                    plan.nx,
+                                    plan.ny,
+                                    plan.pad_rotate_x,
+                                    plan.pad_rotate_y))
+        end
     end
 
     return plan.imgr
