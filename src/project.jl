@@ -23,12 +23,12 @@ Struct for storing key factors for a SPECT system model
 - `imgr` 3D rotated image
 - `mumapr` 3D rotated mumap
 - `T` datatype of work arrays
-
 Currently code assumes each of the `nview` projection views is `[nx,nz]`
 Currently code assumes `nx = ny`
 Currently code assumes uniform angular sampling
 Currently imrotate3 code only supports linear interpolation
 Currently code uses multiprocessing using # of cores specified by Threads.nthreads() in Julia
+Currently code calls imfilter! function which is not a fully in-place operation, so it will allocate some extra memories
 """
 struct SPECTplan
     mumap::AbstractArray{<:Real, 3} # [nx,ny,nz] attenuation map, must be 3D, possibly zeros()
@@ -61,7 +61,7 @@ struct SPECTplan
                         nview::Int,
                         dy::RealU ;
                         viewangle::AbstractVector = (0:nview - 1) / nview * (2π), # set of view angles
-                        interpidx::Int = 1, # 1 is for 1d interpolation, 2 is for 2d interpolation
+                        interpidx::Int = 2, # 1 is for 1d interpolation, 2 is for 2d interpolation
                         padleft::Int = _padleft(mumap, psfs),
                         padright::Int = _padright(mumap, psfs),
                         padup::Int = _padup(mumap, psfs),
@@ -115,6 +115,8 @@ add tmp vectors to avoid allocating in rotate_x and rotate_y
 - `exp_mumapr` 2D exponential rotated mumap
 - `vec_rotate_x` 1D vector storing rotated axis in rotate_x function
 - `vec_rotate_y` 1D vector storing rotated axis in rotate_y function
+- `A_x` sparse interpolator for rotating in x direction
+- `A_y` sparse interpolator for rotating in y direction
 """
 struct Workarray_s
     padimg::AbstractArray{<:Real, 2} # 2D padded image, (nx + padleft + padright, nz + padup + paddown)
@@ -161,6 +163,7 @@ Convolve `img` with `ker` and store in `padimg`
 """
 function my_conv!(img, ker, padimg, plan)
     # filter the image with a kernel, using replicate padding and fft convolution
+    # imfilter! function will allocate some kb memory
     imfilter!(padimg, plan.padrepl(img), ker, NoPad(), Algorithm.FFT())
     return @view padimg[1:plan.nx, 1:plan.nz]
 end
@@ -255,7 +258,8 @@ function project!(
     Threads.@threads for y = 1:plan.ny
         thid = Threads.threadid()
         # account for half of the final slice thickness
-        workarray[thid].exp_mumapr .= - (@view plan.mumapr[:, y, :]) / 2
+        workarray[thid].exp_mumapr .= - (@view plan.mumapr[:, y, :])
+        broadcast!(/, workarray[thid].exp_mumapr, workarray[thid].exp_mumapr, 2)
         for j = 1:y
             workarray[thid].exp_mumapr .+= (@view plan.mumapr[:, j, :])
         end
@@ -318,7 +322,7 @@ function project(
     psfs::AbstractArray{<:Real},
     nview::Int,
     dy::Float32;
-    interpidx::Int = 1,
+    interpidx::Int = 2,
     kwargs...,
 )
     plan = SPECTplan(mumap, psfs, nview, dy; interpidx, kwargs...)
@@ -377,7 +381,8 @@ function backproject!(
         # get thread id
         thid = Threads.threadid()
         # account for half of the final slice thickness
-        workarray[thid].exp_mumapr .= - (@view plan.mumapr[:, y, :]) / 2
+        workarray[thid].exp_mumapr .= - (@view plan.mumapr[:, y, :])
+        broadcast!(/, workarray[thid].exp_mumapr, workarray[thid].exp_mumapr, 2)
 
         for j = 1:y
             workarray[thid].exp_mumapr .+= (@view plan.mumapr[:, j, :])
