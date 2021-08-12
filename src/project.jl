@@ -87,8 +87,8 @@ struct SPECTplan
         pad_rotate_x = ceil(Int, 1 + nx * sqrt(2)/2 - nx / 2)
         pad_rotate_y = ceil(Int, 1 + ny * sqrt(2)/2 - ny / 2)
         # mypad1 = x -> padarray(x, Pad(:replicate, (nx_psf, nz_psf), (nx_psf, nz_psf)))
-        padrepl = x -> BorderArray(x, Pad(:replicate, (padleft, padup), (padright, paddown)))
-        padzero = x -> BorderArray(x, Fill(0, (padleft, padup), (padright, paddown)))
+        padrepl = x -> OffsetArrays.no_offset_view(BorderArray(x, Pad(:replicate, (padleft, padup), (padright, paddown))))
+        padzero = x -> OffsetArrays.no_offset_view(BorderArray(x, Fill(0, (padleft, padup), (padright, paddown))))
 
         ncore = Threads.nthreads()
 
@@ -96,7 +96,7 @@ struct SPECTplan
         # imgr stores 3D image in different view angles
         imgr = zeros(T, nx, ny, nz)
         # mumapr stores 3D mumap in different view angles
-        mumapr = zeros(T, nx, ny, nz)
+        mumapr = similar(imgr)
 
         new(mumap, psfs, nview, ncore, viewangle, interpidx, dy,
             nx, ny, nz, nx_psf, nz_psf, padrepl, padzero, padleft, padright,
@@ -120,6 +120,9 @@ add tmp vectors to avoid allocating in rotate_x and rotate_y
 """
 struct Workarray_s
     padimg::AbstractArray{<:Real, 2} # 2D padded image, (nx + padleft + padright, nz + padup + paddown)
+    img_compl::AbstractArray{<:ComplexF32, 2}
+    ker_compl::AbstractArray{<:ComplexF32, 2}
+    tmp_compl::AbstractArray{<:ComplexF32, 2}
     pad_imgr::AbstractArray{<:Real, 2} # 2D padded rotated image, (nx + 2 * pad_rotate_x, ny + 2 * pad_rotate_y)
     pad_imgr_tmp::AbstractArray{<:Real, 2} # 2D (temporarily used) padded rotated image, (nx + 2 * pad_rotate_x, ny + 2 * pad_rotate_y)
     exp_mumapr::AbstractArray{<:Real, 2} # 2D exp rotated mumap, (nx, nz)
@@ -133,14 +136,18 @@ struct Workarray_s
             padimg = zeros(plan.T,
                             plan.nx + plan.padleft + plan.padright,
                             plan.nz + plan.padup + plan.paddown)
+            # complex padimg
+            img_compl = similar(padimg, ComplexF32)
+            # complex kernel
+            ker_compl = similar(img_compl)
+            # complex tmp
+            tmp_compl = similar(ker_compl)
             # pad_imgr stores 2D rotated & padded image
             pad_imgr = zeros(plan.T,
                             plan.nx + 2 * plan.pad_rotate_x,
                             plan.ny + 2 * plan.pad_rotate_y)
             # pad_imgr_tmp stores 2D (temporarily used) rotated & padded image, need this in inplace rotation operation
-            pad_imgr_tmp = zeros(plan.T,
-                            plan.nx + 2 * plan.pad_rotate_x,
-                            plan.ny + 2 * plan.pad_rotate_y)
+            pad_imgr_tmp = similar(pad_imgr)
             # exp_mumapr stores 2D exponential mumap in different view angles
             exp_mumapr = zeros(plan.T, plan.nx, plan.nz)
             if plan.interpidx == 1
@@ -150,37 +157,59 @@ struct Workarray_s
 
                 A_x = SparseInterpolator(LinearSpline(plan.T), vec_rotate_x, length(vec_rotate_x))
                 A_y = SparseInterpolator(LinearSpline(plan.T), vec_rotate_y, length(vec_rotate_y))
-                new(padimg, pad_imgr, pad_imgr_tmp, exp_mumapr, vec_rotate_x, vec_rotate_y, A_x, A_y)
+                new(padimg, img_compl, ker_compl, tmp_compl,
+                    pad_imgr, pad_imgr_tmp, exp_mumapr,
+                    vec_rotate_x, vec_rotate_y, A_x, A_y)
             else
-                new(padimg, pad_imgr, pad_imgr_tmp, exp_mumapr)
+                new(padimg, img_compl, ker_compl, tmp_compl,
+                    pad_imgr, pad_imgr_tmp, exp_mumapr)
             end
     end
 end
 
 """
-    my_conv!(img, ker, padimg, plan)
+    my_conv!(padimg, img, ker, img_compl, ker_compl, tmp_compl, plan)
 Convolve `img` with `ker` and store in `padimg`
+`img_compl`, `ker_compl`, `tmp_compl` are used in fft operations
 """
-function my_conv!(img, ker, padimg, plan)
+function my_conv!(padimg::AbstractArray{<:Real, 2},
+                  img::AbstractArray{<:Real, 2},
+                  ker::AbstractArray{<:Real, 2},
+                  img_compl::AbstractArray{<:ComplexF32, 2},
+                  ker_compl::AbstractArray{<:ComplexF32, 2},
+                  tmp_compl::AbstractArray{<:ComplexF32, 2},
+                  plan::SPECTplan)
     # filter the image with a kernel, using replicate padding and fft convolution
     # imfilter! function will allocate some kb memory
-    imfilter!(padimg, plan.padrepl(img), ker, NoPad(), Algorithm.FFT())
-    return @view padimg[1:plan.nx, 1:plan.nz]
+    # imfilter!(padimg, plan.padrepl(img), ker, NoPad(), Algorithm.FFT())
+    copyto!(padimg, plan.padrepl(img))
+    imfilter!(padimg, ker, img_compl, ker_compl, tmp_compl)
+    return @view padimg[1+plan.padleft:plan.nx+plan.padleft,
+                        1+plan.padup:plan.nz+plan.padup]
 end
 
 """
-    my_conv_adj!(img, ker, padimg, plan)
+    my_conv_adj!(padimg, img, ker, img_compl, ker_compl, tmp_compl, plan)
 The adjoint of convolving `img` with `ker` and storing in `padimg`
+`img_compl`, `ker_compl`, `tmp_compl` are used in fft operations
 """
-function my_conv_adj!(img, ker, padimg, plan)
+function my_conv_adj!(padimg::AbstractArray{<:Real, 2},
+                  img::AbstractArray{<:Real, 2},
+                  ker::AbstractArray{<:Real, 2},
+                  img_compl::AbstractArray{<:ComplexF32, 2},
+                  ker_compl::AbstractArray{<:ComplexF32, 2},
+                  tmp_compl::AbstractArray{<:ComplexF32, 2},
+                  plan::SPECTplan)
     # filter the image with a kernel, using zero padding and fft convolution
-    imfilter!(padimg, plan.padzero(img), ker, NoPad(), Algorithm.FFT())
+    copyto!(padimg, plan.padzero(img))
+    imfilter!(padimg, ker, img_compl, ker_compl, tmp_compl)
     # adjoint of replicate padding
-    padimg[1:1, :] .+= sum(padimg[plan.nx + plan.padright + 1:end, :], dims = 1)
-    padimg[plan.nx:plan.nx, :] .+= sum(padimg[plan.nx + 1:plan.nx + plan.padright, :], dims = 1)
-    padimg[:, 1:1] .+= sum(padimg[:, plan.nz + plan.paddown + 1:end], dims = 2)
-    padimg[:, plan.nz:plan.nz] .+= sum(padimg[:, plan.nz + 1:plan.nz + plan.paddown], dims = 2)
-    return @view padimg[1:plan.nx, 1:plan.nz]
+    padimg[1+plan.padleft:1+plan.padleft, :] .+= sum(padimg[1:plan.padleft, :], dims = 1)
+    padimg[plan.nx+plan.padleft:plan.nx+plan.padleft, :] .+= sum(padimg[plan.nx+plan.padleft+1:end, :], dims = 1)
+    padimg[:, 1+plan.padup:1+plan.padup] .+= sum(padimg[:, 1:plan.padup], dims = 2)
+    padimg[:, plan.nz+plan.padup:plan.nz+plan.padup] .+= sum(padimg[:, plan.nz+plan.padup+1:end], dims = 2)
+    return @view padimg[1+plan.padleft:plan.nx+plan.padleft,
+                        1+plan.padup:plan.nz+plan.padup]
 end
 
 """
@@ -269,10 +298,13 @@ function project!(
         (@view plan.imgr[:, y, :]) .*= workarray[thid].exp_mumapr
 
         # convolve img with psf and add up to view
-        view .+= my_conv!((@view plan.imgr[:, y, :]),
-                        (@view plan.psfs[:, :, y, viewidx]),
-                        workarray[thid].padimg,
-                        plan)
+        view .+= my_conv!(workarray[thid].padimg,
+                         (@view plan.imgr[:, y, :]),
+                         (@view plan.psfs[:, :, y, viewidx]),
+                         workarray[thid].img_compl,
+                         workarray[thid].ker_compl,
+                         workarray[thid].tmp_compl,
+                         plan)
     end
     return view
 end
@@ -390,11 +422,19 @@ function backproject!(
         workarray[thid].exp_mumapr .*= - plan.dy
         workarray[thid].exp_mumapr .= exp.(workarray[thid].exp_mumapr)
 
+        # my_conv_adj!(view,
+        #             (@view plan.psfs[:, :, y, viewidx]),
+        #             workarray[thid].padimg,
+        #             plan)
         copyto!((@view plan.imgr[:, y, :]),
-                my_conv_adj!(view,
-                            (@view plan.psfs[:, :, y, viewidx]),
-                            workarray[thid].padimg,
-                            plan))
+                my_conv_adj!(workarray[thid].padimg,
+                             view,
+                             (@view plan.psfs[:, :, y, viewidx]),
+                             workarray[thid].img_compl,
+                             workarray[thid].ker_compl,
+                             workarray[thid].tmp_compl,
+                             plan))
+
         (@view plan.imgr[:, y, :]) .*= workarray[thid].exp_mumapr
 
 

@@ -7,6 +7,7 @@ using LinearInterpolators
 using InterpolationKernels
 using OffsetArrays
 using ImageFiltering
+using FFTW
 
 Power2 = x -> 2^(ceil(Int, log2(x)))
 _padleft(mumap, psfs) = ceil(Int, (Power2(size(mumap, 1) + size(psfs, 1) - 1) - size(mumap, 1)) / 2)

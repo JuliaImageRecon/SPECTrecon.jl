@@ -223,9 +223,9 @@ function imrotate3_adj!(output, tmp, img, θ, M, N, pad_x, pad_y, A_x, A_y, vec_
     c_x = (length(xi)+1)/2
     c_y = (length(yi)+1)/2
     copyto!(tmp, OffsetArrays.no_offset_view(BorderArray(img, Fill(0, (pad_x, pad_y)))))
-    rotate_x_adj!(output, tmp, mod_theta, xi, yi, A_x, vec_x, c_y)
-    rotate_y_adj!(tmp, output, mod_theta, xi, yi, A_y, vec_y, c_x)
-    rotate_x_adj!(output, tmp, mod_theta, xi, yi, A_x, vec_x, c_y)
+    rotate_x_adj!(output, tmp, tan_mod_theta, xi, yi, A_x, vec_x, c_y)
+    rotate_y_adj!(tmp, output, sin_mod_theta, xi, yi, A_y, vec_y, c_x)
+    rotate_x_adj!(output, tmp, tan_mod_theta, xi, yi, A_x, vec_x, c_y)
     rot_f90_adj!(tmp, output, m) # must be two different arguments
     return @view tmp[pad_x + 1 : pad_x + M, pad_y + 1 : pad_y + N]
 end
