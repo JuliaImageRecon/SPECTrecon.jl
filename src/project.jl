@@ -283,9 +283,9 @@ function project!(
         thid = Threads.threadid()
         # account for half of the final slice thickness
         workarray[thid].exp_mumapr .= (-0.5) .* (@view plan.mumapr[:, y, :])
-        broadcast!(+, workarray[thid].exp_mumapr,
-                      workarray[thid].exp_mumapr,
-                      dropdims(sum((@view plan.mumapr[:, 1:y, :]), dims = 2); dims = 2))
+        for j = 1:y
+            broadcast!(+, workarray[thid].exp_mumapr, workarray[thid].exp_mumapr, (@view plan.mumapr[:, j, :]))
+        end
         broadcast!(*, workarray[thid].exp_mumapr, workarray[thid].exp_mumapr, - plan.dy)
         workarray[thid].exp_mumapr .= exp.(workarray[thid].exp_mumapr)
         # apply depth-dependent attenuation
@@ -400,9 +400,9 @@ function backproject!(
         # account for half of the final slice thickness
         workarray[thid].exp_mumapr .= (@view plan.mumapr[:, y, :])
         broadcast!(*, workarray[thid].exp_mumapr, workarray[thid].exp_mumapr, -0.5)
-        broadcast!(+, workarray[thid].exp_mumapr,
-                      workarray[thid].exp_mumapr,
-                      dropdims(sum((@view plan.mumapr[:, 1:y, :]), dims = 2); dims = 2))
+        for j = 1:y
+            broadcast!(+, workarray[thid].exp_mumapr, workarray[thid].exp_mumapr, (@view plan.mumapr[:, j, :]))
+        end
         broadcast!(*, workarray[thid].exp_mumapr, workarray[thid].exp_mumapr, - plan.dy)
         workarray[thid].exp_mumapr .= exp.(workarray[thid].exp_mumapr)
 
