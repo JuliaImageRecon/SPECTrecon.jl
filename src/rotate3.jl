@@ -183,11 +183,14 @@ function rot_f90_adj!(output, img, m)
     end
 end
 """
-    imrotate3!(output, tmp, img, θ, M, N, pad_x, pad_y, A_x, A_y, vec_x, vec_y)
+    imrotate3!(output, tmp, img, θ, A_x, A_y, vec_x, vec_y)
     Rotate an image by angle θ (must be ranging from 0 to 2π) in clockwise direction
     using a series of 1d linear interpolation
 """
-function imrotate3!(output, tmp, img, θ, M, N, pad_x, pad_y, A_x, A_y, vec_x, vec_y)
+function imrotate3!(output, tmp, img, θ, A_x, A_y, vec_x, vec_y)
+    (M, N) = size(img)
+    pad_x = Int((size(output, 1) - M) / 2)
+    pad_y = Int((size(output, 2) - N) / 2)
     m = mod(floor(Int, 0.5 + θ/(π/2)), 4)
     mod_theta = θ - m * (π/2) # make sure it is between -45 and 45 degree
     tan_mod_theta = tan(mod_theta / 2)
@@ -207,11 +210,14 @@ function imrotate3!(output, tmp, img, θ, M, N, pad_x, pad_y, A_x, A_y, vec_x, v
 end
 
 """
-    imrotate3_adj!(output, tmp, img, θ, M, N, pad_x, pad_y, A_x, A_y, vec_x, vec_y)
+    imrotate3_adj!(output, tmp, img, θ, A_x, A_y, vec_x, vec_y)
     The adjoint of rotating an image by angle θ (must be ranging from 0 to 2π) in clockwise direction
     using a series of 1d linear interpolation
 """
-function imrotate3_adj!(output, tmp, img, θ, M, N, pad_x, pad_y, A_x, A_y, vec_x, vec_y)
+function imrotate3_adj!(output, tmp, img, θ, A_x, A_y, vec_x, vec_y)
+    (M, N) = size(img)
+    pad_x = Int((size(output, 1) - M) / 2)
+    pad_y = Int((size(output, 2) - N) / 2)
     m = mod(floor(Int, 0.5 + θ/(π/2)), 4)
     mod_theta = θ - m * (π/2) # make sure it is between -45 and 45 degree
     tan_mod_theta = tan(mod_theta / 2)
@@ -236,10 +242,13 @@ end
     Rotate an image by angle θ in clockwise direction using 2d linear interpolation
     Source code is here: https://github.com/emmt/LinearInterpolators.jl
 """
-function imrotate3!(output, tmp, img, θ, M, N, pad_x, pad_y)
+function imrotate3!(output, tmp, img, θ)
     if mod(θ, 2π) ≈ 0
         return img
     else
+        (M, N) = size(img)
+        pad_x = Int((size(output, 1) - M) / 2)
+        pad_y = Int((size(output, 2) - N) / 2)
         ker = LinearSpline(Float32)
         M_pad = M + 2 * pad_x
         N_pad = N + 2 * pad_y
@@ -255,14 +264,17 @@ function imrotate3!(output, tmp, img, θ, M, N, pad_x, pad_y)
 end
 
 """
-    imrotate3_adj!(output, tmp, img, θ, M, N, pad_x, pad_y)
+    imrotate3_adj!(output, tmp, img, θ)
     The adjoint of rotating an image by angle θ in clockwise direction using 2d linear interpolation
     Source code is here: https://github.com/emmt/LinearInterpolators.jl
 """
-function imrotate3_adj!(output, tmp, img, θ, M, N, pad_x, pad_y)
+function imrotate3_adj!(output, tmp, img, θ)
     if mod(θ, 2π) ≈ 0
         return img
     else
+        (M, N) = size(img)
+        pad_x = Int((size(output, 1) - M) / 2)
+        pad_y = Int((size(output, 2) - N) / 2)
         ker = LinearSpline(Float32)
         M_pad = M + 2 * pad_x
         N_pad = N + 2 * pad_y

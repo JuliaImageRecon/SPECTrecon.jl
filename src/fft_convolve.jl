@@ -16,30 +16,18 @@ function pad_it!(X::AbstractArray,
     return Xpad
 end
 
-function myfft!(img::AbstractArray{ComplexF32},
-                tmp::AbstractArray{ComplexF32})
-    ifftshift!(tmp, img)
-    fft!(tmp)
-    fftshift!(img, tmp)
-end
-function myifft!(img::AbstractArray{ComplexF32},
-                tmp::AbstractArray{ComplexF32})
-    ifftshift!(tmp, img)
-    ifft!(tmp)
-    fftshift!(img, tmp)
-end
-function imfilter!(padimg::AbstractArray{<:Float32, 2},
+function imfilter3!(padimg::AbstractArray{<:Float32, 2},
                    ker::AbstractArray{<:Float32, 2},
                    img_compl::AbstractArray{ComplexF32, 2},
-                   ker_compl::AbstractArray{ComplexF32, 2},
-                   tmp_compl::AbstractArray{ComplexF32, 2})
-    img_compl .= padimg .+ 0im
-    ker_compl .= pad_it!(ker, size(img_compl)) .+ 0im
-    myfft!(img_compl, tmp_compl)
-    myfft!(ker_compl, tmp_compl)
+                   ker_compl::AbstractArray{ComplexF32, 2})
+
+    img_compl .= padimg
+    ker_compl .= pad_it!(ker, size(img_compl))
+    fft!(img_compl)
+    fft!(ker_compl)
     img_compl .*= ker_compl
-    myifft!(img_compl, tmp_compl)
-    padimg .= real.(img_compl)
+    ifft!(img_compl)
+    padimg .= real.(fftshift!(ker_compl, img_compl))
 end
 
 # @btime pad_it!(y, (41, 60))
