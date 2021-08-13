@@ -19,14 +19,19 @@ end
 function imfilter3!(padimg::AbstractArray{<:Float32, 2},
                    ker::AbstractArray{<:Float32, 2},
                    img_compl::AbstractArray{ComplexF32, 2},
-                   ker_compl::AbstractArray{ComplexF32, 2})
+                   ker_compl::AbstractArray{ComplexF32, 2},
+                   fft_plan,
+                   ifft_plan)
 
     img_compl .= padimg
     ker_compl .= pad_it!(ker, size(img_compl))
-    fft!(img_compl)
-    fft!(ker_compl)
+    mul!(img_compl, fft_plan, img_compl)
+    # fft!(img_compl)
+    mul!(ker_compl, fft_plan, ker_compl)
+    # fft!(ker_compl)
     img_compl .*= ker_compl
-    ifft!(img_compl)
+    mul!(img_compl, ifft_plan, img_compl)
+    # ifft!(img_compl)
     padimg .= real.(fftshift!(ker_compl, img_compl))
 end
 

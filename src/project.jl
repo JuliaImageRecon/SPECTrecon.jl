@@ -54,7 +54,8 @@ struct SPECTplan
     imgr::AbstractArray{<:Real, 3} # 3D rotated image, (nx, ny, nz)
     mumapr::AbstractArray{<:Real, 3} # 3D rotated mumap, (nx, ny, nz)
     T::DataType # default type for work arrays etc.
-
+    fft_plan::Union{AbstractFFTs.ScaledPlan, FFTW.cFFTWPlan}
+    ifft_plan::Union{AbstractFFTs.ScaledPlan, FFTW.cFFTWPlan}
     # other options for how to do the projection?
     function SPECTplan(mumap::AbstractArray{<:Real,3},
                         psfs::AbstractArray{<:Real,4},
@@ -97,10 +98,14 @@ struct SPECTplan
         imgr = zeros(T, nx, ny, nz)
         # mumapr stores 3D mumap in different view angles
         mumapr = similar(imgr)
+        tmp = Array{Complex{T}}(undef, nx + padleft + padright, nz + padup + paddown)
+        fft_plan = plan_fft!(tmp)
+        ifft_plan = plan_ifft!(tmp)
 
         new(mumap, psfs, nview, ncore, viewangle, interpidx, dy,
             nx, ny, nz, nx_psf, nz_psf, padrepl, padzero, padleft, padright,
-            padup, paddown, pad_rotate_x, pad_rotate_y, imgr, mumapr, T)
+            padup, paddown, pad_rotate_x, pad_rotate_y, imgr, mumapr, T,
+            fft_plan, ifft_plan)
         #  creates objects of the block's type (inner constructor methods).
     end
 end
@@ -136,7 +141,7 @@ struct Workarray_s
                             plan.nx + plan.padleft + plan.padright,
                             plan.nz + plan.padup + plan.paddown)
             # complex padimg
-            img_compl = similar(padimg, ComplexF32)
+            img_compl = similar(padimg, Complex{plan.T})
             # complex kernel
             ker_compl = similar(img_compl)
             # pad_imgr stores 2D rotated & padded image
@@ -180,7 +185,9 @@ function my_conv!(padimg::AbstractArray{<:Real, 2},
     # imfilter! function will allocate some kb memory
     # imfilter!(padimg, plan.padrepl(img), ker, NoPad(), Algorithm.FFT())
     copyto!(padimg, plan.padrepl(img))
-    imfilter3!(padimg, ker, img_compl, ker_compl)
+    fft_plan = plan_fft!(img_compl)
+    ifft_plan = plan_ifft!(img_compl)
+    imfilter3!(padimg, ker, img_compl, ker_compl, fft_plan, ifft_plan)
     return @view padimg[1+plan.padleft:plan.nx+plan.padleft,
                         1+plan.padup:plan.nz+plan.padup]
 end
@@ -198,7 +205,7 @@ function my_conv_adj!(padimg::AbstractArray{<:Real, 2},
                   plan::SPECTplan)
     # filter the image with a kernel, using zero padding and fft convolution
     copyto!(padimg, plan.padzero(img))
-    imfilter3!(padimg, ker, img_compl, ker_compl)
+    imfilter3!(padimg, ker, img_compl, ker_compl, plan.fft_plan, plan.ifft_plan)
     # adjoint of replicate padding
     padimg[1+plan.padleft:1+plan.padleft, :] .+= sum(padimg[1:plan.padleft, :], dims = 1)
     padimg[plan.nx+plan.padleft:plan.nx+plan.padleft, :] .+= sum(padimg[plan.nx+plan.padleft+1:end, :], dims = 1)
