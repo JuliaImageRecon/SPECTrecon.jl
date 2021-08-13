@@ -21,12 +21,12 @@ using BenchmarkTools
     output_y = OffsetArrays.no_offset_view(padarray(y, Fill(0, (pad_x, pad_y))))
     tmp_x = similar(output_x)
     tmp_y = similar(output_y)
-    θ_list = [π/7, 3π/7, 5π/7, π, 9π/7, 11π/7, 13π/7]
+    θ_list = [0, π/7, 3π/7, 5π/7, π, 9π/7, 11π/7, 13π/7, π/2, 3π/2, π/4, 3π/4, 5π/4, 7π/4, 2π]
     for θ in θ_list
-        @test isapprox(vdot(y, SPECTrecon.imrotate3!(output_x, tmp_x, x, θ, M, N, pad_x, pad_y, A_x, A_y, vec_x, vec_y)),
-                    vdot(x, SPECTrecon.imrotate3_adj!(output_y, tmp_y, y, θ, M, N, pad_x, pad_y, A_x, A_y, vec_x, vec_y)))
-        @test isapprox(vdot(y, SPECTrecon.imrotate3!(output_x, tmp_x, x, θ, M, N, pad_x, pad_y)),
-                    vdot(x, SPECTrecon.imrotate3_adj!(output_y, tmp_y, y, θ, M, N, pad_x, pad_y)))
+        @test isapprox(vdot(y, imrotate3!(output_x, tmp_x, x, θ, A_x, A_y, vec_x, vec_y)),
+                    vdot(x, imrotate3_adj!(output_y, tmp_y, y, θ, A_x, A_y, vec_x, vec_y)))
+        @test isapprox(vdot(y, imrotate3!(output_x, tmp_x, x, θ)),
+                    vdot(x, imrotate3_adj!(output_y, tmp_y, y, θ)))
     end
 end
 
@@ -42,18 +42,23 @@ A_x = SparseInterpolator(LinearSpline(Float32), vec_x, length(vec_x))
 A_y = SparseInterpolator(LinearSpline(Float32), vec_y, length(vec_y))
 x = randn(Float32, M, N)
 y = randn(Float32, M, N)
+c_x = (length(xi)+1)/2
+c_y = (length(yi)+1)/2
 output_x = OffsetArrays.no_offset_view(padarray(x, Fill(0, (pad_x, pad_y))))
 output_y = OffsetArrays.no_offset_view(padarray(y, Fill(0, (pad_x, pad_y))))
 tmp_x = similar(output_x)
 tmp_y = similar(output_y)
 θ_list = [π/7, 3π/7, 5π/7, π, 9π/7, 11π/7, 13π/7]
-@btime SPECTrecon.imrotate3!(output_x, tmp_x, x, θ_list[1], M, N, pad_x, pad_y, A_x, A_y, vec_x, vec_y)
-# 1d interp, 24.366 μs (239 allocations: 11.19 KiB)
-@btime SPECTrecon.imrotate3!(output_x, tmp_x, x, θ_list[1], M, N, pad_x, pad_y)
-# 2d interp, 6.121 μs (2 allocations: 80 bytes)
-@btime SPECTrecon.imrotate3_adj!(output_y, tmp_y, y, θ_list[1], M, N, pad_x, pad_y, A_x, A_y, vec_x, vec_y)
-# 1d interp, 27.178 μs (329 allocations: 15.12 KiB)
-@btime SPECTrecon.imrotate3_adj!(output_x, tmp_x, x, θ_list[1], M, N, pad_x, pad_y)
-# 2d interp, 6.298 μs (2 allocations: 80 bytes)
-@btime SPECTrecon.assign_A!(A_x, vec_x)
-# 129.127 ns (0 allocations: 0 bytes)
+@btime imrotate3!(output_x, tmp_x, x, θ_list[1], M, N, pad_x, pad_y, A_x, A_y, vec_x, vec_y)
+@btime imrotate3!(output_x, tmp_x, x, θ_list[1], M, N, pad_x, pad_y)
+@btime imrotate3_adj!(output_x, tmp_x, x, θ_list[1], M, N, pad_x, pad_y)
+@btime imrotate3_adj!(output_x, tmp_x, x, θ_list[1], M, N, pad_x, pad_y, A_x, A_y, vec_x, vec_y)
+# A_x = SparseInterpolator(LinearSpline(Float32), vec_x, length(xi))
+# A_y = SparseInterpolator(LinearSpline(Float32), vec_y, length(yi))
+# imrotate3!(output_x, tmp_x, x, θ_list[2], M, N, pad_x,
+#                 pad_y, A_x, A_y, vec_x, vec_y)
+# imrotate3emmt!(output_y, tmp_y, x, θ_list[2], M, N, pad_x, pad_y)
+#
+#
+@btime rotate_x_adj!(output_x, tmp_x, θ_list[1], xi, yi, A_x, vec_x, c_y)
+# rotate_x_adj!(output_y, tmp_x, -θ_list[1], xi, yi, vec_x)
