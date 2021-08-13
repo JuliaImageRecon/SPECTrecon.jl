@@ -183,7 +183,8 @@ function rot_f90!(output::AbstractMatrix,
                   img::AbstractMatrix,
                   m::Int)
     if m == 0
-        return copyto!(output, img)
+        output .= img
+        return output
     elseif m == 1
         return rotl90!(output, img)
     elseif m == 2
@@ -203,7 +204,8 @@ function rot_f90_adj!(output::AbstractMatrix,
                       img::AbstractMatrix,
                       m::Int)
     if m == 0
-        return copyto!(output, img)
+        output .= img
+        return output
     elseif m == 1
         return rotr90!(output, img)
     elseif m == 2
@@ -236,7 +238,7 @@ function imrotate3!(output::AbstractMatrix,
     pad_x = Int((size(output, 1) - M) / 2)
     pad_y = Int((size(output, 2) - N) / 2)
     if θ ≈ m * (π/2)
-        copyto!(tmp, OffsetArrays.no_offset_view(BorderArray(img, Fill(0, (pad_x, pad_y)))))
+        tmp .= OffsetArrays.no_offset_view(BorderArray(img, Fill(0, (pad_x, pad_y))))
         rot_f90!(output, tmp, m)
     else
         mod_theta = θ - m * (π/2) # make sure it is between -45 and 45 degree
@@ -246,7 +248,7 @@ function imrotate3!(output::AbstractMatrix,
         yi = 1 : N + 2 * pad_y
         c_x = (length(xi)+1)/2
         c_y = (length(yi)+1)/2
-        copyto!(output, OffsetArrays.no_offset_view(BorderArray(img, Fill(0, (pad_x, pad_y)))))
+        output .= OffsetArrays.no_offset_view(BorderArray(img, Fill(0, (pad_x, pad_y))))
         rot_f90!(tmp, output, m)
         rotate_x!(output, tmp, tan_mod_theta, xi, yi, interp_x, tmp_x, c_y)
         rotate_y!(tmp, output, sin_mod_theta, xi, yi, interp_y, tmp_y, c_x)
@@ -276,7 +278,7 @@ function imrotate3_adj!(output::AbstractMatrix,
     pad_x = Int((size(output, 1) - M) / 2)
     pad_y = Int((size(output, 2) - N) / 2)
     if θ ≈ m * (π/2)
-        copyto!(tmp, OffsetArrays.no_offset_view(BorderArray(img, Fill(0, (pad_x, pad_y)))))
+        tmp .= OffsetArrays.no_offset_view(BorderArray(img, Fill(0, (pad_x, pad_y))))
         rot_f90_adj!(output, tmp, m)
     else
         mod_theta = θ - m * (π/2) # make sure it is between -45 and 45 degree
@@ -286,7 +288,7 @@ function imrotate3_adj!(output::AbstractMatrix,
         yi = 1 : N + 2 * pad_y
         c_x = (length(xi)+1)/2
         c_y = (length(yi)+1)/2
-        copyto!(output, OffsetArrays.no_offset_view(BorderArray(img, Fill(0, (pad_x, pad_y)))))
+        output .= OffsetArrays.no_offset_view(BorderArray(img, Fill(0, (pad_x, pad_y))))
         rotate_x_adj!(tmp, output, tan_mod_theta, xi, yi, interp_x, tmp_x, c_y)
         rotate_y_adj!(output, tmp, sin_mod_theta, xi, yi, interp_y, tmp_y, c_x)
         rotate_x_adj!(tmp, output, tan_mod_theta, xi, yi, interp_x, tmp_x, c_y)
@@ -312,14 +314,13 @@ function imrotate3!(output::AbstractMatrix,
         pad_x = Int((size(output, 1) - M) / 2)
         pad_y = Int((size(output, 2) - N) / 2)
         ker = LinearSpline(Float32)
-        M_pad = M + 2 * pad_x
-        N_pad = N + 2 * pad_y
+        (M_pad, N_pad) = size(output)
         rows = (M_pad, N_pad)
         cols = (M_pad, N_pad)
         c = ((1 + M_pad) / 2, (1 + N_pad) / 2)
         R = c + rotate(2π - θ, AffineTransform2D{Float32}() - c)
         A = TwoDimensionalTransformInterpolator(rows, cols, ker, R)
-        copyto!(tmp, OffsetArrays.no_offset_view(BorderArray(img, Fill(0, (pad_x, pad_y)))))
+        tmp .= OffsetArrays.no_offset_view(BorderArray(img, Fill(0, (pad_x, pad_y))))
         mul!(output, A, tmp)
         return @view output[pad_x + 1 : pad_x + M, pad_y + 1 : pad_y + N]
     end
@@ -341,14 +342,13 @@ function imrotate3_adj!(output::AbstractMatrix,
         pad_x = Int((size(output, 1) - M) / 2)
         pad_y = Int((size(output, 2) - N) / 2)
         ker = LinearSpline(Float32)
-        M_pad = M + 2 * pad_x
-        N_pad = N + 2 * pad_y
+        (M_pad, N_pad) = size(output)
         rows = (M_pad, N_pad)
         cols = (M_pad, N_pad)
         c = ((1 + M_pad) / 2, (1 + N_pad) / 2)
         R = c + rotate(2π - θ, AffineTransform2D{Float32}() - c)
         A = TwoDimensionalTransformInterpolator(rows, cols, ker, R)
-        copyto!(tmp, OffsetArrays.no_offset_view(BorderArray(img, Fill(0, (pad_x, pad_y)))))
+        tmp .= OffsetArrays.no_offset_view(BorderArray(img, Fill(0, (pad_x, pad_y))))
         mul!(output, A', tmp)
         return @view output[pad_x + 1 : pad_x + M, pad_y + 1 : pad_y + N]
     end
