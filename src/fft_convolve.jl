@@ -20,8 +20,8 @@ function imfilter3!(padimg::AbstractArray{<:Float32, 2},
                    ker::AbstractArray{<:Float32, 2},
                    img_compl::AbstractArray{ComplexF32, 2},
                    ker_compl::AbstractArray{ComplexF32, 2},
-                   fft_plan,
-                   ifft_plan)
+                   fft_plan::Union{AbstractFFTs.ScaledPlan, FFTW.cFFTWPlan},
+                   ifft_plan::Union{AbstractFFTs.ScaledPlan, FFTW.cFFTWPlan})
 
     img_compl .= padimg
     ker_compl .= pad_it!(ker, size(img_compl))

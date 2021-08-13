@@ -120,8 +120,8 @@ add tmp vectors to avoid allocating in rotate_x and rotate_y
 - `exp_mumapr` 2D exponential rotated mumap
 - `vec_rotate_x` 1D vector storing rotated axis in rotate_x function
 - `vec_rotate_y` 1D vector storing rotated axis in rotate_y function
-- `A_x` sparse interpolator for rotating in x direction
-- `A_y` sparse interpolator for rotating in y direction
+- `interp_x` sparse interpolator for rotating in x direction
+- `interp_y` sparse interpolator for rotating in y direction
 """
 struct Workarray_s
     padimg::AbstractArray{<:Real, 2} # 2D padded image, (nx + padleft + padright, nz + padup + paddown)
@@ -132,8 +132,8 @@ struct Workarray_s
     exp_mumapr::AbstractArray{<:Real, 2} # 2D exp rotated mumap, (nx, nz)
     vec_rotate_x::Union{Nothing, AbstractVector}
     vec_rotate_y::Union{Nothing, AbstractVector}
-    A_x::Union{Nothing, SparseInterpolator}
-    A_y::Union{Nothing, SparseInterpolator}
+    interp_x::Union{Nothing, SparseInterpolator}
+    interp_y::Union{Nothing, SparseInterpolator}
     function Workarray_s(plan::SPECTplan)
             # allocate working buffers for each thread:
             # padimg is used in convolution with psfs
@@ -157,11 +157,11 @@ struct Workarray_s
                 vec_rotate_x = zeros(plan.T, plan.nx + 2 * plan.pad_rotate_x)
                 vec_rotate_y = zeros(plan.T, plan.ny + 2 * plan.pad_rotate_y)
 
-                A_x = SparseInterpolator(LinearSpline(plan.T), vec_rotate_x, length(vec_rotate_x))
-                A_y = SparseInterpolator(LinearSpline(plan.T), vec_rotate_y, length(vec_rotate_y))
+                interp_x = SparseInterpolator(LinearSpline(plan.T), vec_rotate_x, length(vec_rotate_x))
+                interp_y = SparseInterpolator(LinearSpline(plan.T), vec_rotate_y, length(vec_rotate_y))
                 new(padimg, img_compl, ker_compl,
                     pad_imgr, pad_imgr_tmp, exp_mumapr,
-                    vec_rotate_x, vec_rotate_y, A_x, A_y)
+                    vec_rotate_x, vec_rotate_y, interp_x, interp_y)
             else
                 new(padimg, img_compl, ker_compl,
                     pad_imgr, pad_imgr_tmp, exp_mumapr,
@@ -237,8 +237,8 @@ function project!(
                                     workarray[thid].pad_imgr_tmp,
                                     (@view image[:, :, z]),
                                     plan.viewangle[viewidx],
-                                    workarray[thid].A_x,
-                                    workarray[thid].A_y,
+                                    workarray[thid].interp_x,
+                                    workarray[thid].interp_y,
                                     workarray[thid].vec_rotate_x,
                                     workarray[thid].vec_rotate_y))
 
@@ -248,8 +248,8 @@ function project!(
                                     workarray[thid].pad_imgr_tmp,
                                     (@view plan.mumap[:, :, z]),
                                     plan.viewangle[viewidx],
-                                    workarray[thid].A_x,
-                                    workarray[thid].A_y,
+                                    workarray[thid].interp_x,
+                                    workarray[thid].interp_y,
                                     workarray[thid].vec_rotate_x,
                                     workarray[thid].vec_rotate_y))
         else
@@ -274,14 +274,18 @@ function project!(
     Threads.@threads for y = 1:plan.ny
         thid = Threads.threadid()
         # account for half of the final slice thickness
-        workarray[thid].exp_mumapr .= -0.5 .* (@view plan.mumapr[:, y, :])
+        workarray[thid].exp_mumapr .= (@view plan.mumapr[:, y, :])
+        broadcast!(*, workarray[thid].exp_mumapr, workarray[thid].exp_mumapr, -0.5)
         for j = 1:y
-            workarray[thid].exp_mumapr .+= (@view plan.mumapr[:, j, :])
+            broadcast!(+, workarray[thid].exp_mumapr, workarray[thid].exp_mumapr, (@view plan.mumapr[:, j, :]))
+            # workarray[thid].exp_mumapr .+= (@view plan.mumapr[:, j, :])
         end
-        workarray[thid].exp_mumapr .*= - plan.dy
+        broadcast!(*, workarray[thid].exp_mumapr, workarray[thid].exp_mumapr, - plan.dy)
+        # workarray[thid].exp_mumapr .*= - plan.dy
         workarray[thid].exp_mumapr .= exp.(workarray[thid].exp_mumapr)
         # apply depth-dependent attenuation
-        (@view plan.imgr[:, y, :]) .*= workarray[thid].exp_mumapr
+        broadcast!(*, (@view plan.imgr[:, y, :]), (@view plan.imgr[:, y, :]), workarray[thid].exp_mumapr)
+        # (@view plan.imgr[:, y, :]) .*= workarray[thid].exp_mumapr
 
         # convolve img with psf and add up to view
         view .+= my_conv!(workarray[thid].padimg,
@@ -371,8 +375,8 @@ function backproject!(
                                     workarray[thid].pad_imgr_tmp,
                                     (@view plan.mumap[:, :, z]),
                                     plan.viewangle[viewidx],
-                                    workarray[thid].A_x,
-                                    workarray[thid].A_y,
+                                    workarray[thid].interp_x,
+                                    workarray[thid].interp_y,
                                     workarray[thid].vec_rotate_x,
                                     workarray[thid].vec_rotate_y))
         else
@@ -390,12 +394,15 @@ function backproject!(
         # get thread id
         thid = Threads.threadid()
         # account for half of the final slice thickness
-        workarray[thid].exp_mumapr .= -0.5 .* (@view plan.mumapr[:, y, :])
+        workarray[thid].exp_mumapr .= (@view plan.mumapr[:, y, :])
+        broadcast!(*, workarray[thid].exp_mumapr, workarray[thid].exp_mumapr, -0.5)
 
         for j = 1:y
-            workarray[thid].exp_mumapr .+= (@view plan.mumapr[:, j, :])
+            broadcast!(+, workarray[thid].exp_mumapr, workarray[thid].exp_mumapr, (@view plan.mumapr[:, j, :]))
+            # workarray[thid].exp_mumapr .+= (@view plan.mumapr[:, j, :])
         end
-        workarray[thid].exp_mumapr .*= - plan.dy
+        broadcast!(*, workarray[thid].exp_mumapr, workarray[thid].exp_mumapr, - plan.dy)
+        # workarray[thid].exp_mumapr .*= - plan.dy
         workarray[thid].exp_mumapr .= exp.(workarray[thid].exp_mumapr)
 
         # my_conv_adj!(view,
@@ -409,8 +416,8 @@ function backproject!(
                              workarray[thid].img_compl,
                              workarray[thid].ker_compl,
                              plan))
-
-        (@view plan.imgr[:, y, :]) .*= workarray[thid].exp_mumapr
+        broadcast!(*, (@view plan.imgr[:, y, :]), (@view plan.imgr[:, y, :]), workarray[thid].exp_mumapr)
+        # (@view plan.imgr[:, y, :]) .*= workarray[thid].exp_mumapr
 
 
     end
@@ -425,8 +432,8 @@ function backproject!(
                                     workarray[thid].pad_imgr_tmp,
                                     (@view plan.imgr[:, :, z]),
                                     plan.viewangle[viewidx],
-                                    workarray[thid].A_x,
-                                    workarray[thid].A_y,
+                                    workarray[thid].interp_x,
+                                    workarray[thid].interp_y,
                                     workarray[thid].vec_rotate_x,
                                     workarray[thid].vec_rotate_y))
         else
