@@ -1,64 +1,79 @@
-using Main.SPECTrecon:imrotate3!, imrotate3_adj!
+using Main.SPECTrecon: imrotate3!, imrotate3_adj!
 using Test: @test, @testset, @test_throws, @inferred
-using OffsetArrays
-using ImageFiltering
 using LazyAlgebra
 using InterpolationKernels
 using LinearInterpolators
 using BenchmarkTools
+using Plots:plot
+using MIRTjim:jim
 @testset "imrotate3" begin
+    θ_list = rand(100) * 2π
     M = 16
     N = 16
+    T = Float32
     pad_x = ceil(Int, 1 + M * sqrt(2)/2 - M / 2)
     pad_y = ceil(Int, 1 + N * sqrt(2)/2 - N / 2)
-    vec_x = zeros(Float32, M + 2 * pad_x)
-    vec_y = zeros(Float32, N + 2 * pad_y)
-    A_x = SparseInterpolator(LinearSpline(Float32), vec_x, length(vec_x))
-    A_y = SparseInterpolator(LinearSpline(Float32), vec_y, length(vec_y))
-    x = randn(Float32, M, N)
-    y = randn(Float32, M, N)
-    output_x = OffsetArrays.no_offset_view(padarray(x, Fill(0, (pad_x, pad_y))))
-    output_y = OffsetArrays.no_offset_view(padarray(y, Fill(0, (pad_x, pad_y))))
-    tmp_x = similar(output_x)
-    tmp_y = similar(output_y)
-    θ_list = [0, π/7, 3π/7, 5π/7, π, 9π/7, 11π/7, 13π/7, π/2, 3π/2, π/4, 3π/4, 5π/4, 7π/4, 2π]
+    workvec_x = zeros(T, M + 2 * pad_x)
+    workvec_y = zeros(T, N + 2 * pad_y)
+    A_x = SparseInterpolator(LinearSpline(T), workvec_x, length(workvec_x))
+    A_y = SparseInterpolator(LinearSpline(T), workvec_y, length(workvec_y))
+    x = randn(T, M, N)
+    y = randn(T, M, N)
+    output_x = zeros(T, M, N)
+    output_y = zeros(T, M, N)
+    workmat2_x = zeros(T, M + 2 * pad_x, N + 2 * pad_y)
+    workmat2_y = zeros(T, M + 2 * pad_x, N + 2 * pad_y)
+    workmat1_x = zeros(T, M + 2 * pad_x, N + 2 * pad_y)
+    workmat1_y = zeros(T, M + 2 * pad_x, N + 2 * pad_y)
     for θ in θ_list
-        @test isapprox(vdot(y, imrotate3!(output_x, tmp_x, x, θ, A_x, A_y, vec_x, vec_y)),
-                    vdot(x, imrotate3_adj!(output_y, tmp_y, y, θ, A_x, A_y, vec_x, vec_y)))
-        @test isapprox(vdot(y, imrotate3!(output_x, tmp_x, x, θ)),
-                    vdot(x, imrotate3_adj!(output_y, tmp_y, y, θ)))
+        Main.SPECTrecon.imrotate3!(output_x, workmat1_x, workmat2_x, x, θ, A_x, A_y, workvec_x, workvec_y)
+        Main.SPECTrecon.imrotate3_adj!(output_y, workmat1_y, workmat2_y, y, θ, A_x, A_y, workvec_x, workvec_y)
+        @test isapprox(vdot(y, output_x), vdot(x, output_y))
     end
 end
 
+@testset "imrotate3" begin
+    θ_list = rand(100) * 2π
+    M = 16
+    N = 16
+    T = Float32
+    pad_x = ceil(Int, 1 + M * sqrt(2)/2 - M / 2)
+    pad_y = ceil(Int, 1 + N * sqrt(2)/2 - N / 2)
+    x = randn(T, M, N)
+    y = randn(T, M, N)
+    output_x = similar(x)
+    output_y = similar(y)
+    workmat2_x = zeros(T, M + 2 * pad_x, N + 2 * pad_y)
+    workmat2_y = zeros(T, M + 2 * pad_x, N + 2 * pad_y)
+    workmat1_x = zeros(T, M + 2 * pad_x, N + 2 * pad_y)
+    workmat1_y = zeros(T, M + 2 * pad_x, N + 2 * pad_y)
+    for θ in θ_list
+        Main.SPECTrecon.imrotate3!(output_x, workmat1_x, workmat2_x, x, θ)
+        Main.SPECTrecon.imrotate3_adj!(output_y, workmat1_y, workmat2_y, y, θ)
+        @test isapprox(vdot(y, output_x), vdot(x, output_y))
+    end
+end
+
+# visualization
 M = 16
 N = 16
+T = Float32
 pad_x = ceil(Int, 1 + M * sqrt(2)/2 - M / 2)
 pad_y = ceil(Int, 1 + N * sqrt(2)/2 - N / 2)
-xi = 1 : M + 2 * pad_x
-yi = 1 : N + 2 * pad_y
-vec_x = zeros(Float32, M + 2 * pad_x)
-vec_y = zeros(Float32, N + 2 * pad_y)
-A_x = SparseInterpolator(LinearSpline(Float32), vec_x, length(vec_x))
-A_y = SparseInterpolator(LinearSpline(Float32), vec_y, length(vec_y))
-x = randn(Float32, M, N)
-y = randn(Float32, M, N)
-c_x = (length(xi)+1)/2
-c_y = (length(yi)+1)/2
-output_x = OffsetArrays.no_offset_view(padarray(x, Fill(0, (pad_x, pad_y))))
-output_y = OffsetArrays.no_offset_view(padarray(y, Fill(0, (pad_x, pad_y))))
-tmp_x = similar(output_x)
-tmp_y = similar(output_y)
-θ_list = [π/7, 3π/7, 5π/7, π, 9π/7, 11π/7, 13π/7]
-@btime imrotate3!(output_x, tmp_x, x, θ_list[1], M, N, pad_x, pad_y, A_x, A_y, vec_x, vec_y)
-@btime imrotate3!(output_x, tmp_x, x, θ_list[1], M, N, pad_x, pad_y)
-@btime imrotate3_adj!(output_x, tmp_x, x, θ_list[1], M, N, pad_x, pad_y)
-@btime imrotate3_adj!(output_x, tmp_x, x, θ_list[1], M, N, pad_x, pad_y, A_x, A_y, vec_x, vec_y)
-# A_x = SparseInterpolator(LinearSpline(Float32), vec_x, length(xi))
-# A_y = SparseInterpolator(LinearSpline(Float32), vec_y, length(yi))
-# imrotate3!(output_x, tmp_x, x, θ_list[2], M, N, pad_x,
-#                 pad_y, A_x, A_y, vec_x, vec_y)
-# imrotate3emmt!(output_y, tmp_y, x, θ_list[2], M, N, pad_x, pad_y)
-#
-#
-@btime rotate_x_adj!(output_x, tmp_x, θ_list[1], xi, yi, A_x, vec_x, c_y)
-# rotate_x_adj!(output_y, tmp_x, -θ_list[1], xi, yi, vec_x)
+workvec_x = zeros(T, M + 2 * pad_x)
+workvec_y = zeros(T, N + 2 * pad_y)
+A_x = SparseInterpolator(LinearSpline(T), workvec_x, length(workvec_x))
+A_y = SparseInterpolator(LinearSpline(T), workvec_y, length(workvec_y))
+img = zeros(T, M, N)
+img[4:13, 5:12] .= 1
+output_1d = zeros(T, M, N)
+workmat1_1d = zeros(T, M + 2 * pad_x, N + 2 * pad_y)
+workmat2_1d = zeros(T, M + 2 * pad_x, N + 2 * pad_y)
+output_2d = zeros(T, M, N)
+workmat1_2d = zeros(T, M + 2 * pad_x, N + 2 * pad_y)
+workmat2_2d = zeros(T, M + 2 * pad_x, N + 2 * pad_y)
+θ = -π/4
+imrotate3!(output_1d, workmat1_1d, workmat2_1d, img, θ, A_x, A_y, workvec_x, workvec_y)
+Main.SPECTrecon.imrotate3!(output_2d, workmat1_2d, workmat2_2d, img, θ)
+plot(jim(img, "img"), jim(output_1d, "1d"), jim(output_2d, "2d"),
+    jim(output_2d - output_1d, "diff"))
