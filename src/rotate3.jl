@@ -1,7 +1,4 @@
 # rotate3.jl
-# todo: RotatePlan, use permutedims!, simplify Threads.@threads
-# set of thetas, workspace, choice of rotation method (3 pass and emmt)
-# I deleted imrotate3jl because it cannot pass the adjoint test
 """
     assign_interp!(A, x)
     assign key values in SparseInterpolator A that are calculated from x
@@ -31,88 +28,131 @@ function assign_interp!(A::SparseInterpolator,
             end
         end
 end
-
+# Test code:
+# x = rand(100)
+# interp_x = SparseInterpolator(LinearSpline(Float32), x, length(x))
+# @btime assign_interp!(interp_x, x) 494.062 ns (0 allocations: 0 bytes)
 """
-    rotate_x!(output, img, tan_θ, xi, yi, interp, tmp_x, c_y)
-    Rotate an image along x axis in clockwise direction using 1d linear interpolation,
-    storing results in `output`
+    rotate_x!(output, img, tan_θ, xi, yi, interp, workvec, c_y)
+    Rotate a 2D image along x axis in clockwise direction using 1d linear interpolation,
+    storing results in `output`.
+    xi and yi must be in increasing order.
 """
-function rotate_x!(output::AbstractMatrix,
-                   img::AbstractMatrix,
+function rotate_x!(output::AbstractMatrix{<:Real},
+                   img::AbstractMatrix{<:Real},
                    tan_θ::Real,
-                   xi::AbstractVector,
-                   yi::AbstractVector,
+                   xi::AbstractVector{<:Real},
+                   yi::AbstractVector{<:Real},
                    interp::SparseInterpolator,
-                   tmp_x::AbstractVector,
+                   workvec::AbstractVector{<:Real},
                    c_y::Real)
-    # rotate_x(xin, yin) = xin + (yin - c_y) * tan_θ
+
     for i = 1:length(yi)
-        # note for future refinement: the rotate_x. step is allocating
-        # tmp_x .= rotate_x.(xi, yin, θ)
-        tmp_x .= yi[i]
-        broadcast!(-, tmp_x, tmp_x, c_y)
-        broadcast!(*, tmp_x, tmp_x, tan_θ)
-        broadcast!(+, tmp_x, tmp_x, xi)
-        assign_interp!(interp, tmp_x)
+        workvec .= yi[i]
+        broadcast!(-, workvec, workvec, c_y)
+        broadcast!(*, workvec, workvec, tan_θ)
+        broadcast!(+, workvec, workvec, xi)
+        assign_interp!(interp, workvec)
         mul!((@view output[:, i]), interp, (@view img[:, i])) # need mul! to avoid allocating
     end
-    return output
 end
 
+# Test code:
+# N = 100 # assume M = N
+# T = Float32
+# img = rand(T, N, N)
+# output = rand(T, N, N)
+# θ = T(3*π/11)
+# xi = T.(1:N)
+# yi = T.(1:N)
+# interp_x = SparseInterpolator(LinearSpline(T), xi, length(xi))
+# workvec = rand(T, N)
+# c_y = 1
+# @btime rotate_x!(output, img, θ, xi, yi, interp_x, workvec, c_y)
+# 77.516 μs (0 allocations: 0 bytes)
+
 """
-    rotate_x_adj!(output, img, tan_θ, xi, yi, interp, tmp_x, c_y)
-    The adjoint of rotating an image along x axis in clockwise direction using 1d linear interpolation,
+    rotate_x_adj!(output, img, tan_θ, xi, yi, interp, workvec, c_y)
+    The adjoint of rotating a 2D image along x axis in clockwise direction using 1d linear interpolation,
     storing results in `output`
+    xi and yi must be in increasing order.
 """
-function rotate_x_adj!(output::AbstractMatrix,
-                       img::AbstractMatrix,
+function rotate_x_adj!(output::AbstractMatrix{<:Real},
+                       img::AbstractMatrix{<:Real},
                        tan_θ::Real,
-                       xi::AbstractVector,
-                       yi::AbstractVector,
+                       xi::AbstractVector{<:Real},
+                       yi::AbstractVector{<:Real},
                        interp::SparseInterpolator,
-                       tmp_x::AbstractVector,
+                       workvec::AbstractVector{<:Real},
                        c_y::Real)
-    # rotate_x(xin, yin, θ) = xin + (yin - (length(yi)+1)/2) * tan(θ/2)
+
     for i = 1:length(yi)
-        tmp_x .= yi[i]
-        broadcast!(-, tmp_x, tmp_x, c_y)
-        broadcast!(*, tmp_x, tmp_x, tan_θ)
-        broadcast!(+, tmp_x, tmp_x, xi)
-        assign_interp!(interp, tmp_x)
+        workvec .= yi[i]
+        broadcast!(-, workvec, workvec, c_y)
+        broadcast!(*, workvec, workvec, tan_θ)
+        broadcast!(+, workvec, workvec, xi)
+        assign_interp!(interp, workvec)
         mul!((@view output[:, i]), interp', (@view img[:, i]))
     end
-    return output
 end
 
+# Test code:
+# N = 100 # assume M = N
+# T = Float32
+# img = rand(T, N, N)
+# output = rand(T, N, N)
+# θ = T(3*π/11)
+# xi = T.(1:N)
+# yi = T.(1:N)
+# interp_x = SparseInterpolator(LinearSpline(T), xi, length(xi))
+# workvec = rand(T, N)
+# c_y = 1
+# @btime rotate_x_adj!(output, img, θ, xi, yi, interp_x, workvec, c_y)
+# 95.998 μs (0 allocations: 0 bytes)
+
+
 """
-    rotate_y!(output, img, sin_θ, xi, yi, interp, tmp_y, c_x)
-    Rotate an image along y axis in clockwise direction using 1d linear interpolation,
+    rotate_y!(output, img, sin_θ, xi, yi, interp, workvec, c_x)
+    Rotate a 2D image along y axis in clockwise direction using 1d linear interpolation,
     storing results in `output`
+    xi and yi must be in increasing order.
 """
-function rotate_y!(output::AbstractMatrix,
-                   img::AbstractMatrix,
+function rotate_y!(output::AbstractMatrix{<:Real},
+                   img::AbstractMatrix{<:Real},
                    sin_θ::Real,
-                   xi::AbstractVector,
-                   yi::AbstractVector,
+                   xi::AbstractVector{<:Real},
+                   yi::AbstractVector{<:Real},
                    interp::SparseInterpolator,
-                   tmp_y::AbstractVector,
+                   workvec::AbstractVector{<:Real},
                    c_x::Real)
-    # rotate_y(xin, yin, θ) = (xin - (length(xi)+1)/2) * (-sin(θ)) + yin
+
     for i = 1:length(xi)
-        # tmp_y .= rotate_y.(xin, yi, θ)
-        tmp_y .= xi[i]
-        broadcast!(-, tmp_y, tmp_y, c_x)
-        broadcast!(*, tmp_y, tmp_y, sin_θ)
-        broadcast!(+, tmp_y, tmp_y, yi)
-        assign_interp!(interp, tmp_y)
+        workvec .= xi[i]
+        broadcast!(-, workvec, workvec, c_x)
+        broadcast!(*, workvec, workvec, sin_θ)
+        broadcast!(+, workvec, workvec, yi)
+        assign_interp!(interp, workvec)
         mul!((@view output[i, :]), interp, (@view img[i, :]))
     end
-    return output
 end
 
+# Test code:
+# N = 100 # assume M = N
+# T = Float32
+# img = rand(T, N, N)
+# output = rand(T, N, N)
+# θ = T(3*π/11)
+# xi = T.(1:N)
+# yi = T.(1:N)
+# interp_x = SparseInterpolator(LinearSpline(T), xi, length(xi))
+# workvec = rand(T, N)
+# c_x = 1
+# @btime rotate_y!(output, img, θ, xi, yi, interp_x, workvec, c_x)
+# 76.306 μs (0 allocations: 0 bytes)
+
 """
-    rotate_y_adj!(output, img, sin_θ, xi, yi, interp, tmp_y, c_x)
-    The adjoint of rotating an image along y axis in clockwise direction using 1d linear interpolation,
+    rotate_y_adj!(output, img, sin_θ, xi, yi, interp, workvec, c_x)
+    The adjoint of rotating a 2D image along y axis in clockwise direction using 1d linear interpolation,
     storing results in `output`
 """
 function rotate_y_adj!(output::AbstractMatrix,
@@ -121,76 +161,108 @@ function rotate_y_adj!(output::AbstractMatrix,
                        xi::AbstractVector,
                        yi::AbstractVector,
                        interp::SparseInterpolator,
-                       tmp_y::AbstractVector,
+                       workvec::AbstractVector,
                        c_x::Real)
-    # rotate_y(xin, yin, θ) = (xin - (length(xi)+1)/2) * (-sin(θ)) + yin
+
     for i = 1:length(xi)
-        # tmp_y .= rotate_y.(xin, yi, θ)
-        tmp_y .= xi[i]
-        broadcast!(-, tmp_y, tmp_y, c_x)
-        broadcast!(*, tmp_y, tmp_y, sin_θ)
-        broadcast!(+, tmp_y, tmp_y, yi)
-        assign_interp!(interp, tmp_y)
+        workvec .= xi[i]
+        broadcast!(-, workvec, workvec, c_x)
+        broadcast!(*, workvec, workvec, sin_θ)
+        broadcast!(+, workvec, workvec, yi)
+        assign_interp!(interp, workvec)
         mul!((@view output[i, :]), interp', (@view img[i, :]))
     end
-    return output
 end
+
+# Test code:
+# N = 100 # assume M = N
+# T = Float32
+# img = rand(T, N, N)
+# output = rand(T, N, N)
+# θ = T(3*π/11)
+# xi = T.(1:N)
+# yi = T.(1:N)
+# interp_x = SparseInterpolator(LinearSpline(T), xi, length(xi))
+# workvec = rand(T, N)
+# c_x = 1
+# @btime rotate_y_adj!(output, img, θ, xi, yi, interp_x, workvec, c_x)
+# 95.403 μs (0 allocations: 0 bytes)
 
 """
     rotl90!(B::AbstractMatrix, A::AbstractMatrix)
     In place version of `rotl90`, returning rotation of `A` in `B`.
 """
-function rotl90!(B::AbstractMatrix, A::AbstractMatrix)
+function rotl90!(B::AbstractMatrix{<:Real},
+                 A::AbstractMatrix{<:Real})
     ind1, ind2 = axes(A)
     n = first(ind2) + last(ind2)
     for i = axes(A, 1), j = ind2
         B[n - j, i] = A[i, j]
     end
-    return B
 end
+
+# Test code:
+# N = 100
+# A = rand(T, N, N)
+# B = rand(T, N, N)
+# @btime rotl90!(B, A)
+# 4.013 μs (0 allocations: 0 bytes)
 
 """
     rotr90!(B::AbstractMatrix, A::AbstractMatrix)
     In place version of `rotr90`, returning rotation of `A` in `B`.
 """
-function rotr90!(B::AbstractMatrix, A::AbstractMatrix)
+function rotr90!(B::AbstractMatrix{<:Real},
+                 A::AbstractMatrix{<:Real})
     ind1, ind2 = axes(A)
     m = first(ind1) + last(ind1)
     for i = ind1, j = axes(A, 2)
         B[j, m - i] = A[i, j]
     end
-    return B
 end
+
+# Test code:
+# N = 100
+# A = rand(T, N, N)
+# B = rand(T, N, N)
+# @btime rotr90!(B, A)
+# 4.107 μs (0 allocations: 0 bytes)
 
 """
     rot180!(B::AbstractMatrix, A::AbstractMatrix)
     In place version of `rot180`, returning rotation of `A` in `B`.
 """
-function rot180!(B::AbstractMatrix, A::AbstractMatrix)
+function rot180!(B::AbstractMatrix{<:Real},
+                 A::AbstractMatrix{<:Real})
     ind1, ind2 = axes(A,1), axes(A,2)
     m, n = first(ind1)+last(ind1), first(ind2)+last(ind2)
     for j=ind2, i=ind1
-        B[m-i,n-j] = A[i,j]
+        B[m-i,n-j] = A[i, j]
     end
-    return B
 end
+
+# Test code:
+# N = 100
+# A = rand(T, N, N)
+# B = rand(T, N, N)
+# @btime rot180!(B, A)
+# 4.205 μs (0 allocations: 0 bytes)
 
 """
     rot_f90!(output, img, m)
     Inplace version of rotating an image by 90/180/270 degrees
 """
-function rot_f90!(output::AbstractMatrix,
-                  img::AbstractMatrix,
+function rot_f90!(output::AbstractMatrix{<:Real},
+                  img::AbstractMatrix{<:Real},
                   m::Int)
     if m == 0
         output .= img
-        return output
     elseif m == 1
-        return rotl90!(output, img)
+        rotl90!(output, img)
     elseif m == 2
-        return rot180!(output, img)
+        rot180!(output, img)
     elseif m == 3
-        return rotr90!(output, img)
+        rotr90!(output, img)
     else
         throw("invalid m!")
     end
@@ -200,86 +272,109 @@ end
     rot_f90_adj!(output, img, m)
     The adjoint of rotating an image by 90/180/270 degrees
 """
-function rot_f90_adj!(output::AbstractMatrix,
-                      img::AbstractMatrix,
+function rot_f90_adj!(output::AbstractMatrix{<:Real},
+                      img::AbstractMatrix{<:Real},
                       m::Int)
     if m == 0
         output .= img
-        return output
     elseif m == 1
-        return rotr90!(output, img)
+        rotr90!(output, img)
     elseif m == 2
-        return rot180!(output, img)
+        rot180!(output, img)
     elseif m == 3
-        return rotl90!(output, img)
+        rotl90!(output, img)
     else
         throw("invalid m!")
     end
 end
 """
-    imrotate3!(output, tmp, img, θ, interp_x, interp_y, tmp_x, tmp_y)
+    imrotate3!(output, workmat1, workmat2, img, θ, interp_x, interp_y, workvec_x, workvec_y)
     Rotate an image by angle θ (must be ranging from 0 to 2π) in clockwise direction
     using a series of 1d linear interpolation
 """
-function imrotate3!(output::AbstractMatrix,
-                    tmp::AbstractMatrix,
-                    img::AbstractMatrix,
+function imrotate3!(output::AbstractMatrix{<:Real},
+                    workmat1::AbstractMatrix{<:Real},
+                    workmat2::AbstractMatrix{<:Real},
+                    img::AbstractMatrix{<:Real},
                     θ::Real,
                     interp_x::SparseInterpolator,
                     interp_y::SparseInterpolator,
-                    tmp_x::AbstractVector,
-                    tmp_y::AbstractVector)
+                    workvec_x::AbstractVector{<:Real},
+                    workvec_y::AbstractVector{<:Real})
 
     if mod(θ, 2π) ≈ 0
-        return img
+        output .= img
     end
     m = mod(floor(Int, 0.5 + θ/(π/2)), 4)
-    (M, N) = size(img)
-    pad_x = Int((size(output, 1) - M) / 2)
-    pad_y = Int((size(output, 2) - N) / 2)
+    M = size(img, 1)
+    N = size(img, 2)
+    pad_x = Int((size(workmat1, 1) - M) / 2)
+    pad_y = Int((size(workmat1, 2) - N) / 2)
     if θ ≈ m * (π/2)
-        tmp .= OffsetArrays.no_offset_view(BorderArray(img, Fill(0, (pad_x, pad_y))))
-        rot_f90!(output, tmp, m)
+        padzero!(workmat2, img, pad_x, pad_y)
+        # tmp .= OffsetArrays.no_offset_view(BorderArray(img, Fill(0, (pad_x, pad_y))))
+        rot_f90!(workmat1, workmat2, m)
     else
         mod_theta = θ - m * (π/2) # make sure it is between -45 and 45 degree
         tan_mod_theta = tan(mod_theta / 2)
         sin_mod_theta = - sin(mod_theta)
         xi = 1 : M + 2 * pad_x
         yi = 1 : N + 2 * pad_y
-        c_x = (length(xi)+1)/2
-        c_y = (length(yi)+1)/2
-        output .= OffsetArrays.no_offset_view(BorderArray(img, Fill(0, (pad_x, pad_y))))
-        rot_f90!(tmp, output, m)
-        rotate_x!(output, tmp, tan_mod_theta, xi, yi, interp_x, tmp_x, c_y)
-        rotate_y!(tmp, output, sin_mod_theta, xi, yi, interp_y, tmp_y, c_x)
-        rotate_x!(output, tmp, tan_mod_theta, xi, yi, interp_x, tmp_x, c_y)
+        c_x = (length(xi)+1)/2 # center of xi
+        c_y = (length(yi)+1)/2 # center of yi
+        padzero!(workmat1, img, pad_x, pad_y)
+        # output .= OffsetArrays.no_offset_view(BorderArray(img, Fill(0, (pad_x, pad_y))))
+        rot_f90!(workmat2, workmat1, m)
+        rotate_x!(workmat1, workmat2, tan_mod_theta, xi, yi, interp_x, workvec_x, c_y)
+        rotate_y!(workmat2, workmat1, sin_mod_theta, xi, yi, interp_y, workvec_y, c_x)
+        rotate_x!(workmat1, workmat2, tan_mod_theta, xi, yi, interp_x, workvec_x, c_y)
     end
-    return @view output[pad_x + 1 : pad_x + M, pad_y + 1 : pad_y + N]
+    output .= (@view workmat1[pad_x + 1 : pad_x + M, pad_y + 1 : pad_y + N])
 end
 
+# Test code:
+# M = 100
+# N = 100
+# pad_x = ceil(Int, 1 + M * sqrt(2)/2 - M / 2)
+# pad_y = ceil(Int, 1 + N * sqrt(2)/2 - N / 2)
+# workvec_x = zeros(Float32, M + 2 * pad_x)
+# workvec_y = zeros(Float32, N + 2 * pad_y)
+# A_x = SparseInterpolator(LinearSpline(Float32), workvec_x, length(workvec_x))
+# A_y = SparseInterpolator(LinearSpline(Float32), workvec_y, length(workvec_y))
+# img = randn(Float32, M, N)
+# output = similar(img)
+# workmat1 = OffsetArrays.no_offset_view(padarray(img, Fill(0, (pad_x, pad_y))))
+# workmat2 = similar(workmat1)
+# θ = 3*π/11
+# @btime imrotate3!(output, workmat1, workmat2, img, θ, A_x, A_y, workvec_x, workvec_y)
+# 553.325 μs (0 allocations: 0 bytes)
+
+
 """
-    imrotate3_adj!(output, tmp, img, θ, interp_x, interp_y, tmp_x, tmp_y)
+    imrotate3_adj!(output, workmat1, workmat2, img, θ, interp_x, interp_y, workvec_x, workvec_y)
     The adjoint of rotating an image by angle θ (must be ranging from 0 to 2π) in clockwise direction
     using a series of 1d linear interpolation
 """
-function imrotate3_adj!(output::AbstractMatrix,
-                        tmp::AbstractMatrix,
-                        img::AbstractMatrix,
+function imrotate3_adj!(output::AbstractMatrix{<:Real},
+                        workmat1::AbstractMatrix{<:Real},
+                        workmat2::AbstractMatrix{<:Real},
+                        img::AbstractMatrix{<:Real},
                         θ::Real,
                         interp_x::SparseInterpolator,
                         interp_y::SparseInterpolator,
-                        tmp_x::AbstractVector,
-                        tmp_y::AbstractVector)
+                        workvec_x::AbstractVector{<:Real},
+                        workvec_y::AbstractVector{<:Real})
     if mod(θ, 2π) ≈ 0
-        return img
+        output .= img
     end
     m = mod(floor(Int, 0.5 + θ/(π/2)), 4)
     (M, N) = size(img)
-    pad_x = Int((size(output, 1) - M) / 2)
-    pad_y = Int((size(output, 2) - N) / 2)
+    pad_x = Int((size(workmat1, 1) - M) / 2)
+    pad_y = Int((size(workmat1, 2) - N) / 2)
     if θ ≈ m * (π/2)
-        tmp .= OffsetArrays.no_offset_view(BorderArray(img, Fill(0, (pad_x, pad_y))))
-        rot_f90_adj!(output, tmp, m)
+        padzero!(workmat2, img, pad_x, pad_y)
+        # tmp .= OffsetArrays.no_offset_view(BorderArray(img, Fill(0, (pad_x, pad_y))))
+        rot_f90_adj!(workmat1, workmat2, m)
     else
         mod_theta = θ - m * (π/2) # make sure it is between -45 and 45 degree
         tan_mod_theta = tan(mod_theta / 2)
@@ -288,68 +383,116 @@ function imrotate3_adj!(output::AbstractMatrix,
         yi = 1 : N + 2 * pad_y
         c_x = (length(xi)+1)/2
         c_y = (length(yi)+1)/2
-        output .= OffsetArrays.no_offset_view(BorderArray(img, Fill(0, (pad_x, pad_y))))
-        rotate_x_adj!(tmp, output, tan_mod_theta, xi, yi, interp_x, tmp_x, c_y)
-        rotate_y_adj!(output, tmp, sin_mod_theta, xi, yi, interp_y, tmp_y, c_x)
-        rotate_x_adj!(tmp, output, tan_mod_theta, xi, yi, interp_x, tmp_x, c_y)
-        rot_f90_adj!(output, tmp, m) # must be two different arguments
+        padzero!(workmat1, img, pad_x, pad_y)
+        # output .= OffsetArrays.no_offset_view(BorderArray(img, Fill(0, (pad_x, pad_y))))
+        rotate_x_adj!(workmat2, workmat1, tan_mod_theta, xi, yi, interp_x, workvec_x, c_y)
+        rotate_y_adj!(workmat1, workmat2, sin_mod_theta, xi, yi, interp_y, workvec_y, c_x)
+        rotate_x_adj!(workmat2, workmat1, tan_mod_theta, xi, yi, interp_x, workvec_x, c_y)
+        rot_f90_adj!(workmat1, workmat2, m) # must be two different arguments
     end
-    return @view output[pad_x + 1 : pad_x + M, pad_y + 1 : pad_y + N]
+    output .= (@view workmat1[pad_x + 1 : pad_x + M, pad_y + 1 : pad_y + N])
 end
 
+# Test code:
+# M = 100
+# N = 100
+# pad_x = ceil(Int, 1 + M * sqrt(2)/2 - M / 2)
+# pad_y = ceil(Int, 1 + N * sqrt(2)/2 - N / 2)
+# workvec_x = zeros(Float32, M + 2 * pad_x)
+# workvec_y = zeros(Float32, N + 2 * pad_y)
+# A_x = SparseInterpolator(LinearSpline(Float32), workvec_x, length(workvec_x))
+# A_y = SparseInterpolator(LinearSpline(Float32), workvec_y, length(workvec_y))
+# img = randn(Float32, M, N)
+# output = similar(img)
+# workmat1 = OffsetArrays.no_offset_view(padarray(img, Fill(0, (pad_x, pad_y))))
+# workmat2 = similar(workmat1)
+# θ = 3π/11
+# @btime imrotate3_adj!(output, workmat1, workmat2, img, θ, A_x, A_y, workvec_x, workvec_y)
+# 572.407 μs (0 allocations: 0 bytes)
 
 """
-    imrotate3!(output, tmp, img, θ)
+    imrotate3!(output, workmat1, workmat2, img, θ)
     Rotate an image by angle θ in clockwise direction using 2d linear interpolation
     Source code is here: https://github.com/emmt/LinearInterpolators.jl
 """
-function imrotate3!(output::AbstractMatrix,
-                    tmp::AbstractMatrix,
-                    img::AbstractMatrix,
+function imrotate3!(output::AbstractMatrix{<:Real},
+                    workmat1::AbstractMatrix{<:Real},
+                    workmat2::AbstractMatrix{<:Real},
+                    img::AbstractMatrix{<:Real},
                     θ::Real)
     if mod(θ, 2π) ≈ 0
-        return img
+        output .= img
     else
         (M, N) = size(img)
-        pad_x = Int((size(output, 1) - M) / 2)
-        pad_y = Int((size(output, 2) - N) / 2)
-        ker = LinearSpline(Float32)
-        (M_pad, N_pad) = size(output)
-        rows = (M_pad, N_pad)
-        cols = (M_pad, N_pad)
-        c = ((1 + M_pad) / 2, (1 + N_pad) / 2)
-        R = c + rotate(2π - θ, AffineTransform2D{Float32}() - c)
+        pad_x = Int((size(workmat1, 1) - M) / 2)
+        pad_y = Int((size(workmat1, 2) - N) / 2)
+        T = typeof(img[1, 1])
+        ker = LinearSpline(T)
+        rows = size(workmat2)
+        cols = size(workmat1)
+        c = ((1 + rows[1]) / 2, (1 + rows[2]) / 2)
+        R = c + rotate(2π - θ, AffineTransform2D{T}() - c)
         A = TwoDimensionalTransformInterpolator(rows, cols, ker, R)
-        tmp .= OffsetArrays.no_offset_view(BorderArray(img, Fill(0, (pad_x, pad_y))))
-        mul!(output, A, tmp)
-        return @view output[pad_x + 1 : pad_x + M, pad_y + 1 : pad_y + N]
+        padzero!(workmat1, img, pad_x, pad_y)
+        mul!(workmat2, A, workmat1)
+        # tmp .= OffsetArrays.no_offset_view(BorderArray(img, Fill(0, (pad_x, pad_y))))
+        # mul!(output, A, tmp)
+        output .= (@view workmat2[pad_x + 1 : pad_x + M, pad_y + 1 : pad_y + N])
     end
 end
 
+# Test code:
+# M = 100
+# N = 100
+# pad_x = ceil(Int, 1 + M * sqrt(2)/2 - M / 2)
+# pad_y = ceil(Int, 1 + N * sqrt(2)/2 - N / 2)
+# img = randn(Float32, M, N)
+# output = similar(img)
+# workmat1 = OffsetArrays.no_offset_view(padarray(img, Fill(0, (pad_x, pad_y))))
+# workmat2 = similar(workmat1)
+# θ = 3π/11
+# @btime imrotate3!(output, workmat1, workmat2, img, θ)
+# 182.541 μs (0 allocations: 0 bytes)
+
 """
-    imrotate3_adj!(output, tmp, img, θ)
+    imrotate3_adj!(output, workmat1, workmat2, img, θ)
     The adjoint of rotating an image by angle θ in clockwise direction using 2d linear interpolation
     Source code is here: https://github.com/emmt/LinearInterpolators.jl
 """
-function imrotate3_adj!(output::AbstractMatrix,
-                        tmp::AbstractMatrix,
-                        img::AbstractMatrix,
+function imrotate3_adj!(output::AbstractMatrix{<:Real},
+                        workmat1::AbstractMatrix{<:Real},
+                        workmat2::AbstractMatrix{<:Real},
+                        img::AbstractMatrix{<:Real},
                         θ::Real)
     if mod(θ, 2π) ≈ 0
-        return img
+        output .= img
     else
         (M, N) = size(img)
-        pad_x = Int((size(output, 1) - M) / 2)
-        pad_y = Int((size(output, 2) - N) / 2)
-        ker = LinearSpline(Float32)
-        (M_pad, N_pad) = size(output)
-        rows = (M_pad, N_pad)
-        cols = (M_pad, N_pad)
-        c = ((1 + M_pad) / 2, (1 + N_pad) / 2)
-        R = c + rotate(2π - θ, AffineTransform2D{Float32}() - c)
+        pad_x = Int((size(workmat1, 1) - M) / 2)
+        pad_y = Int((size(workmat1, 2) - N) / 2)
+        T = typeof(img[1, 1])
+        ker = LinearSpline(T)
+        rows = size(workmat2)
+        cols = size(workmat1)
+        c = ((1 + rows[1]) / 2, (1 + rows[2]) / 2)
+        R = c + rotate(2π - θ, AffineTransform2D{T}() - c)
         A = TwoDimensionalTransformInterpolator(rows, cols, ker, R)
-        tmp .= OffsetArrays.no_offset_view(BorderArray(img, Fill(0, (pad_x, pad_y))))
-        mul!(output, A', tmp)
-        return @view output[pad_x + 1 : pad_x + M, pad_y + 1 : pad_y + N]
+        padzero!(workmat1, img, pad_x, pad_y)
+        # tmp .= OffsetArrays.no_offset_view(BorderArray(img, Fill(0, (pad_x, pad_y))))
+        mul!(workmat2, A', workmat1)
+        output .= (@view workmat2[pad_x + 1 : pad_x + M, pad_y + 1 : pad_y + N])
     end
 end
+
+# Test code:
+# M = 100
+# N = 100
+# pad_x = ceil(Int, 1 + M * sqrt(2)/2 - M / 2)
+# pad_y = ceil(Int, 1 + N * sqrt(2)/2 - N / 2)
+# img = randn(Float32, M, N)
+# output = similar(img)
+# workmat1 = OffsetArrays.no_offset_view(padarray(img, Fill(0, (pad_x, pad_y))))
+# workmat2 = similar(workmat1)
+# θ = 3π/11
+# @btime imrotate3_adj!(output, workmat1, workmat2, img, θ)
+# 186.914 μs (0 allocations: 0 bytes)
