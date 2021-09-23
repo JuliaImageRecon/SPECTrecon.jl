@@ -312,7 +312,7 @@ function imrotate3!(output::AbstractMatrix{<:Real},
     pad_x = Int((size(workmat1, 1) - M) / 2)
     pad_y = Int((size(workmat1, 2) - N) / 2)
     if θ ≈ m * (π/2)
-        padzero!(workmat2, img, pad_x, pad_y)
+        padzero!(workmat2, img, (pad_x, pad_x, pad_y, pad_y))
         # workmat1 .= OffsetArrays.no_offset_view(BorderArray(img, Fill(0, (pad_x, pad_y))))
         rot_f90!(workmat1, workmat2, m)
     else
@@ -323,7 +323,7 @@ function imrotate3!(output::AbstractMatrix{<:Real},
         yi = 1 : N + 2 * pad_y
         c_x = (length(xi)+1)/2 # center of xi
         c_y = (length(yi)+1)/2 # center of yi
-        padzero!(workmat1, img, pad_x, pad_y)
+        padzero!(workmat1, img, (pad_x, pad_x, pad_y, pad_y))
         # workmat1 .= OffsetArrays.no_offset_view(BorderArray(img, Fill(0, (pad_x, pad_y))))
         rot_f90!(workmat2, workmat1, m)
         rotate_x!(workmat1, workmat2, tan_mod_theta, xi, yi, interp_x, workvec_x, c_y)
@@ -373,7 +373,7 @@ function imrotate3_adj!(output::AbstractMatrix{<:Real},
     pad_x = Int((size(workmat1, 1) - M) / 2)
     pad_y = Int((size(workmat1, 2) - N) / 2)
     if θ ≈ m * (π/2)
-        padzero!(workmat2, img, pad_x, pad_y)
+        padzero!(workmat2, img, (pad_x, pad_x, pad_y, pad_y))
         rot_f90_adj!(workmat1, workmat2, m)
     else
         mod_theta = θ - m * (π/2) # make sure it is between -45 and 45 degree
@@ -383,7 +383,7 @@ function imrotate3_adj!(output::AbstractMatrix{<:Real},
         yi = 1 : N + 2 * pad_y
         c_x = (length(xi)+1)/2
         c_y = (length(yi)+1)/2
-        padzero!(workmat1, img, pad_x, pad_y)
+        padzero!(workmat1, img, (pad_x, pad_x, pad_y, pad_y))
         rotate_x_adj!(workmat2, workmat1, tan_mod_theta, xi, yi, interp_x, workvec_x, c_y)
         rotate_y_adj!(workmat1, workmat2, sin_mod_theta, xi, yi, interp_y, workvec_y, c_x)
         rotate_x_adj!(workmat2, workmat1, tan_mod_theta, xi, yi, interp_x, workvec_x, c_y)
@@ -432,7 +432,7 @@ function imrotate3!(output::AbstractMatrix{<:Real},
         c = ((1 + rows[1]) / 2, (1 + rows[2]) / 2)
         R = c + rotate(2π - θ, AffineTransform2D{T}() - c)
         A = TwoDimensionalTransformInterpolator(rows, cols, ker, R)
-        padzero!(workmat1, img, pad_x, pad_y)
+        padzero!(workmat1, img, (pad_x, pad_x, pad_y, pad_y))
         mul!(workmat2, A, workmat1)
         # tmp .= OffsetArrays.no_offset_view(BorderArray(img, Fill(0, (pad_x, pad_y))))
         # mul!(output, A, tmp)
@@ -476,7 +476,7 @@ function imrotate3_adj!(output::AbstractMatrix{<:Real},
         c = ((1 + rows[1]) / 2, (1 + rows[2]) / 2)
         R = c + rotate(2π - θ, AffineTransform2D{T}() - c)
         A = TwoDimensionalTransformInterpolator(rows, cols, ker, R)
-        padzero!(workmat1, img, pad_x, pad_y)
+        padzero!(workmat1, img, (pad_x, pad_x, pad_y, pad_y))
         # tmp .= OffsetArrays.no_offset_view(BorderArray(img, Fill(0, (pad_x, pad_y))))
         mul!(workmat2, A', workmat1)
         output .= (@view workmat2[pad_x + 1 : pad_x + M, pad_y + 1 : pad_y + N])
