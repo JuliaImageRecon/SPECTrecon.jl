@@ -20,8 +20,8 @@ _paddown(mumap, psfs) = floor(Int, (Power2(size(mumap, 3) + size(psfs, 2) - 1) -
 inplace version of padding a 2D image by filling zeros
 output has size (size(img, 1) + 2 * pad_x, size(img, 2) + 2 * pad_y)
 """
-Base.@propagate_inbounds function padzero!(output::AbstractMatrix{<:Real},
-                                           img::AbstractMatrix{<:Real},
+Base.@propagate_inbounds function padzero!(output::AbstractMatrix{<:Any},
+                                           img::AbstractMatrix{<:Any},
                                            pad_x::Int,
                                            pad_y::Int)
 
@@ -40,8 +40,8 @@ end
 # @btime padzero!(x, y, 2, 1)
 # 28.385 ns (0 allocations: 0 bytes)
 
-Base.@propagate_inbounds function pad2size!(output::AbstractMatrix{<:Complex},
-                                            img::AbstractMatrix{<:Complex},
+Base.@propagate_inbounds function pad2size!(output::AbstractMatrix{<:Any},
+                                            img::AbstractMatrix{<:Any},
                                             padsize::Tuple{<:Int})
     @assert size(output) == padsize
     dims = size(img)
@@ -54,7 +54,7 @@ Base.@propagate_inbounds function pad2size!(output::AbstractMatrix{<:Complex},
     #               pad_dims[2]+1:pad_dims[2]+dims[2]]) .= img
 end
 
-function pad_it!(X::AbstractArray,
+function pad_it!(X::AbstractArray{<:Any},
                 padsize::Tuple)
 
     dims = size(X)
@@ -77,7 +77,7 @@ end
 # @btime pad2size!(z, ker, padsize)
 # 451.000 ns (0 allocations: 0 bytes)
 
-fftshift!(dst::AbstractArray{<:Real}, src::AbstractArray{<:Real}) = circshift!(dst, src, div.([size(src)...],2))
+fftshift!(dst::AbstractArray, src::AbstractArray) = circshift!(dst, src, div.([size(src)...],2))
 # Test code:
 # b = [1 2;3 4]
 # x = [b 2*b;3*b 4*b]
@@ -85,3 +85,66 @@ fftshift!(dst::AbstractArray{<:Real}, src::AbstractArray{<:Real}) = circshift!(d
 # @btime fftshift!(y, x)
 
 ifftshift!(dst::AbstractArray, src::AbstractArray) = circshift!(dst, src, div.([size(src)...],-2))
+
+
+Base.@propagate_inbounds function plus3di!(mat2d::AbstractArray{<:Any, 2},
+										   mat3d::AbstractArray{<:Any, 3},
+										   i::Int) # mat2d += mat3d[i,:,:]
+	@boundscheck (size(mat2d, 1) == size(mat3d, 2) || throw("size2"))
+	@boundscheck (size(mat2d, 2) == size(mat3d, 3) || throw("size3"))
+	@boundscheck (1 ≤ i ≤ size(mat3d, 1) || throw("bad i"))
+	for n in 1:size(mat2d, 2), m in 1:size(mat2d, 1)
+		@inbounds mat2d[m, n] += mat3d[i, m, n]
+	end
+end
+
+# Test code:
+# x = randn(64, 64)
+# v = randn(4, 64, 64)
+# y = x .+ v[2, :, :]
+# plus3di!(x, v, 2)
+# isequal(x, y)
+# @btime plus3di!(x, v, 2)
+# 2.368 μs (0 allocations: 0 bytes)
+
+
+Base.@propagate_inbounds function plus3dj!(mat2d::AbstractArray{<:Any, 2},
+										   mat3d::AbstractArray{<:Any, 3},
+										   j::Int) # mat2d += mat3d[:,j,:]
+	@boundscheck (size(mat2d, 1) == size(mat3d, 1) || throw("size1"))
+	@boundscheck (size(mat2d, 2) == size(mat3d, 3) || throw("size3"))
+	@boundscheck (1 ≤ j ≤ size(mat3d, 2) || throw("bad j"))
+	for n in 1:size(mat2d, 2), m in 1:size(mat2d, 1)
+		@inbounds mat2d[m, n] += mat3d[m, j, n]
+	end
+end
+
+# Test code:
+# x = randn(64, 64)
+# v = randn(64, 4, 64)
+# y = x .+ v[:, 2, :]
+# plus3dj!(x, v, 2)
+# isequal(x, y)
+# @btime plus3dj!(x, v, 2)
+# 585.718 ns (0 allocations: 0 bytes)
+
+
+Base.@propagate_inbounds function plus3dk!(mat2d::AbstractArray{<:Any, 2},
+										   mat3d::AbstractArray{<:Any, 3},
+										   k::Int) # mat2d += mat3d[:,:,k]
+	@boundscheck (size(mat2d, 1) == size(mat3d, 1) || throw("size1"))
+	@boundscheck (size(mat2d, 2) == size(mat3d, 2) || throw("size2"))
+	@boundscheck (1 ≤ k ≤ size(mat3d, 3) || throw("bad k"))
+	for n in 1:size(mat2d, 2), m in 1:size(mat2d, 1)
+		@inbounds mat2d[m, n] += mat3d[m, n, k]
+	end
+end
+
+# Test code:
+# x = randn(64, 64)
+# v = randn(64, 64, 4)
+# y = x .+ v[:, :, 2]
+# plus3dk!(x, v, 2)
+# isequal(x, y)
+# @btime plus3dk!(x, v, 2)
+# 595.462 ns (0 allocations: 0 bytes)

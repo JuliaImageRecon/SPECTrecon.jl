@@ -304,7 +304,7 @@ function imrotate3!(output::AbstractMatrix{<:Real},
                     workvec_y::AbstractVector{<:Real})
 
     if mod(θ, 2π) ≈ 0
-        copyto!(output, img)
+        output .= img
     end
     m = mod(floor(Int, 0.5 + θ/(π/2)), 4)
     M = size(img, 1)
@@ -330,7 +330,7 @@ function imrotate3!(output::AbstractMatrix{<:Real},
         rotate_y!(workmat2, workmat1, sin_mod_theta, xi, yi, interp_y, workvec_y, c_x)
         rotate_x!(workmat1, workmat2, tan_mod_theta, xi, yi, interp_x, workvec_x, c_y)
     end
-    copyto!(output, (@view workmat1[pad_x + 1 : pad_x + M, pad_y + 1 : pad_y + N]))
+    output .= (@view workmat1[pad_x + 1 : pad_x + M, pad_y + 1 : pad_y + N])
 end
 
 # Test code:
@@ -366,7 +366,7 @@ function imrotate3_adj!(output::AbstractMatrix{<:Real},
                         workvec_x::AbstractVector{<:Real},
                         workvec_y::AbstractVector{<:Real})
     if mod(θ, 2π) ≈ 0
-        copyto!(output, img)
+        output .= img
     end
     m = mod(floor(Int, 0.5 + θ/(π/2)), 4)
     (M, N) = size(img)
@@ -389,7 +389,7 @@ function imrotate3_adj!(output::AbstractMatrix{<:Real},
         rotate_x_adj!(workmat2, workmat1, tan_mod_theta, xi, yi, interp_x, workvec_x, c_y)
         rot_f90_adj!(workmat1, workmat2, m) # must be two different arguments
     end
-    copyto!(output, (@view workmat1[pad_x + 1 : pad_x + M, pad_y + 1 : pad_y + N]))
+    output .= (@view workmat1[pad_x + 1 : pad_x + M, pad_y + 1 : pad_y + N])
 end
 
 # Test code:
@@ -436,7 +436,7 @@ function imrotate3!(output::AbstractMatrix{<:Real},
         mul!(workmat2, A, workmat1)
         # tmp .= OffsetArrays.no_offset_view(BorderArray(img, Fill(0, (pad_x, pad_y))))
         # mul!(output, A, tmp)
-        copyto!(output, (@view workmat2[pad_x + 1 : pad_x + M, pad_y + 1 : pad_y + N]))
+        output .= (@view workmat2[pad_x + 1 : pad_x + M, pad_y + 1 : pad_y + N])
     end
 end
 
@@ -479,7 +479,7 @@ function imrotate3_adj!(output::AbstractMatrix{<:Real},
         padzero!(workmat1, img, pad_x, pad_y)
         # tmp .= OffsetArrays.no_offset_view(BorderArray(img, Fill(0, (pad_x, pad_y))))
         mul!(workmat2, A', workmat1)
-        copyto!(output, (@view workmat2[pad_x + 1 : pad_x + M, pad_y + 1 : pad_y + N]))
+        output .= (@view workmat2[pad_x + 1 : pad_x + M, pad_y + 1 : pad_y + N])
     end
 end
 

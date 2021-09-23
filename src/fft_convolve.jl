@@ -3,8 +3,8 @@
     recenter2d!(dst, src)
     the same as fftshift in 2d, but zero allocation
 """
-function recenter2d!(dst::AbstractMatrix{<:Complex},
-                     src::AbstractMatrix{<:Complex})
+function recenter2d!(dst::AbstractMatrix{<:Any},
+                     src::AbstractMatrix{<:Any})
         @assert iseven(size(src, 1)) && iseven(size(src, 2))
         m, n = div.(size(src), 2)
         for j = 1:n, i = 1:m
