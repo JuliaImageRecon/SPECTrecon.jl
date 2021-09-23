@@ -1,4 +1,4 @@
-using Main.SPECTrecon: imrotate3!, imrotate3_adj!
+using Main.SPECTrecon
 using Test: @test, @testset, @test_throws, @inferred
 using LazyAlgebra
 using InterpolationKernels
@@ -7,7 +7,7 @@ using BenchmarkTools
 using Plots:plot
 using MIRTjim:jim
 @testset "imrotate3" begin
-    θ_list = rand(100) * 2π
+    θ_list = rand(1000) * 2π
     M = 16
     N = 16
     T = Float32
@@ -33,7 +33,7 @@ using MIRTjim:jim
 end
 
 @testset "imrotate3" begin
-    θ_list = rand(100) * 2π
+    θ_list = rand(1000) * 2π
     M = 16
     N = 16
     T = Float32
@@ -72,8 +72,8 @@ workmat2_1d = zeros(T, M + 2 * pad_x, N + 2 * pad_y)
 output_2d = zeros(T, M, N)
 workmat1_2d = zeros(T, M + 2 * pad_x, N + 2 * pad_y)
 workmat2_2d = zeros(T, M + 2 * pad_x, N + 2 * pad_y)
-θ = -π/4
-imrotate3!(output_1d, workmat1_1d, workmat2_1d, img, θ, A_x, A_y, workvec_x, workvec_y)
+θ = -π/7
+Main.SPECTrecon.imrotate3!(output_1d, workmat1_1d, workmat2_1d, img, θ, A_x, A_y, workvec_x, workvec_y)
 Main.SPECTrecon.imrotate3!(output_2d, workmat1_2d, workmat2_2d, img, θ)
 plot(jim(img, "img"), jim(output_1d, "1d"), jim(output_2d, "2d"),
     jim(output_2d - output_1d, "diff"))
