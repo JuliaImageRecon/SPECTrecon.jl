@@ -9,6 +9,7 @@ using OffsetArrays
 using ImageFiltering
 using FFTW
 
+const RealU = Number # Union{Real, Unitful.Length}
 Power2 = x -> 2^(ceil(Int, log2(x)))
 _padup(mumap, psfs) = ceil(Int, (Power2(size(mumap, 1) + size(psfs, 1) - 1) - size(mumap, 1)) / 2)
 _paddown(mumap, psfs) = floor(Int, (Power2(size(mumap, 1) + size(psfs, 1) - 1) - size(mumap, 1)) / 2)

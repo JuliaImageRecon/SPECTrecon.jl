@@ -3,12 +3,12 @@
     imfilter3!(output, img_compl, ker, ker_compl, fft_plan, ifft_plan)
     apply FFT convolution between padimg and kernel, assuming the kernel is already centered
 """
-function imfilter3!(output::AbstractArray{<:Real, 2},
-                   img_compl::AbstractArray{Complex{T}, 2},
-                   ker::AbstractArray{<:Real, 2},
-                   ker_compl::AbstractArray{Complex{T}, 2},
+function imfilter3!(output::AbstractMatrix{<:RealU},
+                   img_compl::AbstractMatrix{<:Any},
+                   ker::AbstractMatrix{<:RealU},
+                   ker_compl::AbstractMatrix{<:Any},
                    fft_plan::Union{AbstractFFTs.ScaledPlan, FFTW.cFFTWPlan},
-                   ifft_plan::Union{AbstractFFTs.ScaledPlan, FFTW.cFFTWPlan}) where T <: Real
+                   ifft_plan::Union{AbstractFFTs.ScaledPlan, FFTW.cFFTWPlan})
 
     # ker_compl .= pad_it!(ker, size(img_compl))
     pad2sizezero!(ker_compl, ker, size(img_compl))
@@ -24,18 +24,19 @@ end
 # N = 64
 # T = Float32
 # img = zeros(T, N, N)
-# img[20:50, 20:40] .= rand(31,21)
+# img[20:50, 20:40] .= ones(31,21)
 # output = similar(img)
-# ker = ones(T, 3, 3) / 9
+# ker = rand(T, 3, 3) / 9
 # img_compl = similar(img, Complex{T})
 # ker_compl = similar(img_compl)
 # fft_plan = plan_fft!(img_compl)
 # ifft_plan = plan_ifft!(img_compl)
 # copyto!(img_compl, img)
+# imfilter3!(output, img_compl, ker, ker_compl, fft_plan, ifft_plan)
 # @btime imfilter3!(output, img_compl, ker, ker_compl, fft_plan, ifft_plan)
 # 32.519 μs (0 allocations: 0 bytes)
 # y = imfilter(img, centered(ker))
-# plot(jim(output), jim(y), jim(output - y))
+# plot(jim(output, "my"), jim(y, "julia"), jim(output - y, "diff"))
 
 
 
@@ -45,12 +46,12 @@ end
     assuming the kernel is already centered
     and is already be in reversed order.
 """
-function imfilter3_adj!(output::AbstractArray{<:Real, 2},
-                        img_compl::AbstractArray{Complex{T}, 2},
-                        kerev::AbstractArray{<:Real, 2}, # input kernel should already be in reversed order
-                        ker_compl::AbstractArray{Complex{T}, 2},
+function imfilter3_adj!(output::AbstractMatrix{<:RealU},
+                        img_compl::AbstractMatrix{<:Any},
+                        kerev::AbstractMatrix{<:RealU}, # input kernel should already be in reversed order
+                        ker_compl::AbstractMatrix{<:Any},
                         fft_plan::Union{AbstractFFTs.ScaledPlan, FFTW.cFFTWPlan},
-                        ifft_plan::Union{AbstractFFTs.ScaledPlan, FFTW.cFFTWPlan}) where T <: Real
+                        ifft_plan::Union{AbstractFFTs.ScaledPlan, FFTW.cFFTWPlan})
 
     # ker_compl .= pad_it!(ker, size(img_compl))
     pad2sizezero!(ker_compl, kerev, size(img_compl))
@@ -84,15 +85,15 @@ end
 """
     fft_conv!(output, workmat, img, ker, fftpadsize, img_compl, ker_compl, fft_plan, ifft_plan)
 """
-function fft_conv!(output::AbstractArray{<:Real, 2},
-                  workmat::AbstractArray{<:Real, 2},
-                  img::AbstractArray{<:Real, 2},
-                  ker::AbstractArray{<:Real, 2},
+function fft_conv!(output::AbstractMatrix{<:RealU},
+                  workmat::AbstractMatrix{<:RealU},
+                  img::AbstractMatrix{<:RealU},
+                  ker::AbstractMatrix{<:RealU},
                   fftpadsize::NTuple{4, <:Int},
-                  img_compl::AbstractArray{Complex{T}, 2},
-                  ker_compl::AbstractArray{Complex{T}, 2},
+                  img_compl::AbstractMatrix{<:Any},
+                  ker_compl::AbstractMatrix{<:Any},
                   fft_plan::Union{AbstractFFTs.ScaledPlan, FFTW.cFFTWPlan},
-                  ifft_plan::Union{AbstractFFTs.ScaledPlan, FFTW.cFFTWPlan}) where T <: Real
+                  ifft_plan::Union{AbstractFFTs.ScaledPlan, FFTW.cFFTWPlan})
     # filter the image with a kernel, using replicate padding and fft convolution
     padrepl!(img_compl, img, fftpadsize)
     imfilter3!(workmat, img_compl, ker, ker_compl, fft_plan, ifft_plan)
@@ -126,17 +127,17 @@ end
     fft_conv_adj!(output, workmat, workvec1, workvec2, img, ker,
                   fftpadsize, img_compl, ker_compl, fft_plan, ifft_plan)
 """
-function fft_conv_adj!(output::AbstractArray{<:Real, 2},
-                       workmat::AbstractArray{<:Real, 2},
-                       workvec1::AbstractVector{<:Real},
-                       workvec2::AbstractVector{<:Real},
-                       img::AbstractArray{<:Real, 2},
-                       ker::AbstractArray{<:Real, 2},
+function fft_conv_adj!(output::AbstractMatrix{<:RealU},
+                       workmat::AbstractMatrix{<:RealU},
+                       workvec1::AbstractVector{<:RealU},
+                       workvec2::AbstractVector{<:RealU},
+                       img::AbstractMatrix{<:RealU},
+                       ker::AbstractMatrix{<:RealU},
                        fftpadsize::NTuple{4, <:Int},
-                       img_compl::AbstractArray{Complex{T}, 2},
-                       ker_compl::AbstractArray{Complex{T}, 2},
+                       img_compl::AbstractMatrix{<:Any},
+                       ker_compl::AbstractMatrix{<:Any},
                        fft_plan::Union{AbstractFFTs.ScaledPlan, FFTW.cFFTWPlan},
-                       ifft_plan::Union{AbstractFFTs.ScaledPlan, FFTW.cFFTWPlan}) where T <: Real
+                       ifft_plan::Union{AbstractFFTs.ScaledPlan, FFTW.cFFTWPlan})
 
     padzero!(img_compl, img, fftpadsize)
     imfilter3_adj!(workmat, img_compl, ker, ker_compl, fft_plan, ifft_plan)

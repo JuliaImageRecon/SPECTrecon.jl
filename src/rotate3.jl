@@ -4,7 +4,7 @@
     assign key values in SparseInterpolator A that are calculated from x
 """
 function assign_interp!(A::SparseInterpolator,
-                        x::AbstractVector)
+                        x::AbstractVector{<:RealU})
         # x was created in increasing order
         dec = ceil(Int, x[1]) - x[1]
         ncoeff = length(A.C)
@@ -38,13 +38,13 @@ end
     storing results in `output`.
     xi and yi must be in increasing order.
 """
-function rotate_x!(output::AbstractMatrix{<:Real},
-                   img::AbstractMatrix{<:Real},
+function rotate_x!(output::AbstractMatrix{<:RealU},
+                   img::AbstractMatrix{<:RealU},
                    tan_θ::Real,
-                   xi::AbstractVector{<:Real},
-                   yi::AbstractVector{<:Real},
+                   xi::AbstractVector{<:RealU},
+                   yi::AbstractVector{<:RealU},
                    interp::SparseInterpolator,
-                   workvec::AbstractVector{<:Real},
+                   workvec::AbstractVector{<:RealU},
                    c_y::Real)
 
     for i = 1:length(yi)
@@ -77,13 +77,13 @@ end
     storing results in `output`
     xi and yi must be in increasing order.
 """
-function rotate_x_adj!(output::AbstractMatrix{<:Real},
-                       img::AbstractMatrix{<:Real},
+function rotate_x_adj!(output::AbstractMatrix{<:RealU},
+                       img::AbstractMatrix{<:RealU},
                        tan_θ::Real,
-                       xi::AbstractVector{<:Real},
-                       yi::AbstractVector{<:Real},
+                       xi::AbstractVector{<:RealU},
+                       yi::AbstractVector{<:RealU},
                        interp::SparseInterpolator,
-                       workvec::AbstractVector{<:Real},
+                       workvec::AbstractVector{<:RealU},
                        c_y::Real)
 
     for i = 1:length(yi)
@@ -117,13 +117,13 @@ end
     storing results in `output`
     xi and yi must be in increasing order.
 """
-function rotate_y!(output::AbstractMatrix{<:Real},
-                   img::AbstractMatrix{<:Real},
+function rotate_y!(output::AbstractMatrix{<:RealU},
+                   img::AbstractMatrix{<:RealU},
                    sin_θ::Real,
-                   xi::AbstractVector{<:Real},
-                   yi::AbstractVector{<:Real},
+                   xi::AbstractVector{<:RealU},
+                   yi::AbstractVector{<:RealU},
                    interp::SparseInterpolator,
-                   workvec::AbstractVector{<:Real},
+                   workvec::AbstractVector{<:RealU},
                    c_x::Real)
 
     for i = 1:length(xi)
@@ -155,13 +155,13 @@ end
     The adjoint of rotating a 2D image along y axis in clockwise direction using 1d linear interpolation,
     storing results in `output`
 """
-function rotate_y_adj!(output::AbstractMatrix{<:Real},
-                        img::AbstractMatrix{<:Real},
+function rotate_y_adj!(output::AbstractMatrix{<:RealU},
+                        img::AbstractMatrix{<:RealU},
                         sin_θ::Real,
-                        xi::AbstractVector{<:Real},
-                        yi::AbstractVector{<:Real},
+                        xi::AbstractVector{<:RealU},
+                        yi::AbstractVector{<:RealU},
                         interp::SparseInterpolator,
-                        workvec::AbstractVector{<:Real},
+                        workvec::AbstractVector{<:RealU},
                         c_x::Real)
 
     for i = 1:length(xi)
@@ -193,8 +193,8 @@ end
     rotl90!(B::AbstractMatrix, A::AbstractMatrix)
     In place version of `rotl90`, returning rotation of `A` in `B`.
 """
-function rotl90!(B::AbstractMatrix{<:Real},
-                 A::AbstractMatrix{<:Real})
+function rotl90!(B::AbstractMatrix{<:RealU},
+                 A::AbstractMatrix{<:RealU})
     ind1, ind2 = axes(A)
     n = first(ind2) + last(ind2)
     for i = axes(A, 1), j = ind2
@@ -213,8 +213,8 @@ end
     rotr90!(B::AbstractMatrix, A::AbstractMatrix)
     In place version of `rotr90`, returning rotation of `A` in `B`.
 """
-function rotr90!(B::AbstractMatrix{<:Real},
-                 A::AbstractMatrix{<:Real})
+function rotr90!(B::AbstractMatrix{<:RealU},
+                 A::AbstractMatrix{<:RealU})
     ind1, ind2 = axes(A)
     m = first(ind1) + last(ind1)
     for i = ind1, j = axes(A, 2)
@@ -233,8 +233,8 @@ end
     rot180!(B::AbstractMatrix, A::AbstractMatrix)
     In place version of `rot180`, returning rotation of `A` in `B`.
 """
-function rot180!(B::AbstractMatrix{<:Real},
-                 A::AbstractMatrix{<:Real})
+function rot180!(B::AbstractMatrix{<:RealU},
+                 A::AbstractMatrix{<:RealU})
     ind1, ind2 = axes(A,1), axes(A,2)
     m, n = first(ind1)+last(ind1), first(ind2)+last(ind2)
     for j=ind2, i=ind1
@@ -253,8 +253,8 @@ end
     rot_f90!(output, img, m)
     Inplace version of rotating an image by 90/180/270 degrees
 """
-function rot_f90!(output::AbstractMatrix{<:Real},
-                  img::AbstractMatrix{<:Real},
+function rot_f90!(output::AbstractMatrix{<:RealU},
+                  img::AbstractMatrix{<:RealU},
                   m::Int)
     if m == 0
         output .= img
@@ -273,8 +273,8 @@ end
     rot_f90_adj!(output, img, m)
     The adjoint of rotating an image by 90/180/270 degrees
 """
-function rot_f90_adj!(output::AbstractMatrix{<:Real},
-                      img::AbstractMatrix{<:Real},
+function rot_f90_adj!(output::AbstractMatrix{<:RealU},
+                      img::AbstractMatrix{<:RealU},
                       m::Int)
     if m == 0
         output .= img
@@ -293,15 +293,15 @@ end
     Rotate an image by angle θ (must be ranging from 0 to 2π) in clockwise direction
     using a series of 1d linear interpolation
 """
-function imrotate3!(output::AbstractMatrix{<:Real},
-                    workmat1::AbstractMatrix{<:Real},
-                    workmat2::AbstractMatrix{<:Real},
-                    img::AbstractMatrix{<:Real},
+function imrotate3!(output::AbstractMatrix{<:RealU},
+                    workmat1::AbstractMatrix{<:RealU},
+                    workmat2::AbstractMatrix{<:RealU},
+                    img::AbstractMatrix{<:RealU},
                     θ::Real,
                     interp_x::SparseInterpolator,
                     interp_y::SparseInterpolator,
-                    workvec_x::AbstractVector{<:Real},
-                    workvec_y::AbstractVector{<:Real})
+                    workvec_x::AbstractVector{<:RealU},
+                    workvec_y::AbstractVector{<:RealU})
 
     if mod(θ, 2π) ≈ 0
         output .= img
@@ -356,15 +356,15 @@ end
     The adjoint of rotating an image by angle θ (must be ranging from 0 to 2π) in clockwise direction
     using a series of 1d linear interpolation
 """
-function imrotate3_adj!(output::AbstractMatrix{<:Real},
-                        workmat1::AbstractMatrix{<:Real},
-                        workmat2::AbstractMatrix{<:Real},
-                        img::AbstractMatrix{<:Real},
+function imrotate3_adj!(output::AbstractMatrix{<:RealU},
+                        workmat1::AbstractMatrix{<:RealU},
+                        workmat2::AbstractMatrix{<:RealU},
+                        img::AbstractMatrix{<:RealU},
                         θ::Real,
                         interp_x::SparseInterpolator,
                         interp_y::SparseInterpolator,
-                        workvec_x::AbstractVector{<:Real},
-                        workvec_y::AbstractVector{<:Real})
+                        workvec_x::AbstractVector{<:RealU},
+                        workvec_y::AbstractVector{<:RealU})
     if mod(θ, 2π) ≈ 0
         output .= img
     end
@@ -414,10 +414,10 @@ end
     Rotate an image by angle θ in clockwise direction using 2d linear interpolation
     Source code is here: https://github.com/emmt/LinearInterpolators.jl
 """
-function imrotate3!(output::AbstractMatrix{<:Real},
-                    workmat1::AbstractMatrix{<:Real},
-                    workmat2::AbstractMatrix{<:Real},
-                    img::AbstractMatrix{<:Real},
+function imrotate3!(output::AbstractMatrix{<:RealU},
+                    workmat1::AbstractMatrix{<:RealU},
+                    workmat2::AbstractMatrix{<:RealU},
+                    img::AbstractMatrix{<:RealU},
                     θ::Real)
     if mod(θ, 2π) ≈ 0
         output .= img
@@ -425,7 +425,7 @@ function imrotate3!(output::AbstractMatrix{<:Real},
         (M, N) = size(img)
         pad_x = Int((size(workmat1, 1) - M) / 2)
         pad_y = Int((size(workmat1, 2) - N) / 2)
-        T = typeof(img[1, 1])
+        T = eltype(img)
         ker = LinearSpline(T)
         rows = size(workmat2)
         cols = size(workmat1)
@@ -458,10 +458,10 @@ end
     The adjoint of rotating an image by angle θ in clockwise direction using 2d linear interpolation
     Source code is here: https://github.com/emmt/LinearInterpolators.jl
 """
-function imrotate3_adj!(output::AbstractMatrix{<:Real},
-                        workmat1::AbstractMatrix{<:Real},
-                        workmat2::AbstractMatrix{<:Real},
-                        img::AbstractMatrix{<:Real},
+function imrotate3_adj!(output::AbstractMatrix{<:RealU},
+                        workmat1::AbstractMatrix{<:RealU},
+                        workmat2::AbstractMatrix{<:RealU},
+                        img::AbstractMatrix{<:RealU},
                         θ::Real)
     if mod(θ, 2π) ≈ 0
         output .= img
@@ -469,7 +469,7 @@ function imrotate3_adj!(output::AbstractMatrix{<:Real},
         (M, N) = size(img)
         pad_x = Int((size(workmat1, 1) - M) / 2)
         pad_y = Int((size(workmat1, 2) - N) / 2)
-        T = typeof(img[1, 1])
+        T = eltype(img)
         ker = LinearSpline(T)
         rows = size(workmat2)
         cols = size(workmat1)
