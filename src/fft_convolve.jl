@@ -1,7 +1,7 @@
 # fft_convolve.jl
 """
     imfilter3!(output, img_compl, ker, ker_compl, fft_plan, ifft_plan)
-    apply FFT convolution between padimg and kernel, assuming the kernel is already centered
+    apply FFT convolution between padimg and kernel (not centered)
 """
 function imfilter3!(output::AbstractMatrix{<:RealU},
                    img_compl::AbstractMatrix{<:Any},
@@ -42,9 +42,8 @@ end
 
 """
     imfilter3_adj!(output, img_compl, kerev, ker_compl, fft_plan, ifft_plan)
-    apply FFT convolution between padimg and *REVERSED* kernel,
-    assuming the kernel is already centered
-    and is already be in reversed order.
+    apply FFT convolution between padimg and *REVERSED* kernel (not centered),
+    assuming the kernel is already be in reversed order.
 """
 function imfilter3_adj!(output::AbstractMatrix{<:RealU},
                         img_compl::AbstractMatrix{<:Any},
