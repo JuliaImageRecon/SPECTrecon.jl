@@ -8,6 +8,9 @@ using InterpolationKernels
 using OffsetArrays
 using ImageFiltering
 using FFTW
+using MIRTjim
+using Plots:plot
+using MAT
 
 const RealU = Number # Union{Real, Unitful.Length}
 Power2 = x -> 2^(ceil(Int, log2(x)))
@@ -286,3 +289,68 @@ end
 # isequal(x, y)
 # @btime plus3dk!(x, v, 2)
 # 595.462 ns (0 allocations: 0 bytes)
+
+
+Base.@propagate_inbounds function scale3dj!(mat2d::AbstractArray{<:Any, 2},
+										    mat3d::AbstractArray{<:Any, 3},
+										    j::Int,
+											s::RealU) # mat2d = s * mat3d[:,j,:]
+	@boundscheck (size(mat2d, 1) == size(mat3d, 1) || throw("size1"))
+	@boundscheck (size(mat2d, 2) == size(mat3d, 3) || throw("size3"))
+	@boundscheck (1 ≤ j ≤ size(mat3d, 2) || throw("bad j"))
+	for n in 1:size(mat2d, 2), m in 1:size(mat2d, 1)
+		@inbounds mat2d[m, n] = s * mat3d[m, j, n]
+	end
+end
+
+# Test code:
+# x = randn(64, 64)
+# v = randn(64, 4, 64)
+# s = -0.5
+# y = s * v[:, 2, :]
+# scale3dj!(x, v, 2, s)
+# isequal(x, y)
+# @btime scale3dj!(x, v, 2, s)
+# 618.863 ns (0 allocations: 0 bytes)
+
+Base.@propagate_inbounds function mul3dj!(mat3d::AbstractArray{<:Any, 3},
+										  mat2d::AbstractArray{<:Any, 2},
+										  j::Int
+										  ) # mat3d[:,j,:] *= mat2d
+	@boundscheck (size(mat3d, 1) == size(mat2d, 1) || throw("size1"))
+	@boundscheck (size(mat3d, 3) == size(mat2d, 2) || throw("size3"))
+	@boundscheck (1 ≤ j ≤ size(mat3d, 2) || throw("bad j"))
+	for n in 1:size(mat3d, 3), m in 1:size(mat3d, 1)
+		@inbounds mat3d[m, j, n] *= mat2d[m, n]
+	end
+end
+
+# Test code:
+# x = randn(64, 4, 64)
+# v = randn(64, 64)
+# y = x[:,2,:] .* v
+# mul3dj!(x, v, 2)
+# isequal(x[:,2,:], y)
+# @btime mul3dj!(x, v, 2)
+# 25.299 μs (0 allocations: 0 bytes)
+
+Base.@propagate_inbounds function copy3dj!(mat2d::AbstractArray{<:Any, 2},
+										   mat3d::AbstractArray{<:Any, 3},
+										   j::Int
+										   ) # mat2d .= mat3d[:,j,:]
+	@boundscheck (size(mat3d, 1) == size(mat2d, 1) || throw("size1"))
+	@boundscheck (size(mat3d, 3) == size(mat2d, 2) || throw("size3"))
+	@boundscheck (1 ≤ j ≤ size(mat3d, 2) || throw("bad j"))
+	for n in 1:size(mat3d, 3), m in 1:size(mat3d, 1)
+		@inbounds mat2d[m,n] = mat3d[m, j, n]
+	end
+end
+
+# Test code:
+# x = randn(64, 64)
+# v = randn(64, 4, 64)
+# y = v[:,2,:]
+# copy3dj!(x, v, 2)
+# isequal(x, y)
+# @btime copy3dj!(x, v, 2)
+# 662.013 ns (0 allocations: 0 bytes)

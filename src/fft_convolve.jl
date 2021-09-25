@@ -14,9 +14,11 @@ function imfilter3!(output::AbstractMatrix{<:RealU},
     pad2sizezero!(ker_compl, ker, size(img_compl))
     mul!(img_compl, fft_plan, img_compl)
     mul!(ker_compl, fft_plan, ker_compl)
+    # broadcast!(*, img_compl, img_compl, ker_compl)
     img_compl .*= ker_compl
     mul!(img_compl, ifft_plan, img_compl)
     recenter2d!(ker_compl, img_compl)
+    # copyto!(output, real.(ker_compl))
     output .= real.(ker_compl)
 end
 
@@ -56,9 +58,11 @@ function imfilter3_adj!(output::AbstractMatrix{<:RealU},
     pad2sizezero!(ker_compl, kerev, size(img_compl))
     mul!(img_compl, fft_plan, img_compl)
     mul!(ker_compl, fft_plan, ker_compl)
+    # broadcast!(*, img_compl, img_compl, ker_compl)
     img_compl .*= ker_compl
     mul!(img_compl, ifft_plan, img_compl)
     recenter2d!(ker_compl, img_compl)
+    # copyto!(output, real.(ker_compl))
     output .= real.(ker_compl)
 end
 

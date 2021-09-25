@@ -1,0 +1,186 @@
+# backproject.jl
+"""
+    backproject!(image, view, plan, workarray, viewidx)
+Backproject a single view
+"""
+function backproject!(
+    image::AbstractArray{<:RealU, 3},
+    view::AbstractMatrix{<:RealU},
+    plan::SPECTplan,
+    workarray::Vector{Workarray},
+    viewidx::Int
+    )
+
+    Threads.@threads for z = 1:plan.imgsize[3] # 1:nz
+        # get thread id
+        thid = Threads.threadid()
+        if plan.interpidx == 1
+
+            imrotate3!((@view plan.mumapr[:, :, z]),
+                        workarray[thid].workmat_rot_1,
+                        workarray[thid].workmat_rot_2,
+                        (@view plan.mumap[:, :, z]),
+                        plan.viewangle[viewidx],
+                        workarray[thid].interp_x,
+                        workarray[thid].interp_y,
+                        workarray[thid].workvec_rot_x,
+                        workarray[thid].workvec_rot_y)
+
+        else
+            imrotate3!((@view plan.mumapr[:, :, z]),
+                        workarray[thid].workmat_rot_1,
+                        workarray[thid].workmat_rot_2,
+                        (@view plan.mumap[:, :, z]),
+                        plan.viewangle[viewidx])
+
+        end
+
+    end
+
+    # adjoint of convolving img with psf and applying attenuation map
+    Threads.@threads for y = 1:plan.imgsize[2] # 1:ny
+        # get thread id
+        thid = Threads.threadid()
+        # account for half of the final slice thickness
+        scale3dj!(workarray[thid].exp_mumapr, plan.mumapr, y, -0.5)
+        for j = 1:y
+            plus3dj!(workarray[thid].exp_mumapr, plan.mumapr, j)
+        end
+
+        broadcast!(*, workarray[thid].exp_mumapr, workarray[thid].exp_mumapr, - plan.dy)
+
+        broadcast!(x->exp(x), workarray[thid].exp_mumapr, workarray[thid].exp_mumapr)
+
+        fft_conv_adj!((@view plan.imgr[:, y, :]),
+                       workarray[thid].workmat_fft,
+                       workarray[thid].workvec_fft_1,
+                       workarray[thid].workvec_fft_2,
+                       view,
+                       (@view plan.psfs[:, :, y, viewidx]),
+                       plan.pad_fft,
+                       workarray[thid].img_compl,
+                       workarray[thid].ker_compl,
+                       workarray[thid].fft_plan,
+                       workarray[thid].ifft_plan)
+
+        mul3dj!(plan.imgr, workarray[thid].exp_mumapr, y)
+    end
+
+    # adjoint of rotating image
+    Threads.@threads for z = 1:plan.imgsize[3] # 1:nz
+        # get thread id
+        thid = Threads.threadid()
+        if plan.interpidx == 1
+
+            imrotate3_adj!((@view image[:, :, z]),
+                           workarray[thid].workmat_rot_1,
+                           workarray[thid].workmat_rot_2,
+                           (@view plan.imgr[:, :, z]),
+                           plan.viewangle[viewidx],
+                           workarray[thid].interp_x,
+                           workarray[thid].interp_y,
+                           workarray[thid].workvec_rot_x,
+                           workarray[thid].workvec_rot_y)
+
+        else
+            imrotate3_adj!((@view image[:, :, z]),
+                           workarray[thid].workmat_rot_1,
+                           workarray[thid].workmat_rot_2,
+                           (@view plan.imgr[:, :, z]),
+                           plan.viewangle[viewidx])
+        end
+    end
+end
+
+
+
+"""
+    backproject!(image, views, plan, workarray; index)
+Backproject multiple views
+"""
+function backproject!(
+    image::AbstractArray{<:RealU, 3},
+    views::AbstractArray{<:RealU, 3},
+    plan::SPECTplan,
+    workarray::Vector{Workarray};
+    index::AbstractVector{<:Int} = 1:plan.nview, # all views
+)
+
+    # loop over each view index
+    for i in index
+        backproject!(plan.add_img, (@view views[:, :, i]), plan, workarray, i)
+        broadcast!(+, image, image, plan.add_img)
+    end
+end
+
+# Test code:
+# T = Float32
+# path = "/Users/lizongyu/SPECTreconv2.jl/test/"
+# file = matopen(path*"mumap208.mat")
+# mumap = read(file, "mumap208")
+# close(file)
+#
+# file = matopen(path*"psf_208.mat")
+# psfs = read(file, "psf_208")
+# close(file)
+#
+# file = matopen(path*"xtrue.mat")
+# xtrue = convert(Array{Float32, 3}, read(file, "xtrue"))
+# close(file)
+#
+# file = matopen(path*"proj_jeff_newmumap.mat")
+# proj_jeff = read(file, "proj_jeff")
+# close(file)
+# dy = T(4.7952)
+# nview = size(psfs, 4)
+# plan = SPECTplan(mumap, psfs, nview, dy; interpidx = 2)
+# workarray = Vector{Workarray}(undef, plan.ncore)
+# for i = 1:plan.ncore
+#     workarray[i] = Workarray(plan.T, plan.imgsize, plan.pad_fft, plan.pad_rot) # allocate
+# end
+# (nx, ny, nz) = size(xtrue)
+# nviews = size(psfs, 4)
+# image = zeros(T, nx, ny, nz)
+# @btime backproject!(image, proj_jeff, plan, workarray)
+# 1d interp 6.135 s (453513 allocations: 17.49 MiB)
+# 2d interp 3.533 s (453300 allocations: 17.48 MiB)
+
+
+
+
+"""
+    image = backproject(plan, workarray, views ; kwargs...)
+Initialize the image
+"""
+function backproject(
+    plan::SPECTplan,
+    workarray::Vector{Workarray},
+    views::AbstractArray{<:RealU, 3} ;
+    kwargs...,
+)
+    image = zeros(plan.T, plan.imgsize)
+    backproject!(image, views, plan, workarray; kwargs...)
+    return image
+end
+
+
+"""
+    image = backproject(views, mumap, psfs, nview, dy; interpidx, kwargs...)
+Initialize plan and workarray
+"""
+function backproject(
+    views::AbstractArray{<:RealU, 3},
+    mumap::AbstractArray{<:RealU, 3}, # [nx,ny,nz] attenuation map, must be 3D, possibly zeros()
+    psfs::AbstractArray{<:RealU, 4},
+    nview::Int,
+    dy::RealU;
+    interpidx::Int = 2,
+    kwargs...,
+)
+    plan = SPECTplan(mumap, psfs, nview, dy; interpidx, kwargs...)
+    workarray = Vector{Workarray}(undef, plan.ncore)
+    for i = 1:plan.ncore
+        workarray[i] = Workarray(plan.T, plan.imgsize, plan.pad_fft, plan.pad_rot) # allocate
+    end
+    backproject(plan, workarray, views; kwargs...)
+end
