@@ -8,8 +8,8 @@ using Plots:plot
 using MIRTjim:jim
 @testset "imrotate3" begin
     θ_list = rand(1000) * 2π
-    M = 16
-    N = 16
+    M = 64
+    N = 64
     T = Float32
     pad_x = ceil(Int, 1 + M * sqrt(2)/2 - M / 2)
     pad_y = ceil(Int, 1 + N * sqrt(2)/2 - N / 2)
@@ -34,8 +34,8 @@ end
 
 @testset "imrotate3" begin
     θ_list = rand(1000) * 2π
-    M = 16
-    N = 16
+    M = 64
+    N = 64
     T = Float32
     pad_x = ceil(Int, 1 + M * sqrt(2)/2 - M / 2)
     pad_y = ceil(Int, 1 + N * sqrt(2)/2 - N / 2)
