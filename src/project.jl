@@ -1,7 +1,10 @@
 # project.jl
+
+export project, project!
+
 """
     project!(view, plan, workarray, image, viewidx)
-Project a single view
+Project a single view.
 """
 function project!(
     view::AbstractMatrix{<:RealU},
@@ -27,8 +30,7 @@ function project!(
                         workarray[thid].workvec_rot_y,
                         )
 
-        # rotate mumap and store in plan.mumapr
-
+            # rotate mumap and store in plan.mumapr
             imrotate3!((@view plan.mumapr[:, :, z]),
                         workarray[thid].workmat_rot_1,
                         workarray[thid].workmat_rot_2,
@@ -87,12 +89,13 @@ function project!(
         plus3dj!(view, plan.add_img, y)
     end
 
+    return view
 end
 
 
 """
     project!(views, image, plan, workarray; index)
-Project multiple views
+Project multiple views.
 """
 function project!(
     views::AbstractArray{<:RealU,3},
@@ -106,56 +109,59 @@ function project!(
     for i in index
         project!((@view views[:,:,i]), image, plan, workarray, i)
     end
+    return views
 end
 
-# Test code:
-# T = Float32
-# path = "/Users/lizongyu/SPECTreconv2.jl/test/"
-# file = matopen(path*"mumap208.mat")
-# mumap = read(file, "mumap208")
-# close(file)
-#
-# file = matopen(path*"psf_208.mat")
-# psfs = read(file, "psf_208")
-# close(file)
-#
-# file = matopen(path*"xtrue.mat")
-# xtrue = convert(Array{Float32, 3}, read(file, "xtrue"))
-# close(file)
-#
-# file = matopen(path*"proj_jeff_newmumap.mat")
-# proj_jeff = read(file, "proj_jeff")
-# close(file)
-# dy = T(4.7952)
-# nview = size(psfs, 4)
-# plan = SPECTplan(mumap, psfs, nview, dy; interpidx = 1)
-# workarray = Vector{Workarray}(undef, plan.ncore)
-# for i = 1:plan.ncore
-#     workarray[i] = Workarray(plan.T, plan.imgsize, plan.pad_fft, plan.pad_rot) # allocate
-# end
-# (nx, ny, nz) = size(xtrue)
-# nviews = size(psfs, 4)
-# views = zeros(T, nx, nz, nviews)
-# @btime project!(views, xtrue, plan, workarray)
+#= Test code:
+T = Float32
+path = "/Users/lizongyu/SPECTreconv2.jl/test/"
+file = matopen(path*"mumap208.mat")
+mumap = read(file, "mumap208")
+close(file)
+
+file = matopen(path*"psf_208.mat")
+psfs = read(file, "psf_208")
+close(file)
+
+file = matopen(path*"xtrue.mat")
+xtrue = convert(Array{Float32, 3}, read(file, "xtrue"))
+close(file)
+
+file = matopen(path*"proj_jeff_newmumap.mat")
+proj_jeff = read(file, "proj_jeff")
+close(file)
+dy = T(4.7952)
+nview = size(psfs, 4)
+plan = SPECTplan(mumap, psfs, nview, dy; interpidx = 1)
+workarray = Vector{Workarray}(undef, plan.ncore)
+for i = 1:plan.ncore
+    workarray[i] = Workarray(plan.T, plan.imgsize, plan.pad_fft, plan.pad_rot) # allocate
+end
+(nx, ny, nz) = size(xtrue)
+nviews = size(psfs, 4)
+views = zeros(T, nx, nz, nviews)
+@btime project!(views, xtrue, plan, workarray)
 # 1d interp 5.933 s (578848 allocations: 20.77 MiB)
 # 2d interp 3.302 s (578841 allocations: 20.77 MiB)
-# nrmse(x, xtrue) = norm(vec(x - xtrue)) / norm(vec(xtrue))
-#
-# e3 = zeros(128)
-# for idx = 1:128
-#     e3[idx] = nrmse(views[:,:,idx], proj_jeff[:,:,idx])
-# end
-# plot((0:127)/128*360, e3 * 100, xticks = 0:45:360, xlabel = "degree", ylabel = "NRMSE (%)", label = "")
-# avg_nrmse = sum(e3) / length(e3) * 100
+nrmse(x, xtrue) = norm(vec(x - xtrue)) / norm(vec(xtrue))
+
+e3 = zeros(128)
+for idx = 1:128
+    e3[idx] = nrmse(views[:,:,idx], proj_jeff[:,:,idx])
+end
+plot((0:127)/128*360, e3 * 100, xticks = 0:45:360, xlabel = "degree", ylabel = "NRMSE (%)", label = "")
+avg_nrmse = sum(e3) / length(e3) * 100
 # 1d interp: 1e-5% nrmse
 # 2d interp: 0.384% nrmse
+=#
+
 
 """
     views = project(image, plan, workarray ; kwargs...)
-Initialize views
+SPECT forward projector that allocates and returns views.
 """
 function project(
-    image::AbstractArray{<:RealU,3} ,
+    image::AbstractArray{<:RealU,3},
     plan::SPECTplan,
     workarray::Vector{Workarray};
     kwargs...,
@@ -184,5 +190,5 @@ function project(
     for i = 1:plan.ncore
         workarray[i] = Workarray(plan.T, plan.imgsize, plan.pad_fft, plan.pad_rot) # allocate
     end
-    project(image, plan, workarray; kwargs...)
+    return project(image, plan, workarray; kwargs...)
 end

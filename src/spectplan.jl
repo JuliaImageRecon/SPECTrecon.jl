@@ -1,4 +1,5 @@
 # spectplan.jl
+
 """
     SPECTplan
 Struct for storing key factors for a SPECT system model
@@ -25,7 +26,6 @@ Currently code assumes uniform angular sampling
 Currently code uses multiprocessing using # of cores specified by Threads.nthreads() in Julia
 Currently code assumes psf is symmetric
 """
-
 struct SPECTplan
     T::DataType # default type for work arrays etc.
     imgr::AbstractArray{<:RealU, 3} # 3D rotated image, (nx, ny, nz)
@@ -43,14 +43,15 @@ struct SPECTplan
     pad_rot::NTuple{4, Int}
     ncore::Int # number of cores
     # other options for how to do the projection?
-    function SPECTplan(mumap::AbstractArray{<:RealU, 3},
-                       psfs::AbstractArray{<:RealU, 4},
-                       nview::Int,
-                       dy::RealU;
-                       viewangle::AbstractVector{<:RealU} = (0:nview - 1) / nview * (2π), # set of view angles
-                       interpidx::Int = 2, # 1 is for 1d interpolation, 2 is for 2d interpolation
-                       T::DataType = promote_type(eltype(mumap), Float32),
-                       )
+    function SPECTplan(
+        mumap::AbstractArray{<:RealU, 3},
+        psfs::AbstractArray{<:RealU, 4},
+        nview::Int,
+        dy::RealU;
+        viewangle::AbstractVector{<:RealU} = (0:nview - 1) / nview * (2π), # set of view angles
+        interpidx::Int = 2, # 1 is for 1d interpolation, 2 is for 2d interpolation
+        T::DataType = promote_type(eltype(mumap), Float32),
+    )
         # check nx = ny ? typically 128 x 128 x 81
         (nx, ny, nz) = size(mumap)
         @assert isequal(nx, ny)
@@ -65,20 +66,17 @@ struct SPECTplan
         # check interpidx
         @assert interpidx == 1 || interpidx == 2
 
-
         padu_fft = _padup(mumap, psfs)
         padd_fft = _paddown(mumap, psfs)
         padl_fft = _padleft(mumap, psfs)
         padr_fft = _padright(mumap, psfs)
         pad_fft = (padu_fft, padd_fft, padl_fft, padr_fft)
 
-
         padu_rot = ceil(Int, 1 + nx * sqrt(2)/2 - nx / 2)
         padd_rot = ceil(Int, 1 + nx * sqrt(2)/2 - nx / 2)
         padl_rot = ceil(Int, 1 + ny * sqrt(2)/2 - ny / 2)
         padr_rot = ceil(Int, 1 + ny * sqrt(2)/2 - ny / 2)
         pad_rot = (padu_rot, padd_rot, padl_rot, padr_rot)
-
 
         # size for fft plan
         fftplan_size = Array{Complex{T}}(undef, nx + padu_fft + padd_fft, nz + padl_fft + padr_fft)
@@ -101,6 +99,7 @@ struct SPECTplan
         #  creates objects of the block's type (inner constructor methods).
     end
 end
+
 
 """
     Workarray
@@ -147,81 +146,78 @@ struct Workarray
     exp_mumapr::AbstractArray{<:RealU, 2}
     add_view::AbstractArray{<:RealU, 2}
 
-    function Workarray(T::DataType,
-                       imgsize::NTuple{3, Int},
-                       pad_fft::NTuple{4, Int},
-                       pad_rot::NTuple{4, Int},
-                       )
-            (nx, ny, nz) = imgsize
-            (padu_fft, padd_fft, padl_fft, padr_fft) = pad_fft
-            (padu_rot, padd_rot, padl_rot, padr_rot) = pad_rot
+    function Workarray(
+        T::DataType,
+        imgsize::NTuple{3, Int},
+        pad_fft::NTuple{4, Int},
+        pad_rot::NTuple{4, Int},
+    )
+        (nx, ny, nz) = imgsize
+        (padu_fft, padd_fft, padl_fft, padr_fft) = pad_fft
+        (padu_rot, padd_rot, padl_rot, padr_rot) = pad_rot
 
-            # allocate working buffers for each thread:
-            # For fft convolution:
-            workmat_fft = zeros(T, nx+padu_fft+padd_fft, nz+padl_fft+padr_fft)
+        # allocate working buffers for each thread:
+        # For fft convolution:
+        workmat_fft = zeros(T, nx+padu_fft+padd_fft, nz+padl_fft+padr_fft)
+        workvec_fft_1 = zeros(T, nz+padl_fft+padr_fft)
+        workvec_fft_2 = zeros(T, nx+padu_fft+padd_fft)
 
-            workvec_fft_1 = zeros(T, nz+padl_fft+padr_fft)
+        # complex padimg
+        img_compl = zeros(Complex{T}, nx+padu_fft+padd_fft, nz+padl_fft+padr_fft)
+        # complex kernel
+        ker_compl = zeros(Complex{T}, nx+padu_fft+padd_fft, nz+padl_fft+padr_fft)
 
-            workvec_fft_2 = zeros(T, nx+padu_fft+padd_fft)
+        fft_plan = plan_fft!(ker_compl)
+        ifft_plan = plan_ifft!(ker_compl)
 
-            # complex padimg
-            img_compl = zeros(Complex{T}, nx+padu_fft+padd_fft, nz+padl_fft+padr_fft)
-            # complex kernel
-            ker_compl = zeros(Complex{T}, nx+padu_fft+padd_fft, nz+padl_fft+padr_fft)
+        # For image rotation:
+        workmat_rot_1 = zeros(T, nx+padu_rot+padd_rot, ny+padl_rot+padr_rot)
+        workmat_rot_2 = zeros(T, nx+padu_rot+padd_rot, ny+padl_rot+padr_rot)
+        workvec_rot_x = zeros(T, nx+padu_rot+padd_rot)
+        workvec_rot_y = zeros(T, ny+padl_rot+padr_rot)
 
-            fft_plan = plan_fft!(ker_compl)
+        interp_x = SparseInterpolator(LinearSpline(T), workvec_rot_x, length(workvec_rot_x))
+        interp_y = SparseInterpolator(LinearSpline(T), workvec_rot_y, length(workvec_rot_y))
 
-            ifft_plan = plan_ifft!(ker_compl)
+        # For attenuation:
+        exp_mumapr = zeros(T, nx, nz)
 
+        # For projection view:
+        add_view = zeros(T, nx, nz)
 
-            # For image rotation:
-
-            workmat_rot_1 = zeros(T, nx+padu_rot+padd_rot, ny+padl_rot+padr_rot)
-
-            workmat_rot_2 = zeros(T, nx+padu_rot+padd_rot, ny+padl_rot+padr_rot)
-
-            workvec_rot_x = zeros(T, nx+padu_rot+padd_rot)
-
-            workvec_rot_y = zeros(T, ny+padl_rot+padr_rot)
-
-            interp_x = SparseInterpolator(LinearSpline(T), workvec_rot_x, length(workvec_rot_x))
-            interp_y = SparseInterpolator(LinearSpline(T), workvec_rot_y, length(workvec_rot_y))
-
-            # For attenuation:
-            exp_mumapr = zeros(T, nx, nz)
-
-            # For projection view:
-            add_view = zeros(T, nx, nz)
-
-            new(workmat_fft, workvec_fft_1, workvec_fft_2, img_compl, ker_compl,
-                fft_plan, ifft_plan, workmat_rot_1, workmat_rot_2, workvec_rot_x,
-                workvec_rot_y, interp_x, interp_y, exp_mumapr, add_view)
-
+        new(workmat_fft, workvec_fft_1, workvec_fft_2, img_compl, ker_compl,
+            fft_plan, ifft_plan, workmat_rot_1, workmat_rot_2, workvec_rot_x,
+            workvec_rot_y, interp_x, interp_y, exp_mumapr, add_view)
     end
 end
 
-# Test code:
-# T = Float32
-# nx = 128
-# ny = 128
-# nz = 81
-# nx_psf = 37
-# nz_psf = 37
-# dy = T(4.80)
-# nview = 120
-# mumap = randn(T, nx, ny, nz)
-# psfs = ones(T, nx_psf, nz_psf, ny, nview)
-# plan = SPECTplan(mumap, psfs, nview, dy)
-# workarray = Vector{Workarray}(undef, plan.ncore)
-# for i = 1:plan.ncore
-#     workarray[i] = Workarray(plan.T, plan.imgsize, plan.pad_fft, plan.pad_rot) # allocate
-# end
-#
-# @btime plan = SPECTplan(mumap, psfs, nview, dy)
+
+#= Test code:
+T = Float32
+nx = 128
+ny = 128
+nz = 81
+nx_psf = 37
+nz_psf = 37
+dy = T(4.80)
+nview = 120
+mumap = randn(T, nx, ny, nz)
+psfs = ones(T, nx_psf, nz_psf, ny, nview)
+plan = SPECTplan(mumap, psfs, nview, dy)
+workarray = Vector{Workarray}(undef, plan.ncore)
+for i = 1:plan.ncore
+    workarray[i] = Workarray(plan.T, plan.imgsize, plan.pad_fft, plan.pad_rot) # allocate
+end
+
+plan = SPECTplan(mumap, psfs, nview, dy)
+@btime plan = SPECTplan($mumap, $psfs, $nview, $dy)
 # 67.664 ms (199856 allocations: 102.89 MiB)
-# @btime workarray = Vector{Workarray}(undef, plan.ncore)
+
+workarray = Vector{Workarray}(undef, plan.ncore)
+@btime workarray = Vector{Workarray}(undef, plan.ncore)
 # 220.910 ns (2 allocations: 1.27 KiB)
-# @btime for i = 1:plan.ncore
-#     workarray[i] = Workarray(plan.T, plan.imgsize, plan.pad_fft, plan.pad_rot) # allocate
-# end
+@btime for i = 1:plan.ncore
+    workarray[i] = Workarray(plan.T, plan.imgsize, plan.pad_fft, plan.pad_rot) # allocate
+end
 # 4.011 ms (3986 allocations: 7.91 MiB)
+=#

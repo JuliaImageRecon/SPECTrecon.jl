@@ -1,14 +1,31 @@
 # fft_convolve.jl
+
+#export ?
+
+import AbstractFFTs
+import FFTW
+using FFTW: plan_fft!, plan_ifft!
+#using SPECTrecon: pad2sizezero!, recenter2d!
+
+# for tests
+using ImageFiltering: imfilter, centered
+using MIRTjim: jim
+using BenchmarkTools
+
+
 """
     imfilter3!(output, img_compl, ker, ker_compl, fft_plan, ifft_plan)
-    apply FFT convolution between padimg and kernel (not centered)
+FFT-based convolution between `padimg` and kernel `ker` (not centered)
+putting result in `output`.
 """
-function imfilter3!(output::AbstractMatrix{<:RealU},
-                   img_compl::AbstractMatrix{<:Any},
-                   ker::AbstractMatrix{<:RealU},
-                   ker_compl::AbstractMatrix{<:Any},
-                   fft_plan::Union{AbstractFFTs.ScaledPlan, FFTW.cFFTWPlan},
-                   ifft_plan::Union{AbstractFFTs.ScaledPlan, FFTW.cFFTWPlan})
+function imfilter3!(
+    output::AbstractMatrix{<:RealU},
+    img_compl::AbstractMatrix{<:Any}, # todo: must be Complex{<:RealU} right?
+    ker::AbstractMatrix{<:RealU},
+    ker_compl::AbstractMatrix{<:Any},
+    fft_plan::Union{AbstractFFTs.ScaledPlan, FFTW.cFFTWPlan},
+    ifft_plan::Union{AbstractFFTs.ScaledPlan, FFTW.cFFTWPlan},
+)
 
     # ker_compl .= pad_it!(ker, size(img_compl))
     pad2sizezero!(ker_compl, ker, size(img_compl))
@@ -20,39 +37,45 @@ function imfilter3!(output::AbstractMatrix{<:RealU},
     recenter2d!(ker_compl, img_compl)
     # copyto!(output, real.(ker_compl))
     output .= real.(ker_compl)
+    return output
 end
 
-# Test code:
-# N = 64
-# T = Float32
-# img = zeros(T, N, N)
-# img[20:50, 20:40] .= ones(31,21)
-# output = similar(img)
-# ker = rand(T, 3, 3) / 9
-# img_compl = similar(img, Complex{T})
-# ker_compl = similar(img_compl)
-# fft_plan = plan_fft!(img_compl)
-# ifft_plan = plan_ifft!(img_compl)
-# copyto!(img_compl, img)
-# imfilter3!(output, img_compl, ker, ker_compl, fft_plan, ifft_plan)
-# @btime imfilter3!(output, img_compl, ker, ker_compl, fft_plan, ifft_plan)
+#= Test code:
+N = 64
+T = Float32
+img = zeros(T, N, N)
+img[20:50, 20:40] .= ones(31,21)
+# todo: test with random image that goes all the way to the edge!
+output = similar(img)
+ker = rand(T, 3, 3) / 9
+img_compl = similar(img, Complex{T})
+ker_compl = similar(img_compl)
+fft_plan = plan_fft!(img_compl)
+ifft_plan = plan_ifft!(img_compl)
+copyto!(img_compl, img)
+imfilter3!(output, img_compl, ker, ker_compl, fft_plan, ifft_plan)
+y = imfilter(img, centered(ker))
+jim(jim(output, "my"), jim(y, "julia"), jim(output - y, "diff"), gui=true)
+# todo: the difference is larger than expected!?
+#@btime imfilter3!($output, $img_compl, $ker, $ker_compl, $fft_plan, $ifft_plan)
 # 32.519 μs (0 allocations: 0 bytes)
-# y = imfilter(img, centered(ker))
-# plot(jim(output, "my"), jim(y, "julia"), jim(output - y, "diff"))
+=#
 
 
 
 """
     imfilter3_adj!(output, img_compl, kerev, ker_compl, fft_plan, ifft_plan)
-    apply FFT convolution between padimg and *REVERSED* kernel (not centered),
-    assuming the kernel is already be in reversed order.
+Apply FFT convolution between `padimg` and *REVERSED* kernel (not centered),
+assuming the kernel is already be in reversed order.
 """
-function imfilter3_adj!(output::AbstractMatrix{<:RealU},
-                        img_compl::AbstractMatrix{<:Any},
-                        kerev::AbstractMatrix{<:RealU}, # input kernel should already be in reversed order
-                        ker_compl::AbstractMatrix{<:Any},
-                        fft_plan::Union{AbstractFFTs.ScaledPlan, FFTW.cFFTWPlan},
-                        ifft_plan::Union{AbstractFFTs.ScaledPlan, FFTW.cFFTWPlan})
+function imfilter3_adj!(
+    output::AbstractMatrix{<:RealU},
+    img_compl::AbstractMatrix{<:Any},
+    kerev::AbstractMatrix{<:RealU}, # input kernel should already be in reversed order
+    ker_compl::AbstractMatrix{<:Any},
+    fft_plan::Union{AbstractFFTs.ScaledPlan, FFTW.cFFTWPlan},
+    ifft_plan::Union{AbstractFFTs.ScaledPlan, FFTW.cFFTWPlan},
+)
 
     # ker_compl .= pad_it!(ker, size(img_compl))
     pad2sizezero!(ker_compl, kerev, size(img_compl))
@@ -64,83 +87,94 @@ function imfilter3_adj!(output::AbstractMatrix{<:RealU},
     recenter2d!(ker_compl, img_compl)
     # copyto!(output, real.(ker_compl))
     output .= real.(ker_compl)
+    return output
 end
 
-# Test code:
-# N = 64
-# T = Float32
-# img = zeros(T, N, N)
-# img[20:50, 20:40] .= rand(31,21)
-# output = similar(img)
-# ker = ones(T, 3, 3) / 9
-# img_compl = similar(img, Complex{T})
-# ker_compl = similar(img_compl)
-# fft_plan = plan_fft!(img_compl)
-# ifft_plan = plan_ifft!(img_compl)
-# copyto!(img_compl, img)
-# @btime imfilter3_adj!(output, img_compl, ker, ker_compl, fft_plan, ifft_plan)
+#= Test code:
+N = 64
+T = Float32
+img = zeros(T, N, N)
+img[20:50, 20:40] .= rand(31,21)
+output = similar(img)
+ker = ones(T, 3, 3) / 9
+img_compl = similar(img, Complex{T})
+ker_compl = similar(img_compl)
+fft_plan = plan_fft!(img_compl)
+ifft_plan = plan_ifft!(img_compl)
+copyto!(img_compl, img)
+y = imfilter(img, centered(ker))
+imfilter3_adj!(output, img_compl, ker, ker_compl, fft_plan, ifft_plan)
+jim(jim(output), jim(y), jim(output - y), gui=true)
+@btime imfilter3_adj!($output, $img_compl, $ker, $ker_compl, $fft_plan, $ifft_plan)
 # 32.519 μs (0 allocations: 0 bytes)
-# y = imfilter(img, centered(ker))
-# plot(jim(output), jim(y), jim(output - y))
+=#
 
 
 
 """
     fft_conv!(output, workmat, img, ker, fftpadsize, img_compl, ker_compl, fft_plan, ifft_plan)
 """
-function fft_conv!(output::AbstractMatrix{<:RealU},
-                  workmat::AbstractMatrix{<:RealU},
-                  img::AbstractMatrix{<:RealU},
-                  ker::AbstractMatrix{<:RealU},
-                  fftpadsize::NTuple{4, <:Int},
-                  img_compl::AbstractMatrix{<:Any},
-                  ker_compl::AbstractMatrix{<:Any},
-                  fft_plan::Union{AbstractFFTs.ScaledPlan, FFTW.cFFTWPlan},
-                  ifft_plan::Union{AbstractFFTs.ScaledPlan, FFTW.cFFTWPlan})
+function fft_conv!(
+    output::AbstractMatrix{<:RealU},
+    workmat::AbstractMatrix{<:RealU},
+    img::AbstractMatrix{<:RealU},
+    ker::AbstractMatrix{<:RealU},
+    fftpadsize::NTuple{4, <:Int},
+    img_compl::AbstractMatrix{<:Any},
+    ker_compl::AbstractMatrix{<:Any},
+    fft_plan::Union{AbstractFFTs.ScaledPlan, FFTW.cFFTWPlan},
+    ifft_plan::Union{AbstractFFTs.ScaledPlan, FFTW.cFFTWPlan},
+)
     # filter the image with a kernel, using replicate padding and fft convolution
     padrepl!(img_compl, img, fftpadsize)
     imfilter3!(workmat, img_compl, ker, ker_compl, fft_plan, ifft_plan)
     (M, N) = size(img)
     copyto!(output, (@view workmat[fftpadsize[1]+1:fftpadsize[1]+M,
                                    fftpadsize[3]+1:fftpadsize[3]+N]))
+    return output
 end
 
-# Test code:
-# M = 200
-# N = 64
-# T = Float32
-# img = zeros(T, M, N)
-# img[20:150, 20:40] .= rand(131,21)
-# output = similar(img)
-# ker = ones(T, 3, 3) / 9
-# fftpadsize = (28, 28, 32, 32)
-#
-# img_compl = zeros(Complex{T}, 256, 128)
-# workmat = zeros(T, 256, 128)
-# ker_compl = similar(img_compl)
-# fft_plan = plan_fft!(img_compl)
-# ifft_plan = plan_ifft!(img_compl)
-# fft_conv!(output, workmat, img, ker, fftpadsize,
-#           img_compl, ker_compl, fft_plan, ifft_plan)
-# @btime fft_conv!(output, workmat, img, ker, fftpadsize,
-#           img_compl, ker_compl, fft_plan, ifft_plan)
+#= Test code:
+M = 200
+N = 64
+T = Float32
+img = zeros(T, M, N)
+img[20:150, 20:40] .= rand(131,21)
+output = similar(img)
+ker = ones(T, 3, 3) / 9
+fftpadsize = (28, 28, 32, 32)
+
+img_compl = zeros(Complex{T}, 256, 128)
+workmat = zeros(T, 256, 128)
+ker_compl = similar(img_compl)
+fft_plan = plan_fft!(img_compl)
+ifft_plan = plan_ifft!(img_compl)
+fft_conv!(output, workmat, img, ker, fftpadsize,
+          img_compl, ker_compl, fft_plan, ifft_plan)
+# todo: test output vs normal fft version
+@btime fft_conv!($output, $workmat, $img, $ker, $fftpadsize,
+          $img_compl, $ker_compl, $fft_plan, $ifft_plan)
 # 585.016 μs (0 allocations: 0 bytes)
+=#
+
 
 """
     fft_conv_adj!(output, workmat, workvec1, workvec2, img, ker,
                   fftpadsize, img_compl, ker_compl, fft_plan, ifft_plan)
 """
-function fft_conv_adj!(output::AbstractMatrix{<:RealU},
-                       workmat::AbstractMatrix{<:RealU},
-                       workvec1::AbstractVector{<:RealU},
-                       workvec2::AbstractVector{<:RealU},
-                       img::AbstractMatrix{<:RealU},
-                       ker::AbstractMatrix{<:RealU},
-                       fftpadsize::NTuple{4, <:Int},
-                       img_compl::AbstractMatrix{<:Any},
-                       ker_compl::AbstractMatrix{<:Any},
-                       fft_plan::Union{AbstractFFTs.ScaledPlan, FFTW.cFFTWPlan},
-                       ifft_plan::Union{AbstractFFTs.ScaledPlan, FFTW.cFFTWPlan})
+function fft_conv_adj!(
+    output::AbstractMatrix{<:RealU},
+    workmat::AbstractMatrix{<:RealU},
+    workvec1::AbstractVector{<:RealU},
+    workvec2::AbstractVector{<:RealU},
+    img::AbstractMatrix{<:RealU},
+    ker::AbstractMatrix{<:RealU},
+    fftpadsize::NTuple{4, <:Int},
+    img_compl::AbstractMatrix{<:Any},
+    ker_compl::AbstractMatrix{<:Any},
+    fft_plan::Union{AbstractFFTs.ScaledPlan, FFTW.cFFTWPlan},
+    ifft_plan::Union{AbstractFFTs.ScaledPlan, FFTW.cFFTWPlan},
+)
 
     padzero!(img_compl, img, fftpadsize)
     imfilter3_adj!(workmat, img_compl, ker, ker_compl, fft_plan, ifft_plan)
@@ -171,27 +205,30 @@ function fft_conv_adj!(output::AbstractMatrix{<:RealU},
 
     copyto!(output, (@view workmat[fftpadsize[1]+1:fftpadsize[1]+M,
                                    fftpadsize[3]+1:fftpadsize[3]+N]))
+    return output
 end
 
-# Test code
-# M = 200
-# N = 64
-# T = Float32
-# img = zeros(T, M, N)
-# img[20:150, 20:40] .= rand(131,21)
-# output = similar(img)
-# ker = ones(T, 3, 3) / 9
-# fftpadsize = (28, 28, 32, 32)
-#
-# img_compl = zeros(Complex{T}, 256, 128)
-# workmat = zeros(T, 256, 128)
-# workvec1 = zeros(T, 128)
-# workvec2 = zeros(T, 256)
-# ker_compl = similar(img_compl)
-# fft_plan = plan_fft!(img_compl)
-# ifft_plan = plan_ifft!(img_compl)
-# fft_conv_adj!(output, workmat, workvec1, workvec2, img, ker, fftpadsize,
-#           img_compl, ker_compl, fft_plan, ifft_plan)
-# @btime fft_conv_adj!(output, workmat, workvec1, workvec2, img, ker, fftpadsize,
-#           img_compl, ker_compl, fft_plan, ifft_plan)
+#= Test code
+M = 200
+N = 64
+T = Float32
+img = zeros(T, M, N)
+img[20:150, 20:40] .= rand(131,21)
+output = similar(img)
+ker = ones(T, 3, 3) / 9
+fftpadsize = (28, 28, 32, 32)
+
+img_compl = zeros(Complex{T}, 256, 128)
+workmat = zeros(T, 256, 128)
+workvec1 = zeros(T, 128)
+workvec2 = zeros(T, 256)
+ker_compl = similar(img_compl)
+fft_plan = plan_fft!(img_compl)
+ifft_plan = plan_ifft!(img_compl)
+fft_conv_adj!(output, workmat, workvec1, workvec2, img, ker, fftpadsize,
+          img_compl, ker_compl, fft_plan, ifft_plan)
+# todo: test correctness
+@btime fft_conv_adj!($output, $workmat, $workvec1, $workvec2, $img, $ker,
+    $fftpadsize, $img_compl, $ker_compl, $fft_plan, $ifft_plan)
 # 594.788 μs (0 allocations: 0 bytes)
+=#

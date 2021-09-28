@@ -1,7 +1,10 @@
 # backproject.jl
+
+expert backproject, backproject!
+
 """
     backproject!(image, view, plan, workarray, viewidx)
-Backproject a single view
+Backproject a single view.
 """
 function backproject!(
     image::AbstractArray{<:RealU, 3},
@@ -9,7 +12,7 @@ function backproject!(
     plan::SPECTplan,
     workarray::Vector{Workarray},
     viewidx::Int
-    )
+)
 
     Threads.@threads for z = 1:plan.imgsize[3] # 1:nz
         # get thread id
@@ -90,13 +93,14 @@ function backproject!(
                            plan.viewangle[viewidx])
         end
     end
+    return image
 end
 
 
 
 """
     backproject!(image, views, plan, workarray; index)
-Backproject multiple views
+Backproject multiple views into `image`.
 """
 function backproject!(
     image::AbstractArray{<:RealU, 3},
@@ -113,44 +117,44 @@ function backproject!(
     end
 end
 
-# Test code:
-# T = Float32
-# path = "/Users/lizongyu/SPECTreconv2.jl/test/"
-# file = matopen(path*"mumap208.mat")
-# mumap = read(file, "mumap208")
-# close(file)
-#
-# file = matopen(path*"psf_208.mat")
-# psfs = read(file, "psf_208")
-# close(file)
-#
-# file = matopen(path*"xtrue.mat")
-# xtrue = convert(Array{Float32, 3}, read(file, "xtrue"))
-# close(file)
-#
-# file = matopen(path*"proj_jeff_newmumap.mat")
-# proj_jeff = read(file, "proj_jeff")
-# close(file)
-# dy = T(4.7952)
-# nview = size(psfs, 4)
-# plan = SPECTplan(mumap, psfs, nview, dy; interpidx = 2)
-# workarray = Vector{Workarray}(undef, plan.ncore)
-# for i = 1:plan.ncore
-#     workarray[i] = Workarray(plan.T, plan.imgsize, plan.pad_fft, plan.pad_rot) # allocate
-# end
-# (nx, ny, nz) = size(xtrue)
-# nviews = size(psfs, 4)
-# image = zeros(T, nx, ny, nz)
-# @btime backproject!(image, proj_jeff, plan, workarray)
+#= Test code:
+T = Float32
+path = "/Users/lizongyu/SPECTreconv2.jl/test/"
+file = matopen(path*"mumap208.mat")
+mumap = read(file, "mumap208")
+close(file)
+
+file = matopen(path*"psf_208.mat")
+psfs = read(file, "psf_208")
+close(file)
+
+file = matopen(path*"xtrue.mat")
+xtrue = convert(Array{Float32, 3}, read(file, "xtrue"))
+close(file)
+
+file = matopen(path*"proj_jeff_newmumap.mat")
+proj_jeff = read(file, "proj_jeff")
+close(file)
+dy = T(4.7952)
+nview = size(psfs, 4)
+plan = SPECTplan(mumap, psfs, nview, dy; interpidx = 2)
+workarray = Vector{Workarray}(undef, plan.ncore)
+for i = 1:plan.ncore
+    workarray[i] = Workarray(plan.T, plan.imgsize, plan.pad_fft, plan.pad_rot) # allocate
+end
+(nx, ny, nz) = size(xtrue)
+nviews = size(psfs, 4)
+image = zeros(T, nx, ny, nz)
+@btime backproject!(image, proj_jeff, plan, workarray)
 # 1d interp 6.135 s (453513 allocations: 17.49 MiB)
 # 2d interp 3.533 s (453300 allocations: 17.48 MiB)
-
+=#
 
 
 
 """
     image = backproject(plan, workarray, views ; kwargs...)
-Initialize the image
+SPECT backproject `views`; this allocates the returned 3D array.
 """
 function backproject(
     plan::SPECTplan,
