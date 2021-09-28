@@ -55,6 +55,7 @@ isequal(x, z)
 =#
 
 
+# pad with replication from `img` into `output`
 Base.@propagate_inbounds function padrepl!(
     output::AbstractMatrix{<:Any},
     img::AbstractMatrix{<:Any},
@@ -64,7 +65,6 @@ Base.@propagate_inbounds function padrepl!(
     @boundscheck size(output) ==
         size(img) .+ (padsize[1] + padsize[2], padsize[3] + padsize[4]) || throw("size")
     M, N = size(img)
-#   output .= 0 # todo: should this be added?
     for j = 1:size(output, 2), i = 1:size(output, 1)
         @inbounds output[i, j] = img[clamp(i - padsize[1], 1, M), clamp(j - padsize[3], 1, N)]
     end
@@ -149,6 +149,7 @@ y = similar(x)
 
 """
     recenter2d!(dst, src)
+todo: fftshift2!
 Same as `fftshift` in 2d, but non-allocating
 """
 Base.@propagate_inbounds function recenter2d!(
@@ -174,13 +175,14 @@ Base.@propagate_inbounds function recenter2d!(
 end
 
 #= Test code:
-x = randn(100, 80)
+x = randn(120, 128)
 y = similar(x)
 z = similar(x)
 fftshift!(y, x)
 recenter2d!(z, x)
 isequal(y, z)
-@btime recenter2d!($z, $x)
+@btime fftshift!($z, $x) # 3.8 us
+@btime recenter2d!($z, $x) # 2.9 us
 =#
 
 

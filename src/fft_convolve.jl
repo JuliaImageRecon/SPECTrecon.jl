@@ -12,6 +12,7 @@ using ImageFiltering: imfilter, centered
 using MIRTjim: jim
 using BenchmarkTools
 
+const AbsMatComplex = AbstractMatrix{<:Complex{T}} where T <: Real # AbstractFloat?
 
 """
     imfilter3!(output, img_compl, ker, ker_compl, fft_plan, ifft_plan)
@@ -20,9 +21,9 @@ putting result in `output`.
 """
 function imfilter3!(
     output::AbstractMatrix{<:RealU},
-    img_compl::AbstractMatrix{<:Any}, # todo: must be Complex{<:RealU} right?
+    img_compl::AbsMatComplex,
     ker::AbstractMatrix{<:RealU},
-    ker_compl::AbstractMatrix{<:Any},
+    ker_compl::AbsMatComplex,
     fft_plan::Union{AbstractFFTs.ScaledPlan, FFTW.cFFTWPlan},
     ifft_plan::Union{AbstractFFTs.ScaledPlan, FFTW.cFFTWPlan},
 )
@@ -43,9 +44,8 @@ end
 #= Test code:
 N = 64
 T = Float32
-img = zeros(T, N, N)
-img[20:50, 20:40] .= ones(31,21)
-# todo: test with random image that goes all the way to the edge!
+#img = zeros(T, N, N); img[20:50, 20:40] .= ones(31,21)
+img = rand(T, N, N) # random image that goes all the way to the edge!
 output = similar(img)
 ker = rand(T, 3, 3) / 9
 img_compl = similar(img, Complex{T})
@@ -53,10 +53,9 @@ ker_compl = similar(img_compl)
 fft_plan = plan_fft!(img_compl)
 ifft_plan = plan_ifft!(img_compl)
 copyto!(img_compl, img)
-imfilter3!(output, img_compl, ker, ker_compl, fft_plan, ifft_plan)
-y = imfilter(img, centered(ker))
-jim(jim(output, "my"), jim(y, "julia"), jim(output - y, "diff"), gui=true)
-# todo: the difference is larger than expected!?
+imfilter3!(output, img_compl, reverse(ker), ker_compl, fft_plan, ifft_plan)
+y = imfilter(img, centered(ker), "circular")
+jim(jim(output, "my"), jim(y, "julia"), jim(output - y, "diff"), jim(img), gui=true)
 #@btime imfilter3!($output, $img_compl, $ker, $ker_compl, $fft_plan, $ifft_plan)
 # 32.519 μs (0 allocations: 0 bytes)
 =#
