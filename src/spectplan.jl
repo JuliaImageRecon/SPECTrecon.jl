@@ -1,5 +1,7 @@
 # spectplan.jl
 
+export SPECTplan, Workarray
+
 """
     SPECTplan
 Struct for storing key factors for a SPECT system model

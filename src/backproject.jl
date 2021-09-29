@@ -1,6 +1,6 @@
 # backproject.jl
 
-expert backproject, backproject!
+export backproject, backproject!
 
 """
     backproject!(image, view, plan, workarray, viewidx)

@@ -17,6 +17,7 @@ function project!(
 
     Threads.@threads for z = 1:plan.imgsize[3] # 1:nz
         thid = Threads.threadid()
+#       work = workarray[thid] # todo: how to avoid repeating?
         if plan.interpidx == 1
             # rotate image and store in plan.imgr using 1D interpolation
             imrotate3!((@view plan.imgr[:, :, z]),
@@ -85,9 +86,11 @@ function project!(
     end
 
     # add up to get view
-    for y = 1:plan.imgsize[2]
+    for y in 1:plan.imgsize[2]
         plus3dj!(view, plan.add_img, y)
     end
+
+    # plan.add_img[2] # why does julia allocate (on heap!?) here?
 
     return view
 end
