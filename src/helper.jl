@@ -111,7 +111,7 @@ Base.@propagate_inbounds function pad2sizezero!(
 end
 
 
-function pad_it!(X::AbstractArray{T}, padsize::Tuple) where {T <: Number}
+function pad_it!(X::AbstractArray{T,D}, padsize::NTuple{D,<:Int}) where {D, T <: Number}
     dims = size(X)
     return OffsetArrays.no_offset_view(
         BorderArray(X,
