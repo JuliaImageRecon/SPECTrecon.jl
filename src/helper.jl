@@ -93,15 +93,15 @@ Non-allocating version of padding:
         pad_dims[2]+1 : pad_dims[2]+dims[2]]) .= img
 """
 Base.@propagate_inbounds function pad2sizezero!(
-    output::AbstractMatrix{<:Any},
-    img::AbstractMatrix{<:Any},
+    output::AbstractMatrix{T},
+    img::AbstractMatrix,
     padsize::Tuple{<:Int, <:Int},
-)
+) where {T}
     @boundscheck size(output) == padsize || throw("size")
 
     dims = size(img)
     pad_dims = ceil.(Int, (padsize .- dims) ./ 2)
-    output .= 0
+    output .= zero(T)
     for j = pad_dims[2]+1:pad_dims[2]+dims[2], i = pad_dims[1]+1:pad_dims[1]+dims[1]
         @inbounds output[i, j] = img[i - pad_dims[1], j - pad_dims[2]]
     end
@@ -111,11 +111,11 @@ Base.@propagate_inbounds function pad2sizezero!(
 end
 
 
-function pad_it!(X::AbstractArray{<:Any}, padsize::Tuple)
+function pad_it!(X::AbstractArray{T}, padsize::Tuple) where {T <: Number}
     dims = size(X)
     return OffsetArrays.no_offset_view(
         BorderArray(X,
-            Fill(0,
+            Fill(zero(T),
                (ceil.(Int, (padsize .- dims) ./ 2)),
                (floor.(Int, (padsize .- dims) ./ 2)),
             )
@@ -124,13 +124,14 @@ function pad_it!(X::AbstractArray{<:Any}, padsize::Tuple)
 end
 
 #= Test code:
-ker = randn(5,5)
-padsize = (64, 64)
-z = randn(padsize)
-pad2sizezero!(z, ker, padsize)
-isequal(pad_it!(ker, padsize), z)
-@btime pad2sizezero!($z, $ker, $padsize)
-# 451.000 ns (0 allocations: 0 bytes)
+ker = reshape(Int16(1):Int16(9), 3,3)
+padsize = (8, 8)
+z = randn(Float32, padsize)
+SPECTrecon.pad2sizezero!(z, ker, padsize)
+tmp = SPECTrecon.pad_it!(ker, padsize)
+@assert tmp == z
+@btime SPECTrecon.pad2sizezero!($z, $ker, $padsize) # 0 alloc, 451 ns for 64
+@btime SPECTrecon.pad_it!($ker, $padsize)
 =#
 
 
