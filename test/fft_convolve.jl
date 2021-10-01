@@ -1,12 +1,7 @@
-using Main.SPECTrecon
+using Main.SPECTrecon: fft_conv!, fft_conv_adj!
 using Test: @test, @testset, @test_throws, @inferred
-using LazyAlgebra
-using InterpolationKernels
-using LinearInterpolators
-using BenchmarkTools
-using Plots:plot
-using MIRTjim:jim
-using FFTW
+using LazyAlgebra:vdot
+using FFTW: plan_fft!, plan_ifft!
 
 @testset "fft_convolve" begin
     M = 200
@@ -29,10 +24,10 @@ using FFTW
         ker = rand(T, 5, 5)
         ker /= sum(ker)
         kerev = reverse(ker)
-        Main.SPECTrecon.fft_conv!(output_x, workmat, x, ker, fftpadsize,
+        fft_conv!(output_x, workmat, x, ker, fftpadsize,
                                 img_compl, ker_compl, fft_plan, ifft_plan)
 
-        Main.SPECTrecon.fft_conv_adj!(output_y, workmat, workvec1, workvec2, y, kerev, fftpadsize,
+        fft_conv_adj!(output_y, workmat, workvec1, workvec2, y, kerev, fftpadsize,
                                     img_compl, ker_compl, fft_plan, ifft_plan)
         @test isapprox(vdot(y, output_x), vdot(x, output_y))
     end

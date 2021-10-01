@@ -7,7 +7,7 @@ export SPECTplan, Workarray
 Struct for storing key factors for a SPECT system model
 - `T` datatype of work arrays
 - `imgr [nx, ny, nz]` 3D rotated version of image
-- `add_img [nx, ny, nz]` 3D image for backprojection
+- `add_img [nx, ny, nz]` 3D image for adding views and backprojection
 - `mumap [nx,ny,nz]` attenuation map, must be 3D, possibly zeros()
 - `mumapr [nx, ny, nz]` 3D rotated mumap
 - `psfs [nx_psf,nz_psf,ny,nview]` point spread function, must be 4D, with `nx_psf` and `nz_psf` odd, and symmetric for each slice
@@ -128,8 +128,6 @@ For image rotation:
 For attenuation:
 - `exp_mumapr [nx, nz]` 2D exponential rotated mumap
 
-For view:
-- `add_view [nx, nz]` 2D projection view
 """
 struct Workarray
     workmat_fft::AbstractArray{<:RealU, 2}
@@ -146,7 +144,7 @@ struct Workarray
     interp_x::SparseInterpolator
     interp_y::SparseInterpolator
     exp_mumapr::AbstractArray{<:RealU, 2}
-    add_view::AbstractArray{<:RealU, 2}
+    # add_view::AbstractArray{<:RealU, 2}
 
     function Workarray(
         T::DataType,
@@ -185,11 +183,11 @@ struct Workarray
         exp_mumapr = zeros(T, nx, nz)
 
         # For projection view:
-        add_view = zeros(T, nx, nz)
+        # add_view = zeros(T, nx, nz)
 
         new(workmat_fft, workvec_fft_1, workvec_fft_2, img_compl, ker_compl,
             fft_plan, ifft_plan, workmat_rot_1, workmat_rot_2, workvec_rot_x,
-            workvec_rot_y, interp_x, interp_y, exp_mumapr, add_view)
+            workvec_rot_y, interp_x, interp_y, exp_mumapr)
     end
 end
 

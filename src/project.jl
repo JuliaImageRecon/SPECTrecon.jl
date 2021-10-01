@@ -117,7 +117,8 @@ end
 
 #= Test code:
 T = Float32
-path = "/Users/lizongyu/SPECTreconv2.jl/test/"
+path = "./data/"
+using MAT
 file = matopen(path*"mumap208.mat")
 mumap = read(file, "mumap208")
 close(file)
@@ -135,27 +136,30 @@ proj_jeff = read(file, "proj_jeff")
 close(file)
 dy = T(4.7952)
 nview = size(psfs, 4)
-plan = SPECTplan(mumap, psfs, nview, dy; interpidx = 1)
+plan = SPECTrecon.SPECTplan(mumap, psfs, nview, dy; interpidx = 1)
 workarray = Vector{Workarray}(undef, plan.ncore)
 for i = 1:plan.ncore
-    workarray[i] = Workarray(plan.T, plan.imgsize, plan.pad_fft, plan.pad_rot) # allocate
+    workarray[i] = SPECTrecon.Workarray(plan.T, plan.imgsize, plan.pad_fft, plan.pad_rot) # allocate
 end
 (nx, ny, nz) = size(xtrue)
 nviews = size(psfs, 4)
 views = zeros(T, nx, nz, nviews)
+SPECTrecon.project!(views, xtrue, plan, workarray)
 @btime project!(views, xtrue, plan, workarray)
-# 1d interp 5.933 s (578848 allocations: 20.77 MiB)
-# 2d interp 3.302 s (578841 allocations: 20.77 MiB)
+# running on a remote server
+# 1d interp 20.481 s (541597 allocations: 18.64 MiB) don't know why it takes so long!!!
+# 2d interp 4.155 s (541644 allocations: 18.64 MiB)
 nrmse(x, xtrue) = norm(vec(x - xtrue)) / norm(vec(xtrue))
 
 e3 = zeros(128)
 for idx = 1:128
     e3[idx] = nrmse(views[:,:,idx], proj_jeff[:,:,idx])
 end
+using Plots: plot
 plot((0:127)/128*360, e3 * 100, xticks = 0:45:360, xlabel = "degree", ylabel = "NRMSE (%)", label = "")
 avg_nrmse = sum(e3) / length(e3) * 100
 # 1d interp: 1e-5% nrmse
-# 2d interp: 0.384% nrmse
+# 2d interp: 0.382% nrmse
 =#
 
 

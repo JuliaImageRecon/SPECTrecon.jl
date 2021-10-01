@@ -2,7 +2,6 @@
 # A lot of helper functions
 
 using LinearAlgebra
-#using LazyAlgebra, TwoDimensional # todo
 #using LinearInterpolators
 #using InterpolationKernels
 import OffsetArrays
@@ -27,19 +26,18 @@ Mutating version of padding a 2D image by filling zeros.
 Output has size `(size(img, 1) + padsize[1] + padsize[2], size(img, 2) + padsize[3] + padsize[4])`.
 """
 Base.@propagate_inbounds function padzero!(
-    output::AbstractMatrix{<:Any},
-    img::AbstractMatrix{<:Any},
+    output::AbstractMatrix{T},
+    img::AbstractMatrix,
     padsize::NTuple{4, <:Int}, # up, down, left, right
-)
+) where {T}
 
     @boundscheck size(output) ==
         size(img) .+ (padsize[1] + padsize[2], padsize[3] + padsize[4]) || throw("size")
     M, N = size(img)
-    output .= 0
+    output .= zero(T)
     for j = padsize[3] + 1:padsize[3] + N, i = padsize[1] + 1:padsize[1] + M
         @inbounds output[i, j] = img[i - padsize[1], j - padsize[3]]
     end
-    # (@view output[pad_x + 1:pad_x + M, pad_y + 1:pad_y + N]) .= img
     return output
 end
 
@@ -57,8 +55,8 @@ isequal(x, z)
 
 # pad with replication from `img` into `output`
 Base.@propagate_inbounds function padrepl!(
-    output::AbstractMatrix{<:Any},
-    img::AbstractMatrix{<:Any},
+    output::AbstractMatrix,
+    img::AbstractMatrix,
     padsize::NTuple{4, <:Int}, # up, down, left, right
 )
 
@@ -105,8 +103,6 @@ Base.@propagate_inbounds function pad2sizezero!(
     for j = pad_dims[2]+1:pad_dims[2]+dims[2], i = pad_dims[1]+1:pad_dims[1]+dims[1]
         @inbounds output[i, j] = img[i - pad_dims[1], j - pad_dims[2]]
     end
-    # (@view output[pad_dims[1]+1:pad_dims[1]+dims[1],
-    #               pad_dims[2]+1:pad_dims[2]+dims[2]]) .= img
     return output
 end
 
@@ -127,11 +123,11 @@ end
 ker = reshape(Int16(1):Int16(9), 3,3)
 padsize = (8, 8)
 z = randn(Float32, padsize)
-SPECTrecon.pad2sizezero!(z, ker, padsize)
-tmp = SPECTrecon.pad_it!(ker, padsize)
+pad2sizezero!(z, ker, padsize)
+tmp = pad_it!(ker, padsize)
 @assert tmp == z
-@btime SPECTrecon.pad2sizezero!($z, $ker, $padsize) # 0 alloc, 451 ns for 64
-@btime SPECTrecon.pad_it!($ker, $padsize)
+@btime pad2sizezero!($z, $ker, $padsize) # 0 alloc, 451 ns for 64
+@btime pad_it!($ker, $padsize)
 =#
 
 
@@ -149,11 +145,10 @@ y = similar(x)
 
 
 """
-    recenter2d!(dst, src)
-todo: fftshift2!
+    fftshift2!(dst, src)
 Same as `fftshift` in 2d, but non-allocating
 """
-Base.@propagate_inbounds function recenter2d!(
+Base.@propagate_inbounds function fftshift2!(
     dst::AbstractMatrix,
     src::AbstractMatrix,
 )
@@ -180,10 +175,10 @@ x = randn(120, 128)
 y = similar(x)
 z = similar(x)
 fftshift!(y, x)
-recenter2d!(z, x)
+fftshift2!(z, x)
 isequal(y, z)
 @btime fftshift!($z, $x) # 3.8 us
-@btime recenter2d!($z, $x) # 2.9 us
+@btime fftshift2!($z, $x) # 2.9 us
 =#
 
 

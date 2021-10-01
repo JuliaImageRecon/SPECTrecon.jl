@@ -2,7 +2,7 @@
 
 export imrotate3!, imrotate3_adj!
 
-using InterpolationKernels: LinearSpline
+using LinearInterpolators: LinearSpline
 using LinearInterpolators: SparseInterpolator, AffineTransform2D, rotate
 using LinearInterpolators: TwoDimensionalTransformInterpolator
 
@@ -10,17 +10,19 @@ using LinearInterpolators: TwoDimensionalTransformInterpolator
 # for tests
 using BenchmarkTools
 using ImageFiltering: padarray
-
+using ImageTransformations: imrotate
+using MIRTjim: jim
+using Interpolations: Linear
 
 """
-    assign_interp!(A, x)
-Assign key values in `SparseInterpolator` `A` that are calculated from `x`.
+    linearinterp!(A, x)
+Assign key values in `SparseInterpolator` (linear) `A` that are calculated from `x`.
 """
-function assign_interp!(
-    A::SparseInterpolator,
+function linearinterp!(
+    A::SparseInterpolator{<:AbstractFloat},
     x::AbstractVector{<:RealU},
 )
-    # x was created in increasing order
+    # x must be in increasing order
     dec = ceil(Int, x[1]) - x[1]
     ncoeff = length(A.C)
     ncol = length(x)
@@ -49,7 +51,7 @@ end
 x = rand(100)
 interp_x = SparseInterpolator(LinearSpline(Float32), x, length(x))
 # todo: test vs Interpolations
-@btime assign_interp!($interp_x, $x) # 494.062 ns (0 allocations: 0 bytes)
+@btime linearinterp!($interp_x, $x) # 494.062 ns (0 allocations: 0 bytes)
 =#
 
 
@@ -65,7 +67,7 @@ function rotate_x!(
     tan_θ::Real,
     xi::AbstractVector{<:RealU},
     yi::AbstractVector{<:RealU},
-    interp::SparseInterpolator,
+    interp::SparseInterpolator{<:AbstractFloat},
     workvec::AbstractVector{<:RealU},
     c_y::Real,
 )
@@ -75,7 +77,7 @@ function rotate_x!(
         broadcast!(-, workvec, workvec, c_y)
         broadcast!(*, workvec, workvec, tan_θ)
         broadcast!(+, workvec, workvec, xi)
-        assign_interp!(interp, workvec)
+        linearinterp!(interp, workvec)
         mul!((@view output[:, i]), interp, (@view img[:, i])) # need mul! to avoid allocating
     end
     return output
@@ -120,7 +122,7 @@ function rotate_x_adj!(
         broadcast!(-, workvec, workvec, c_y)
         broadcast!(*, workvec, workvec, tan_θ)
         broadcast!(+, workvec, workvec, xi)
-        assign_interp!(interp, workvec)
+        linearinterp!(interp, workvec)
         mul!((@view output[:, i]), interp', (@view img[:, i]))
     end
     return output
@@ -164,7 +166,7 @@ function rotate_y!(
         broadcast!(-, workvec, workvec, c_x)
         broadcast!(*, workvec, workvec, sin_θ)
         broadcast!(+, workvec, workvec, yi)
-        assign_interp!(interp, workvec)
+        linearinterp!(interp, workvec)
         mul!((@view output[i, :]), interp, (@view img[i, :]))
     end
     return output
@@ -207,7 +209,7 @@ function rotate_y_adj!(
         broadcast!(-, workvec, workvec, c_x)
         broadcast!(*, workvec, workvec, sin_θ)
         broadcast!(+, workvec, workvec, yi)
-        assign_interp!(interp, workvec)
+        linearinterp!(interp, workvec)
         mul!((@view output[i, :]), interp', (@view img[i, :]))
     end
     return output
@@ -358,12 +360,13 @@ function imrotate3!(
     workmat2::AbstractMatrix{<:RealU},
     img::AbstractMatrix{<:RealU},
     θ::Real,
-    interp_x::SparseInterpolator,
-    interp_y::SparseInterpolator,
+    interp_x::SparseInterpolator{<:AbstractFloat},
+    interp_y::SparseInterpolator{<:AbstractFloat},
     workvec_x::AbstractVector{<:RealU},
     workvec_y::AbstractVector{<:RealU},
 )
-
+    @boundscheck size(output) == size(img) || throw("size")
+    @boundscheck size(img, 1) == size(img, 2) || throw("row != col")
     if mod(θ, 2π) ≈ 0
         output .= img
         return output # todo: check!
@@ -405,12 +408,15 @@ workvec_x = zeros(Float32, M + 2 * pad_x)
 workvec_y = zeros(Float32, N + 2 * pad_y)
 A_x = SparseInterpolator(LinearSpline(Float32), workvec_x, length(workvec_x))
 A_y = SparseInterpolator(LinearSpline(Float32), workvec_y, length(workvec_y))
-img = randn(Float32, M, N)
+img = zeros(Float32, M, N)
+img[30:50, 20:60] .= 1
 output = similar(img)
 workmat1 = OffsetArrays.no_offset_view(padarray(img, Fill(0, (pad_x, pad_y))))
 workmat2 = similar(workmat1)
 θ = 3*π/11
 imrotate3!(output, workmat1, workmat2, img, θ, A_x, A_y, workvec_x, workvec_y)
+output2 = imrotate(img, -θ, axes(img), method = Linear(), fill = 0)
+jim(jim(output, "my"), jim(output2, "julia"), jim(output - output2, "diff"))
 @btime imrotate3!($output, $workmat1, $workmat2, $img, $θ, $A_x, $A_y, $workvec_x, $workvec_y)
 # 553.325 μs (0 allocations: 0 bytes)
 =#
@@ -427,11 +433,15 @@ function imrotate3_adj!(
     workmat2::AbstractMatrix{<:RealU},
     img::AbstractMatrix{<:RealU},
     θ::Real,
-    interp_x::SparseInterpolator,
-    interp_y::SparseInterpolator,
+    interp_x::SparseInterpolator{<:AbstractFloat},
+    interp_y::SparseInterpolator{<:AbstractFloat},
     workvec_x::AbstractVector{<:RealU},
     workvec_y::AbstractVector{<:RealU},
 )
+
+    @boundscheck size(output) == size(img) || throw("size")
+    @boundscheck size(img, 1) == size(img, 2) || throw("row != col")
+
     if mod(θ, 2π) ≈ 0
         output .= img
         return output
@@ -470,12 +480,15 @@ workvec_x = zeros(Float32, M + 2 * pad_x)
 workvec_y = zeros(Float32, N + 2 * pad_y)
 A_x = SparseInterpolator(LinearSpline(Float32), workvec_x, length(workvec_x))
 A_y = SparseInterpolator(LinearSpline(Float32), workvec_y, length(workvec_y))
-img = randn(Float32, M, N)
+img = zeros(Float32, M, N)
+img[30:50, 20:60] .= 1
 output = similar(img)
 workmat1 = OffsetArrays.no_offset_view(padarray(img, Fill(0, (pad_x, pad_y))))
 workmat2 = similar(workmat1)
 θ = 3π/11
 imrotate3_adj!(output, workmat1, workmat2, img, θ, A_x, A_y, workvec_x, workvec_y)
+output2 = imrotate(img, θ, axes(img), method = Linear(), fill = 0)
+jim(jim(output, "my"), jim(output2, "julia"), jim(output - output2, "diff"))
 @btime imrotate3_adj!($output, $workmat1, $workmat2, $img, $θ, $A_x, $A_y, $workvec_x, $workvec_y)
 # 572.407 μs (0 allocations: 0 bytes)
 =#
@@ -493,6 +506,10 @@ function imrotate3!(
     img::AbstractMatrix{<:RealU},
     θ::Real,
 )
+
+    @boundscheck size(output) == size(img) || throw("size")
+    @boundscheck size(img, 1) == size(img, 2) || throw("row != col")
+
     if mod(θ, 2π) ≈ 0
         output .= img
         return output
@@ -509,8 +526,6 @@ function imrotate3!(
     A = TwoDimensionalTransformInterpolator(rows, cols, ker, R)
     padzero!(workmat1, img, (pad_x, pad_x, pad_y, pad_y))
     mul!(workmat2, A, workmat1)
-    # tmp .= OffsetArrays.no_offset_view(BorderArray(img, Fill(0, (pad_x, pad_y))))
-    # mul!(output, A, tmp)
     output .= (@view workmat2[pad_x + 1 : pad_x + M, pad_y + 1 : pad_y + N])
     return output
 end
@@ -520,12 +535,15 @@ M = 100
 N = 100
 pad_x = ceil(Int, 1 + M * sqrt(2)/2 - M / 2)
 pad_y = ceil(Int, 1 + N * sqrt(2)/2 - N / 2)
-img = randn(Float32, M, N)
+img = zeros(Float32, M, N)
+img[30:60,20:70] .= 1
 output = similar(img)
 workmat1 = OffsetArrays.no_offset_view(padarray(img, Fill(0, (pad_x, pad_y))))
 workmat2 = similar(workmat1)
 θ = 3π/11
 imrotate3!(output, workmat1, workmat2, img, θ)
+output2 = imrotate(img, -θ, axes(img), method = Linear(), fill = 0)
+jim(jim(output, "my"), jim(output2, "julia"), jim(output - output2, "diff"))
 @btime imrotate3!($output, $workmat1, $workmat2, $img, $θ)
 # 182.541 μs (0 allocations: 0 bytes)
 =#
@@ -543,6 +561,10 @@ function imrotate3_adj!(
     img::AbstractMatrix{<:RealU},
     θ::Real,
 )
+
+    @boundscheck size(output) == size(img) || throw("size")
+    @boundscheck size(img, 1) == size(img, 2) || throw("row != col")
+
     if mod(θ, 2π) ≈ 0
         output .= img
         return output
@@ -558,7 +580,6 @@ function imrotate3_adj!(
     R = c + rotate(2π - θ, AffineTransform2D{T}() - c)
     A = TwoDimensionalTransformInterpolator(rows, cols, ker, R)
     padzero!(workmat1, img, (pad_x, pad_x, pad_y, pad_y))
-    # tmp .= OffsetArrays.no_offset_view(BorderArray(img, Fill(0, (pad_x, pad_y))))
     mul!(workmat2, A', workmat1)
     output .= (@view workmat2[pad_x + 1 : pad_x + M, pad_y + 1 : pad_y + N])
     return output
@@ -569,12 +590,16 @@ M = 100
 N = 100
 pad_x = ceil(Int, 1 + M * sqrt(2)/2 - M / 2)
 pad_y = ceil(Int, 1 + N * sqrt(2)/2 - N / 2)
-img = randn(Float32, M, N)
+img = zeros(Float32, M, N)
+img[30:60,20:70] .= 1
 output = similar(img)
 workmat1 = OffsetArrays.no_offset_view(padarray(img, Fill(0, (pad_x, pad_y))))
 workmat2 = similar(workmat1)
 θ = 3π/11
 imrotate3_adj!(output, workmat1, workmat2, img, θ)
+output2 = imrotate(img, θ, axes(img), method = Linear(), fill = 0)
+jim(jim(output, "my"), jim(output2, "julia"), jim(output - output2, "diff"))
+# I see a lot of artifacts!
 @btime imrotate3_adj!($output, $workmat1, $workmat2, $img, $θ)
 # 186.914 μs (0 allocations: 0 bytes)
 =#
