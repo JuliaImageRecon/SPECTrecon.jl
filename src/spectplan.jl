@@ -182,9 +182,6 @@ struct Workarray
         # For attenuation:
         exp_mumapr = zeros(T, nx, nz)
 
-        # For projection view:
-        # add_view = zeros(T, nx, nz)
-
         new(workmat_fft, workvec_fft_1, workvec_fft_2, img_compl, ker_compl,
             fft_plan, ifft_plan, workmat_rot_1, workmat_rot_2, workvec_rot_x,
             workvec_rot_y, interp_x, interp_y, exp_mumapr)
