@@ -71,7 +71,6 @@ function backproject!(
         # get thread id
         thid = Threads.threadid()
         if plan.interpidx == 1
-
             imrotate3_adj!((@view image[:, :, z]),
                            workarray[thid].workmat_rot_1,
                            workarray[thid].workmat_rot_2,
