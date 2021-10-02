@@ -140,7 +140,6 @@ function backproject(
     views::AbstractArray{<:RealU, 3},
     mumap::AbstractArray{<:RealU, 3}, # [nx,ny,nz] attenuation map, must be 3D, possibly zeros()
     psfs::AbstractArray{<:RealU, 4},
-    nview::Int,
     dy::RealU;
     interpidx::Int = 2,
     kwargs...,
