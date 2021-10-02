@@ -98,6 +98,7 @@ end
 """
     backproject!(image, views, plan, workarray; index)
 Backproject multiple views into `image`.
+Array `image` is not initialized to zero; caller must do that.
 """
 function backproject!(
     image::AbstractArray{<:RealU, 3},
