@@ -68,7 +68,6 @@ function backproject!(
 
     # adjoint of rotating image
     Threads.@threads for z = 1:plan.imgsize[3] # 1:nz
-        # get thread id
         thid = Threads.threadid()
         if plan.interpidx == 1
             imrotate3_adj!((@view image[:, :, z]),
