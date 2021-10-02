@@ -15,8 +15,7 @@ function backproject!(
 )
 
     Threads.@threads for z = 1:plan.imgsize[3] # 1:nz
-        # get thread id
-        thid = Threads.threadid()
+        thid = Threads.threadid() # thread id
         if plan.interpidx == 1
 
             imrotate3!((@view plan.mumapr[:, :, z]),
