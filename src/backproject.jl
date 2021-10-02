@@ -145,6 +145,7 @@ function backproject(
     interpidx::Int = 2,
     kwargs...,
 )
+    nview = size(psfs, 4)
     plan = SPECTplan(mumap, psfs, nview, dy; interpidx, kwargs...)
     workarray = Vector{Workarray}(undef, plan.ncore)
     for i = 1:plan.ncore
