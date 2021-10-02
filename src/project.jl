@@ -115,53 +115,6 @@ function project!(
     return views
 end
 
-#= Test code:
-T = Float32
-path = "./data/"
-using MAT
-file = matopen(path*"mumap208.mat")
-mumap = read(file, "mumap208")
-close(file)
-
-file = matopen(path*"psf_208.mat")
-psfs = read(file, "psf_208")
-close(file)
-
-file = matopen(path*"xtrue.mat")
-xtrue = convert(Array{Float32, 3}, read(file, "xtrue"))
-close(file)
-
-file = matopen(path*"proj_jeff_newmumap.mat")
-proj_jeff = read(file, "proj_jeff")
-close(file)
-dy = T(4.7952)
-nview = size(psfs, 4)
-plan = SPECTrecon.SPECTplan(mumap, psfs, nview, dy; interpidx = 1)
-workarray = Vector{Workarray}(undef, plan.ncore)
-for i = 1:plan.ncore
-    workarray[i] = SPECTrecon.Workarray(plan.T, plan.imgsize, plan.pad_fft, plan.pad_rot) # allocate
-end
-(nx, ny, nz) = size(xtrue)
-nviews = size(psfs, 4)
-views = zeros(T, nx, nz, nviews)
-SPECTrecon.project!(views, xtrue, plan, workarray)
-@btime project!(views, xtrue, plan, workarray)
-# running on a remote server
-# 1d interp 20.481 s (541597 allocations: 18.64 MiB) don't know why it takes so long!!!
-# 2d interp 4.155 s (541644 allocations: 18.64 MiB)
-nrmse(x, xtrue) = norm(vec(x - xtrue)) / norm(vec(xtrue))
-
-e3 = zeros(128)
-for idx = 1:128
-    e3[idx] = nrmse(views[:,:,idx], proj_jeff[:,:,idx])
-end
-using Plots: plot
-plot((0:127)/128*360, e3 * 100, xticks = 0:45:360, xlabel = "degree", ylabel = "NRMSE (%)", label = "")
-avg_nrmse = sum(e3) / length(e3) * 100
-# 1d interp: 1e-5% nrmse
-# 2d interp: 0.382% nrmse
-=#
-
 
 """
     views = project(image, plan, workarray ; kwargs...)

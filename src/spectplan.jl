@@ -191,33 +191,3 @@ struct Workarray
     end
 end
 
-
-#= Test code:
-T = Float32
-nx = 128
-ny = 128
-nz = 81
-nx_psf = 37
-nz_psf = 37
-dy = T(4.80)
-nview = 120
-mumap = randn(T, nx, ny, nz)
-psfs = ones(T, nx_psf, nz_psf, ny, nview)
-plan = SPECTplan(mumap, psfs, nview, dy)
-workarray = Vector{Workarray}(undef, plan.ncore)
-for i = 1:plan.ncore
-    workarray[i] = Workarray(plan.T, plan.imgsize, plan.pad_fft, plan.pad_rot) # allocate
-end
-
-plan = SPECTplan(mumap, psfs, nview, dy)
-@btime plan = SPECTplan($mumap, $psfs, $nview, $dy)
-# 67.664 ms (199856 allocations: 102.89 MiB)
-
-workarray = Vector{Workarray}(undef, plan.ncore)
-@btime workarray = Vector{Workarray}(undef, plan.ncore)
-# 220.910 ns (2 allocations: 1.27 KiB)
-@btime for i = 1:plan.ncore
-    workarray[i] = Workarray(plan.T, plan.imgsize, plan.pad_fft, plan.pad_rot) # allocate
-end
-# 4.011 ms (3986 allocations: 7.91 MiB)
-=#

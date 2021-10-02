@@ -2,15 +2,9 @@
 # A lot of helper functions
 
 using LinearAlgebra
-#using LinearInterpolators
-#using InterpolationKernels
 import OffsetArrays
 using ImageFiltering: BorderArray, Fill, Pad
 using FFTW
-
-# for tests:
-#using BenchmarkTools
-#using MAT
 
 
 Power2 = x -> 2^(ceil(Int, log2(x)))
@@ -42,18 +36,11 @@ Base.@propagate_inbounds function padzero!(
 end
 
 
-#= Test code:
-x = randn(7,5)
-y = randn(3,3)
-padzero!(x, y, (2, 2, 1, 1))
-z = OffsetArrays.no_offset_view(BorderArray(y, Fill(0, (2, 1), (2, 1))))
-isequal(x, z)
-@btime padzero!($x, $y, (2, 2, 1, 1))
-# 29.030 ns (0 allocations: 0 bytes)
-=#
 
-
-# pad with replication from `img` into `output`
+"""
+    padrepl!(output, img, padsize)
+Pad with replication from `img` into `output`
+"""
 Base.@propagate_inbounds function padrepl!(
     output::AbstractMatrix,
     img::AbstractMatrix,
@@ -69,18 +56,6 @@ Base.@propagate_inbounds function padrepl!(
     return output
 end
 
-
-#= Test code:
-x = randn(10,9)
-y = randn(5,4)
-padrepl!(x, y, (1, 4, 3, 2))
-# up, down, left, right
-z = OffsetArrays.no_offset_view(BorderArray(y, Pad(:replicate, (1, 3), (4, 2))))
-# up, left, down, right
-isequal(x, z)
-@btime padrepl!($x, $y, (1, 4, 3, 2))
-# 83.394 ns (0 allocations: 0 bytes)
-=#
 
 
 """
@@ -107,6 +82,10 @@ Base.@propagate_inbounds function pad2sizezero!(
 end
 
 
+"""
+    pad_it!(X, padsize)
+Zero-pad `X` to `padsize`
+"""
 function pad_it!(X::AbstractArray{T,D}, padsize::NTuple{D,<:Int}) where {D, T <: Number}
     dims = size(X)
     return OffsetArrays.no_offset_view(
@@ -119,29 +98,12 @@ function pad_it!(X::AbstractArray{T,D}, padsize::NTuple{D,<:Int}) where {D, T <:
     )
 end
 
-#= Test code:
-ker = reshape(Int16(1):Int16(9), 3,3)
-padsize = (8, 8)
-z = randn(Float32, padsize)
-pad2sizezero!(z, ker, padsize)
-tmp = pad_it!(ker, padsize)
-@assert tmp == z
-@btime pad2sizezero!($z, $ker, $padsize) # 0 alloc, 451 ns for 64
-@btime pad_it!($ker, $padsize)
-=#
 
 
 fftshift!(dst::AbstractArray, src::AbstractArray) = circshift!(dst, src, size(src) .÷ 2)
 
 ifftshift!(dst::AbstractArray, src::AbstractArray) = circshift!(dst, src, size(src) .÷ -2)
 
-#= Test code:
-b = [1 2;3 4]
-x = [b 2*b;3*b 4*b]
-y = similar(x)
-@btime fftshift!($y, $x) # 0 allocs after JF change!
-@btime ifftshift!($x, $y) # 0 allocs after JF change!
-=#
 
 
 """
@@ -170,16 +132,6 @@ Base.@propagate_inbounds function fftshift2!(
     return dst
 end
 
-#= Test code:
-x = randn(120, 128)
-y = similar(x)
-z = similar(x)
-fftshift!(y, x)
-fftshift2!(z, x)
-isequal(y, z)
-@btime fftshift!($z, $x) # 3.8 us
-@btime fftshift2!($z, $x) # 2.9 us
-=#
 
 
 """
@@ -199,19 +151,10 @@ Base.@propagate_inbounds function plus1di!(
     return mat2d
 end
 
-#= Test code:
-x = randn(4, 64)
-v = randn(64)
-y = x[2, :] .+ v
-plus1di!(x, v, 2)
-isequal(x[2, :], y)
-@btime plus1di!($x, $v, 2)
-# 45.022 ns (0 allocations: 0 bytes)
-=#
 
 
 """
-    plus1di!(mat2d, mat1d)
+    plus1dj!(mat2d, mat1d)
 Non-allocating `mat2d[:, j] += mat1d`
 """
 Base.@propagate_inbounds function plus1dj!(
@@ -227,18 +170,11 @@ Base.@propagate_inbounds function plus1dj!(
     return mat2d
 end
 
-#= Test code:
-x = randn(64, 4)
-v = randn(64)
-y = x[:, 2] .+ v
-plus1dj!(x, v, 2)
-isequal(x[:, 2], y)
-@btime plus1dj!($x, $v, 2)
-# 23.168 ns (0 allocations: 0 bytes)
-=#
 
-
-# mat1d += mat2d[i,:]
+"""
+    plus2di!(mat1d, mat2d, i)
+Non-allocating `mat1d += mat2d[i,:]`
+"""
 Base.@propagate_inbounds function plus2di!(
     mat1d::AbstractVector,
     mat2d::AbstractMatrix,
@@ -252,18 +188,11 @@ Base.@propagate_inbounds function plus2di!(
     return mat1d
 end
 
-#= Test code:
-x = randn(64)
-v = randn(4, 64)
-y = x .+ v[2, :]
-plus2di!(x, v, 2)
-isequal(x, y)
-@btime plus2di!($x, $v, 2)
-# 46.227 ns (0 allocations: 0 bytes)
-=#
 
-
-# mat1d += mat2d[:,j]
+"""
+    plus2dj!(mat1d, mat2d, j)
+Non-allocating `mat1d += mat2d[:,j]`
+"""
 Base.@propagate_inbounds function plus2dj!(
     mat1d::AbstractVector,
     mat2d::AbstractMatrix,
@@ -277,18 +206,11 @@ Base.@propagate_inbounds function plus2dj!(
     return mat1d
 end
 
-#= Test code:
-x = randn(64)
-v = randn(64, 4)
-y = x .+ v[:, 2]
-plus2dj!(x, v, 2)
-isequal(x, y)
-@btime plus2dj!($x, $v, 2)
-# 25.177 ns (0 allocations: 0 bytes)
-=#
 
-
-# mat2d += mat3d[i,:,:]
+"""
+    plus3di!(mat2d, mat3d, i)
+Non-allocating `mat2d += mat3d[i,:,:]`
+"""
 Base.@propagate_inbounds function plus3di!(
     mat2d::AbstractMatrix,
     mat3d::AbstractArray{<:Any, 3},
@@ -303,18 +225,11 @@ Base.@propagate_inbounds function plus3di!(
     return mat2d
 end
 
-#= Test code:
-x = randn(64, 64)
-v = randn(4, 64, 64)
-y = x .+ v[2, :, :]
-plus3di!(x, v, 2)
-isequal(x, y)
-@btime plus3di!(x, v, 2)
-# 2.368 μs (0 allocations: 0 bytes)
-=#
 
-
-# mat2d += mat3d[:,j,:]
+"""
+    plus3dj!(mat2d, mat3d, j)
+Non-allocating `mat2d += mat3d[:,j,:]`
+"""
 Base.@propagate_inbounds function plus3dj!(
     mat2d::AbstractMatrix,
     mat3d::AbstractArray{<:Any, 3},
@@ -329,18 +244,11 @@ Base.@propagate_inbounds function plus3dj!(
     return mat2d
 end
 
-#= Test code:
-x = randn(64, 64)
-v = randn(64, 4, 64)
-y = x .+ v[:, 2, :]
-plus3dj!(x, v, 2)
-isequal(x, y)
-@btime plus3dj!($x, $v, 2)
-# 585.718 ns (0 allocations: 0 bytes)
-=#
 
-
-# mat2d += mat3d[:,:,k]
+"""
+    plus3dk!(mat2d, mat3d, k)
+Non-allocating `mat2d += mat3d[:,:,k]`
+"""
 Base.@propagate_inbounds function plus3dk!(
     mat2d::AbstractMatrix,
     mat3d::AbstractArray{<:Any, 3},
@@ -355,18 +263,11 @@ Base.@propagate_inbounds function plus3dk!(
     return mat2d
 end
 
-#= Test code:
-x = randn(64, 64)
-v = randn(64, 64, 4)
-y = x .+ v[:, :, 2]
-plus3dk!(x, v, 2)
-isequal(x, y)
-@btime plus3dk!($x, $v, 2)
-# 595.462 ns (0 allocations: 0 bytes)
-=#
 
-
-# mat2d = s * mat3d[:,j,:]
+"""
+    scale3dj!(mat2d, mat3d, j, s)
+Non-allocating `mat2d = s * mat3d[:,j,:]`
+"""
 Base.@propagate_inbounds function scale3dj!(
     mat2d::AbstractMatrix,
     mat3d::AbstractArray{<:Any, 3},
@@ -382,19 +283,11 @@ Base.@propagate_inbounds function scale3dj!(
     return mat2d
 end
 
-#= Test code:
-x = randn(64, 64)
-v = randn(64, 4, 64)
-s = -0.5
-y = s * v[:, 2, :]
-scale3dj!(x, v, 2, s)
-isequal(x, y)
-@btime scale3dj!($x, $v, 2, $s)
-# 618.863 ns (0 allocations: 0 bytes)
-=#
 
-
-# mat3d[:,j,:] *= mat2d
+"""
+    mul3dj!(mat3d, mat2d, j)
+Non-allocating `mat3d[:,j,:] *= mat2d`
+"""
 Base.@propagate_inbounds function mul3dj!(
     mat3d::AbstractArray{<:Any, 3},
     mat2d::AbstractMatrix,
@@ -409,18 +302,11 @@ Base.@propagate_inbounds function mul3dj!(
     return mat3d
 end
 
-#= Test code:
-x = randn(64, 4, 64)
-v = randn(64, 64)
-y = x[:,2,:] .* v
-mul3dj!(x, v, 2)
-isequal(x[:,2,:], y)
-@btime mul3dj!($x, $v, 2)
-# 25.299 μs (0 allocations: 0 bytes)
-=#
 
-
-# mat2d .= mat3d[:,j,:]
+"""
+    copy3dj!(mat2d, mat3d, j)
+Non-allocating `mat2d .= mat3d[:,j,:]`
+"""
 Base.@propagate_inbounds function copy3dj!(
     mat2d::AbstractMatrix,
     mat3d::AbstractArray{<:Any, 3},
@@ -435,12 +321,3 @@ Base.@propagate_inbounds function copy3dj!(
     return mat2d
 end
 
-#= Test code:
-x = randn(64, 64)
-v = randn(64, 4, 64)
-y = v[:,2,:]
-copy3dj!(x, v, 2)
-isequal(x, y)
-@btime copy3dj!($x, $v, 2)
-# 662.013 ns (0 allocations: 0 bytes)
-=#
