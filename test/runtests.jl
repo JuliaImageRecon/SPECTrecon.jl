@@ -1,6 +1,6 @@
 # runtests.jl
 
-include("../src/SPECTrecon.jl")
+using SPECTrecon
 using Test: @test, @testset, detect_ambiguities
 
 include("helper.jl")
