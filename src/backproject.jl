@@ -49,7 +49,7 @@ function backproject!(
 
         broadcast!(*, workarray[thid].exp_mumapr, workarray[thid].exp_mumapr, - plan.dy)
 
-        broadcast!(x->exp(x), workarray[thid].exp_mumapr, workarray[thid].exp_mumapr)
+        broadcast!(exp, workarray[thid].exp_mumapr, workarray[thid].exp_mumapr)
 
         fft_conv_adj!((@view plan.imgr[:, y, :]),
                        workarray[thid].workmat_fft,
