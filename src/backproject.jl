@@ -133,7 +133,7 @@ end
 
 
 """
-    image = backproject(views, mumap, psfs, nview, dy; interpidx, kwargs...)
+    image = backproject(views, mumap, psfs, dy; interpidx, kwargs...)
 Initialize plan and workarray
 """
 function backproject(
