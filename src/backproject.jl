@@ -150,5 +150,5 @@ function backproject(
     for i = 1:plan.ncore
         workarray[i] = Workarray(plan.T, plan.imgsize, plan.pad_fft, plan.pad_rot) # allocate
     end
-    backproject(plan, workarray, views; kwargs...)
+    return backproject(plan, workarray, views; kwargs...)
 end
