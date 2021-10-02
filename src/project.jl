@@ -98,7 +98,7 @@ end
 
 """
     project!(views, image, plan, workarray; index)
-Project multiple views.
+Project `image` into multiple `views` with indexes `index` (defaults to `1:nview`).
 """
 function project!(
     views::AbstractArray{<:RealU,3},
