@@ -40,7 +40,6 @@ function backproject!(
 
     # adjoint of convolving img with psf and applying attenuation map
     Threads.@threads for y = 1:plan.imgsize[2] # 1:ny
-        # get thread id
         thid = Threads.threadid()
         # account for half of the final slice thickness
         scale3dj!(workarray[thid].exp_mumapr, plan.mumapr, y, -0.5)
