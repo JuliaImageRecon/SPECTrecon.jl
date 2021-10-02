@@ -134,7 +134,9 @@ end
 
 """
     image = backproject(views, mumap, psfs, dy; interpidx, kwargs...)
-Initialize plan and workarray
+SPECT backproject `views` using attenuation map `mumap` and PSF array `psfs` for pixel size `dy`.
+This method initializes the `plan` and `workarray` as a convenience.
+Most users should use `backproject!` instead after initializing those, for better efficiency.
 """
 function backproject(
     views::AbstractArray{<:RealU, 3},
