@@ -50,9 +50,11 @@ using Test: @test, @testset, detect_ambiguities
 
     @btime backproject!($image1d, $proj_jeff, $plan1d, $workarray1d)
     @btime backproject!($image2d, $proj_jeff, $plan2d, $workarray2d)
-    # running on a remote server using vscode
+    # running using "activate ."
     # 1d interp 20.357 s (416171 allocations: 15.41 MiB)
     # 2d interp 5.220 s (416276 allocations: 15.41 MiB)
 
-    # running on a remote server using atom
+    # running using background Julia
+    # 1d interp 5.829 s (416510 allocations: 15.23 MiB)
+    # 2d interp 3.397 s (416436 allocations: 15.23 MiB)
 end

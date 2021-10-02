@@ -75,11 +75,13 @@ using Test: @test, @testset, detect_ambiguities
     # 2d interp: 0.382% nrmse
     @btime project!($views1d, $xtrue, $plan1d, $workarray1d)
     @btime project!($views2d, $xtrue, $plan2d, $workarray2d)
-    # running on a remote server using vscode:
+    # running using "activate ."
     # 1d interp 20.481 s (541597 allocations: 18.64 MiB)
     # 2d interp 5.205 s (541644 allocations: 18.64 MiB)
 
-    # running on a remote server using atom
+    # running using background Julia
+    # 1d interp 6.580 s (541834 allocations: 18.52 MiB)
+    # 2d interp 4.147 s (544848 allocations: 18.71 MiB)
 end
 
 
