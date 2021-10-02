@@ -4,7 +4,7 @@ export project, project!
 
 """
     project!(view, plan, workarray, image, viewidx)
-Project a single view.
+SPECT projection of `image` into a single `view` with index `viewidx`.
 """
 function project!(
     view::AbstractMatrix{<:RealU},
