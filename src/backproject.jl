@@ -40,7 +40,7 @@ function backproject!(
 
     # adjoint of convolving img with psf and applying attenuation map
     Threads.@threads for y = 1:plan.imgsize[2] # 1:ny
-        thid = Threads.threadid()
+        thid = Threads.threadid() # thread id
         # account for half of the final slice thickness
         scale3dj!(workarray[thid].exp_mumapr, plan.mumapr, y, -0.5)
         for j = 1:y
@@ -145,8 +145,8 @@ function backproject(
     interpidx::Int = 2,
     kwargs...,
 )
-    nview = size(psfs, 4)
-    plan = SPECTplan(mumap, psfs, nview, dy; interpidx, kwargs...)
+
+    plan = SPECTplan(mumap, psfs, dy; interpidx, kwargs...)
     workarray = Vector{Workarray}(undef, plan.ncore)
     for i = 1:plan.ncore
         workarray[i] = Workarray(plan.T, plan.imgsize, plan.pad_fft, plan.pad_rot) # allocate

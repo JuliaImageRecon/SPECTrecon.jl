@@ -20,8 +20,6 @@ Struct for storing key factors for a SPECT system model
 - `pad_fft{padu_fft, pad_fft, padl_fft, padr_fft} pixels padded for {left,right,up,down} direction for convolution with psfs, must be integer
 - `pad_rot{padu_rot, padd_rot, padl_rot, padr_rot}` padded pixels for {left,right,up,down} direction for image rotation
 - `ncore` number of CPU cores used to process data, must be integer
-
-
 Currently code assumes each of the `nview` projection views is `[nx,nz]`
 Currently code assumes `nx = ny`
 Currently code assumes uniform angular sampling
@@ -48,9 +46,8 @@ struct SPECTplan
     function SPECTplan(
         mumap::AbstractArray{<:RealU, 3},
         psfs::AbstractArray{<:RealU, 4},
-        nview::Int,
         dy::RealU;
-        viewangle::AbstractVector{<:RealU} = (0:nview - 1) / nview * (2π), # set of view angles
+        viewangle::AbstractVector{<:RealU} = (0:size(psfs, 4) - 1) / size(psfs, 4) * (2π), # set of view angles
         interpidx::Int = 2, # 1 is for 1d interpolation, 2 is for 2d interpolation
         T::DataType = promote_type(eltype(mumap), Float32),
     )
@@ -62,6 +59,7 @@ struct SPECTplan
         # check psf
         nx_psf = size(psfs, 1)
         nz_psf = size(psfs, 2)
+        nview = size(psfs, 4)
         @assert isodd(nx_psf) && isodd(nz_psf)
         @assert all(mapslices(x -> x == reverse(x), psfs, dims = [1, 2]))
 
@@ -107,7 +105,6 @@ end
     Workarray
 Struct for storing keys of the work array for a single thread
 add tmp vectors to avoid allocating in rotate_x and rotate_y
-
 For fft convolution:
 - `workmat_fft [nx+padu_fft+padd_fft, nz+padl_fft+padr_fft]`: 2D padded image for imfilter3
 - `workvec_fft_1 [nz+padl_fft+padr_fft,]`: 1D work vector
@@ -116,7 +113,6 @@ For fft convolution:
 - `ker_compl [nx+padu_fft+padd_fft, nz+padl_fft+padr_fft]`: 2D [complex] padded image for fft
 - `fft_plan` plan for doing fft, see plan_fft!
 - `ifft_plan` plan for doing ifft, see plan_ifft!
-
 For image rotation:
 - `workmat_rot_1 [nx+padu_rot+padd_rot, ny+padl_rot+padr_rot]`: 2D padded image for image rotation
 - `workmat_rot_2 [nx+padu_rot+padd_rot, ny+padl_rot+padr_rot]`: 2D padded image for image rotation
@@ -124,10 +120,8 @@ For image rotation:
 - `workvec_rot_y [ny+padl_rot+padr_rot,]`: 1D work vector for image rotation
 - `interp_x` sparse interpolator for rotating in x direction
 - `interp_y` sparse interpolator for rotating in y direction
-
 For attenuation:
 - `exp_mumapr [nx, nz]` 2D exponential rotated mumap
-
 """
 struct Workarray
     workmat_fft::AbstractArray{<:RealU, 2}
@@ -187,4 +181,3 @@ struct Workarray
             workvec_rot_y, interp_x, interp_y, exp_mumapr)
     end
 end
-
