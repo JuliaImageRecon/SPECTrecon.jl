@@ -1,8 +1,8 @@
 # project.jl
 
-using Main.SPECTrecon: project, backproject
-using LazyAlgebra: vdot
-using Test: @test, @testset, detect_ambiguities
+using SPECTrecon: project, backproject
+using LinearAlgebra: dot
+using Test: @test, @testset
 
 
 @testset "proj-adj-test" begin
@@ -26,9 +26,9 @@ using Test: @test, @testset, detect_ambiguities
 
     output_x = project(x, mumap, psfs, dy; interpidx = 1)
     output_y = backproject(y, mumap, psfs, dy; interpidx = 1)
-    @test isapprox(vdot(y, output_x), vdot(x, output_y))
+    @test isapprox(dot(y, output_x), dot(x, output_y))
 
     output_x = project(x, mumap, psfs, dy; interpidx = 2)
     output_y = backproject(y, mumap, psfs, dy; interpidx = 2)
-    @test isapprox(vdot(y, output_x), vdot(x, output_y))
+    @test isapprox(dot(y, output_x), dot(x, output_y))
 end

@@ -17,14 +17,15 @@ Struct for storing key factors for a SPECT system model
 - `dy` voxel size in y direction (dx is the same value)
 - `imgsize{nx, ny, nz}` number of voxels in {x,y,z} direction of the image, must be integer
 - `psfsize{nx_psf, nz_psf}` number of voxels in {x, z} direction of the psf, must be integer
-- `pad_fft{padu_fft, pad_fft, padl_fft, padr_fft} pixels padded for {left,right,up,down} direction for convolution with psfs, must be integer
+- `pad_fft{padu_fft, pad_fft, padl_fft, padr_fft}` pixels padded for {left,right,up,down} direction for convolution with psfs, must be integer
 - `pad_rot{padu_rot, padd_rot, padl_rot, padr_rot}` padded pixels for {left,right,up,down} direction for image rotation
 - `ncore` number of CPU cores used to process data, must be integer
-Currently code assumes each of the `nview` projection views is `[nx,nz]`
-Currently code assumes `nx = ny`
-Currently code assumes uniform angular sampling
-Currently code uses multiprocessing using # of cores specified by Threads.nthreads() in Julia
-Currently code assumes psf is symmetric
+Currently code assumes the following:
+* each of the `nview` projection views is `[nx,nz]`
+* `nx = ny`
+* uniform angular sampling
+* `psf` is symmetric
+* multiprocessing using # of cores specified by `Threads.nthreads()`
 """
 struct SPECTplan
     T::DataType # default type for work arrays etc.
@@ -51,20 +52,19 @@ struct SPECTplan
         interpidx::Int = 2, # 1 is for 1d interpolation, 2 is for 2d interpolation
         T::DataType = promote_type(eltype(mumap), Float32),
     )
-        # check nx = ny ? typically 128 x 128 x 81
-        (nx, ny, nz) = size(mumap)
-        @assert isequal(nx, ny)
-        @assert iseven(nx) && iseven(ny)
+        (nx, ny, nz) = size(mumap) # typically 128 x 128 x 81
+        isequal(nx, ny) || throw("nx != ny")
+        (iseven(nx) && iseven(ny)) || throw("nx odd")
 
         # check psf
         nx_psf = size(psfs, 1)
         nz_psf = size(psfs, 2)
         nview = size(psfs, 4)
-        @assert isodd(nx_psf) && isodd(nz_psf)
-        @assert all(mapslices(x -> x == reverse(x), psfs, dims = [1, 2]))
+        (isodd(nx_psf) && isodd(nz_psf)) || throw("non-odd size psfs")
+        all(mapslices(x -> x == reverse(x), psfs, dims = [1, 2])) || throw("asym. psf")
 
         # check interpidx
-        @assert interpidx == 1 || interpidx == 2
+        (interpidx == 1 || interpidx == 2) || throw("bad interpidx")
 
         padu_fft = _padup(mumap, psfs)
         padd_fft = _paddown(mumap, psfs)
@@ -99,6 +99,24 @@ struct SPECTplan
         #  creates objects of the block's type (inner constructor methods).
     end
 end
+
+
+"""
+    SPECTplan(mumap, psfs, dy; viewangle, interpidx, T)
+
+Constructor for `SPECTplan`
+
+In
+* `mumap::AbstractArray{<:RealU, 3}` 3D attenuation map
+* `psfs::AbstractArray{<:RealU, 4}` 4D PSF array
+* `dy::RealU` pixel size
+
+Option
+* `viewangle::AbstractVector{<:RealU}` default 0 to almost 2π
+* `interpidx::Int = 2` 1 is for 3-pass 1D interpolator; 2 is for 2D interpolator
+* `T::DataType = promote_type(eltype(mumap), Float32)`
+"""
+function SPECTplan() end
 
 
 """
