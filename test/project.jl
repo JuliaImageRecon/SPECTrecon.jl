@@ -2,7 +2,7 @@
 
 using SPECTrecon: project, backproject
 using LinearAlgebra: dot
-using Test: @test, @testset, detect_ambiguities
+using Test: @test, @testset
 
 
 @testset "proj-adj-test" begin

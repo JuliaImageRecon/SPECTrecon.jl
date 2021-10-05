@@ -6,7 +6,7 @@ using LinearAlgebra: dot
 using FFTW: plan_fft!, plan_ifft!
 using Random: seed!
 using ImageFiltering: centered, imfilter
-using Test: @test, @testset, detect_ambiguities
+using Test: @test, @testset
 
 
 @testset "imfilter3!" begin

@@ -16,7 +16,7 @@ xtrue = rand(T, nx, nx, nz)
 
 dy = T(4.7952)
 nview = size(psfs, 4)
-plan = SPECTplan(mumap, psfs, nview, dy; interpidx = 1)
+plan = SPECTplan(mumap, psfs, dy; interpidx = 1)
 workarray = Vector{Workarray}(undef, plan.ncore)
 for i = 1:plan.ncore
     workarray[i] = Workarray(plan.T, plan.imgsize, plan.pad_fft, plan.pad_rot) # allocate

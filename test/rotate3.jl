@@ -6,7 +6,7 @@ using SPECTrecon: rotl90!, rotr90!, rot180!
 using SPECTrecon: imrotate3!, imrotate3_adj!
 using LinearAlgebra: dot
 using LinearInterpolators: SparseInterpolator, LinearSpline
-using Test: @test, @testset, detect_ambiguities
+using Test: @test, @testset
 using Random: seed!
 
 
@@ -53,7 +53,7 @@ end
 
 
 @testset "adjtest-1d" begin
-    Ntest = 256
+    Ntest = 17
     θ_list = (0:Ntest-1) / Ntest * 2π
     M = 64
     N = 64
@@ -82,7 +82,7 @@ end
 
 
 @testset "adjtest-2d" begin
-    Ntest = 256
+    Ntest = 27
     θ_list = (0:Ntest-1) / Ntest * 2π
     M = 64
     N = 64

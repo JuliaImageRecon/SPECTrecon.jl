@@ -7,7 +7,7 @@ using SPECTrecon: plus3di!, plus3dj!, plus3dk!, scale3dj!, mul3dj!
 using SPECTrecon: copy3dj!
 using ImageFiltering: Fill, Pad, BorderArray
 import OffsetArrays
-using Test: @test, @testset, detect_ambiguities
+using Test: @test, @testset
 
 
 @testset "padzero!" begin
