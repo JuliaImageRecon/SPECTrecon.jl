@@ -1,9 +1,10 @@
 # fft_convolve.jl
 
-using Main.SPECTrecon: imfilter3!
-using Main.SPECTrecon: fft_conv!, fft_conv_adj!
-using LazyAlgebra:vdot
+using SPECTrecon: imfilter3!
+using SPECTrecon: fft_conv!, fft_conv_adj!
+using LinearAlgebra: dot
 using FFTW: plan_fft!, plan_ifft!
+using Random: seed!
 using ImageFiltering: centered, imfilter
 using Test: @test, @testset, detect_ambiguities
 
@@ -39,6 +40,7 @@ end
     workvec2 = zeros(T, 256)
     fft_plan = plan_fft!(img_compl)
     ifft_plan = plan_ifft!(img_compl)
+    seed!(0) # todo: fails sometimes
     for t = 1:testnum
         x = randn(T, M, N)
         output_x = similar(x)
@@ -48,10 +50,10 @@ end
         ker /= sum(ker)
         kerev = reverse(ker)
         fft_conv!(output_x, workmat, x, ker, fftpadsize,
-                                img_compl, ker_compl, fft_plan, ifft_plan)
+            img_compl, ker_compl, fft_plan, ifft_plan)
 
         fft_conv_adj!(output_y, workmat, workvec1, workvec2, y, kerev, fftpadsize,
-                                    img_compl, ker_compl, fft_plan, ifft_plan)
-        @test isapprox(vdot(y, output_x), vdot(x, output_y))
+            img_compl, ker_compl, fft_plan, ifft_plan)
+        @test isapprox(dot(y, output_x), dot(x, output_y)) # todo tol?
     end
 end

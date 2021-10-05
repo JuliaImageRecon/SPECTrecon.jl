@@ -1,12 +1,12 @@
 # helper.jl
 
-using Main.SPECTrecon: padzero!, padrepl!, pad2sizezero!, pad_it!
-using Main.SPECTrecon: fftshift!, ifftshift!, fftshift2!
-using Main.SPECTrecon: plus1di!, plus1dj!, plus2di!, plus2dj!
-using Main.SPECTrecon: plus3di!, plus3dj!, plus3dk!, scale3dj!, mul3dj!
-using Main.SPECTrecon: copy3dj!
+using SPECTrecon: padzero!, padrepl!, pad2sizezero!, pad_it!
+using SPECTrecon: fftshift!, ifftshift!, fftshift2!
+using SPECTrecon: plus1di!, plus1dj!, plus2di!, plus2dj!
+using SPECTrecon: plus3di!, plus3dj!, plus3dk!, scale3dj!, mul3dj!
+using SPECTrecon: copy3dj!
 using ImageFiltering: Fill, Pad, BorderArray
-using OffsetArrays
+import OffsetArrays
 using Test: @test, @testset, detect_ambiguities
 
 
