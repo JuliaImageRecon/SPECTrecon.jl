@@ -133,7 +133,7 @@ end
 
 
 """
-    views = project(image, mumap, psfs, nview, dy; interpidx, kwargs...)
+    views = project(image, mumap, psfs, dy; interpidx, kwargs...)
 Initialize plan and workarray
 """
 function project(
