@@ -17,6 +17,7 @@ for SPECT image reconstruction.
 
 Designed for use with the
 [Michigan Image Reconstruction Toolbox (MIRT)](https://github.com/JeffFessler/MIRT.jl)
+or similar frameworks.
 
 Tested with Julia ≥ 1.6.
 
