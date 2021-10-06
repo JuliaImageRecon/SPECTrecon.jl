@@ -5,6 +5,7 @@ export project, project!
 """
     project!(view, plan, workarray, image, viewidx)
 SPECT projection of `image` into a single `view` with index `viewidx`.
+The `view` must be pre-allocated but need not be initialized to zero.
 """
 function project!(
     view::AbstractMatrix{<:RealU},
@@ -20,43 +21,49 @@ function project!(
 #       work = workarray[thid] # todo: how to avoid repeating?
         if plan.interpidx == 1
             # rotate image and store in plan.imgr using 1D interpolation
-            imrotate3!((@view plan.imgr[:, :, z]),
-                        workarray[thid].workmat_rot_1,
-                        workarray[thid].workmat_rot_2,
-                        (@view image[:, :, z]),
-                        plan.viewangle[viewidx],
-                        workarray[thid].interp_x,
-                        workarray[thid].interp_y,
-                        workarray[thid].workvec_rot_x,
-                        workarray[thid].workvec_rot_y,
-                        )
+            imrotate3!(
+                (@view plan.imgr[:, :, z]),
+                workarray[thid].workmat_rot_1,
+                workarray[thid].workmat_rot_2,
+                (@view image[:, :, z]),
+                plan.viewangle[viewidx],
+                workarray[thid].interp_x,
+                workarray[thid].interp_y,
+                workarray[thid].workvec_rot_x,
+                workarray[thid].workvec_rot_y,
+            )
 
             # rotate mumap and store in plan.mumapr
-            imrotate3!((@view plan.mumapr[:, :, z]),
-                        workarray[thid].workmat_rot_1,
-                        workarray[thid].workmat_rot_2,
-                        (@view plan.mumap[:, :, z]),
-                        plan.viewangle[viewidx],
-                        workarray[thid].interp_x,
-                        workarray[thid].interp_y,
-                        workarray[thid].workvec_rot_x,
-                        workarray[thid].workvec_rot_y,
-                        )
+            imrotate3!(
+                (@view plan.mumapr[:, :, z]),
+                workarray[thid].workmat_rot_1,
+                workarray[thid].workmat_rot_2,
+                (@view plan.mumap[:, :, z]),
+                plan.viewangle[viewidx],
+                workarray[thid].interp_x,
+                workarray[thid].interp_y,
+                workarray[thid].workvec_rot_x,
+                workarray[thid].workvec_rot_y,
+            )
+
         else
             # rotate image and store in plan.imgr using 2d interpolation method
-            imrotate3!((@view plan.imgr[:, :, z]),
-                        workarray[thid].workmat_rot_1,
-                        workarray[thid].workmat_rot_2,
-                        (@view image[:, :, z]),
-                        plan.viewangle[viewidx])
+            imrotate3!(
+                (@view plan.imgr[:, :, z]),
+                workarray[thid].workmat_rot_1,
+                workarray[thid].workmat_rot_2,
+                (@view image[:, :, z]),
+                plan.viewangle[viewidx],
+            )
 
             # rotate mumap and store in plan.mumapr
-            imrotate3!((@view plan.mumapr[:, :, z]),
-                        workarray[thid].workmat_rot_1,
-                        workarray[thid].workmat_rot_2,
-                        (@view plan.mumap[:, :, z]),
-                        plan.viewangle[viewidx],
-                        )
+            imrotate3!(
+                (@view plan.mumapr[:, :, z]),
+                workarray[thid].workmat_rot_1,
+                workarray[thid].workmat_rot_2,
+                (@view plan.mumap[:, :, z]),
+                plan.viewangle[viewidx],
+            )
         end
     end
 
@@ -85,8 +92,8 @@ function project!(
                   workarray[thid].ifft_plan)
     end
 
-    # add up to get view
-    for y in 1:plan.imgsize[2]
+    copy3dj!(view, plan.add_img, 1) # initialize accumulator
+    for y in 2:plan.imgsize[2] # accumulate to get total view
         plus3dj!(view, plan.add_img, y)
     end
 
@@ -99,6 +106,7 @@ end
 """
     project!(views, image, plan, workarray; index)
 Project `image` into multiple `views` with indexes `index` (defaults to `1:nview`).
+The 3D `views` array must be pre-allocated, but need not be initialized.
 """
 function project!(
     views::AbstractArray{<:RealU,3},
@@ -118,7 +126,7 @@ end
 
 """
     views = project(image, plan, workarray ; kwargs...)
-SPECT forward projector that allocates and returns views.
+Convenience method for SPECT forward projector that allocates and returns views.
 """
 function project(
     image::AbstractArray{<:RealU,3},
@@ -126,7 +134,7 @@ function project(
     workarray::Vector{Workarray};
     kwargs...,
 )
-    views = zeros(plan.T, plan.imgsize[1], plan.imgsize[3], plan.nview)
+    views = Array{plan.T}(undef, plan.imgsize[1], plan.imgsize[3], plan.nview)
     project!(views, image, plan, workarray; kwargs...)
     return views
 end
@@ -134,18 +142,28 @@ end
 
 """
     views = project(image, mumap, psfs, dy; interpidx, kwargs...)
-Initialize plan and workarray
+Convenience method for SPECT forward projector that does all allocation
+including initializing `plan` and `workarray`.
+
+In
+* `image` : 3D array `[nx,ny,nz]`
+* `mumap` : `[nx,ny,nz]` 3D attenuation map, possibly zeros()
+* `psfs` : 4D PSF array
+* `dy::RealU` : pixel size
+Option
+* `interpidx` : 1 or 2
 """
 function project(
     image::AbstractArray{<:RealU, 3},
-    mumap::AbstractArray{<:RealU, 3}, # [nx,ny,nz] attenuation map, must be 3D, possibly zeros()
+    mumap::AbstractArray{<:RealU, 3}, # [nx,ny,nz] 3D attenuation map
     psfs::AbstractArray{<:RealU, 4},
     dy::RealU;
     interpidx::Int = 2,
+#   nthread::Int = Threads.nthreads(), # todo: option for plan
     kwargs...,
 )
     plan = SPECTplan(mumap, psfs, dy; interpidx, kwargs...)
-    workarray = Vector{Workarray}(undef, plan.ncore)
+    workarray = Vector{Workarray}(undef, plan.ncore) # todo: move into plan
     for i = 1:plan.ncore
         workarray[i] = Workarray(plan.T, plan.imgsize, plan.pad_fft, plan.pad_rot) # allocate
     end
