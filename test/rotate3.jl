@@ -2,11 +2,11 @@
 
 using SPECTrecon: linearinterp!, rotate_x!, rotate_y!
 using SPECTrecon: rotate_x_adj!, rotate_y_adj!
-using SPECTrecon: rotl90!, rotr90!, rot180!
+using SPECTrecon: rotl90!, rotr90!, rot180!, rot_f90!, rot_f90_adj!
 using SPECTrecon: imrotate3!, imrotate3_adj!
 using LinearAlgebra: dot
 using LinearInterpolators: SparseInterpolator, LinearSpline
-using Test: @test, @testset
+using Test: @test, @testset, @test_throws
 using Random: seed!
 
 
@@ -24,9 +24,11 @@ end
 
 @testset "rotl90!" begin
     T = Float32
-    N = 100
+    N = 20
     A = rand(T, N, N)
-    B = rand(T, N, N)
+    B = similar(A, N, N)
+    @test_throws String rot_f90!(A, B, 4)
+    @test_throws String rot_f90_adj!(A, B, 4)
     rotl90!(B, A)
     @test isequal(B, rotl90(A))
 end

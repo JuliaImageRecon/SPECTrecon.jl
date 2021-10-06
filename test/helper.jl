@@ -41,12 +41,13 @@ end
 end
 
 
-@testset "fftshift2" begin
+@testset "fftshift" begin
     T = Float32
     x = randn(T, 120, 128)
     y = similar(x)
     z = similar(x)
     fftshift!(y, x)
+    @test ifftshift!(z, y) == x
     fftshift2!(z, x)
     @test isequal(y, z)
 end
