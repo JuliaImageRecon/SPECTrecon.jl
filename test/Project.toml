@@ -12,6 +12,6 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 [compat]
 BenchmarkTools = "1.2"
 FFTW = "1.4.5"
-ImageFiltering = "0.7"
+ImageFiltering = "0.6"
 LinearInterpolators = "0.1.5"
 OffsetArrays = "1.10"

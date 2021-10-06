@@ -6,7 +6,7 @@ using Test: @test, @testset, detect_ambiguities
 include("helper.jl")
 include("adjoint-fftconv.jl")
 include("adjoint-rotate.jl")
-#include("adjoint-project.jl") # todo
+include("adjoint-project.jl")
 include("rotate3.jl")
 include("fft_convolve.jl")
 include("project.jl")
