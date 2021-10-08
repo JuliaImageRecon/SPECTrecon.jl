@@ -3,13 +3,12 @@
 using Main.SPECTrecon: SPECTplan, Workarray
 using Main.SPECTrecon: project!
 using MAT
-using LazyAlgebra: vdot
 using LinearAlgebra: norm
-using Plots: plot
+
 
 function project_error()
     T = Float32
-    path = "./data/"
+    path = "../data/"
     file = matopen(path*"mumap208.mat")
     mumap = read(file, "mumap208")
     close(file)

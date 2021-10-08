@@ -3,7 +3,15 @@
 using Main.SPECTrecon: SPECTplan, Workarray
 using Main.SPECTrecon: backproject!
 using BenchmarkTools: @btime
+using MATLAB
 
+function call_SPECTbackproj_matlab(mpath, views, mumap, psfs, dy)
+
+    mat"""
+    addpath($mpath)
+    SPECTbackproj_matlab($views, $mumap, $psfs, $dy);
+    """
+end
 
 function backproject_time()
     T = Float32
@@ -43,8 +51,14 @@ function backproject_time()
     image2d = zeros(T, nx, ny, nz)
     proj = rand(T, nx, nz, nview)
 
+    println("backproject-1d")
     @btime backproject!($image1d, $proj, $plan1d, $workarray1d) # 277.131 ms (101482 allocations: 3.88 MiB)
+    println("backproject-2d")
     @btime backproject!($image2d, $proj, $plan2d, $workarray2d) # 171.320 ms (101517 allocations: 3.88 MiB)
+    mpath = pwd()
+    println("backproject-matlab")
+    println("Warning: Check if MIRT is installed")
+    call_SPECTbackproj_matlab(mpath, proj, mumap, psfs, dy) # 194.107 ms, about 0.01 GiB
     nothing
 end
 

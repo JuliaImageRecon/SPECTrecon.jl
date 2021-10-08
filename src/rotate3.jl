@@ -419,4 +419,3 @@ function imrotate3_adj!(
     output .= (@view workmat2[pad_x + 1 : pad_x + M, pad_y + 1 : pad_y + N])
     return output
 end
-

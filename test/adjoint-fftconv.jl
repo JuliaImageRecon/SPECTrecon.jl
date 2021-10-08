@@ -8,16 +8,16 @@ using Test: @test, @testset
 
 
 @testset "adjoint-fftconv" begin
-    M = 200 # todo: make smaller
+    M = 80 # todo: make smaller
 #   M = 20
     N = 64
     T = Float32
-    fftpadsize = (28, 28, 32, 32)
-    img_compl = zeros(Complex{T}, 256, 128)
+    fftpadsize = (24, 24, 32, 32)
+    img_compl = zeros(Complex{T}, 128, 128)
     ker_compl = similar(img_compl)
-    workmat = zeros(T, 256, 128)
+    workmat = zeros(T, 128, 128)
     workvec1 = zeros(T, 128)
-    workvec2 = zeros(T, 256)
+    workvec2 = zeros(T, 128)
     fft_plan = plan_fft!(img_compl)
     ifft_plan = plan_ifft!(img_compl)
 
@@ -38,5 +38,5 @@ using Test: @test, @testset
     idim = (M,N)
     odim = (M,N)
     A = LinearMapAA(forw!, back!, (prod(odim), prod(idim)); T, odim, idim)
-#   @test Matrix(A') ≈ Matrix(A)' # todo
+    @test Matrix(A') ≈ Matrix(A)' # todo
 end

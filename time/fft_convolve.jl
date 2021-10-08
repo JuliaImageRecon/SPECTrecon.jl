@@ -1,6 +1,5 @@
 # fft_convolve.jl
 
-using MIRTjim: jim
 using BenchmarkTools: @btime
 using Main.SPECTrecon: imfilter3!
 using Main.SPECTrecon: fft_conv!, fft_conv_adj!
@@ -19,6 +18,7 @@ function imfilter3_time()
     fft_plan = plan_fft!(img_compl)
     ifft_plan = plan_ifft!(img_compl)
     copyto!(img_compl, img)
+    println("imfilter3")
     @btime imfilter3!($output, $img_compl, $ker, $ker_compl, $fft_plan, $ifft_plan)
     # 29.746 μs (0 allocations: 0 bytes)
     nothing
@@ -40,6 +40,7 @@ function fft_conv_time()
     ker_compl = similar(img_compl)
     fft_plan = plan_fft!(img_compl)
     ifft_plan = plan_ifft!(img_compl)
+    println("fft_conv")
     @btime fft_conv!($output, $workmat, $img, $ker, $fftpadsize,
             $img_compl, $ker_compl, $fft_plan, $ifft_plan)
     # 455.066 μs (0 allocations: 0 bytes)
@@ -64,6 +65,7 @@ function fft_conv_adj_time()
     ker_compl = similar(img_compl)
     fft_plan = plan_fft!(img_compl)
     ifft_plan = plan_ifft!(img_compl)
+    println("fft_conv_adj")
     @btime fft_conv_adj!($output, $workmat, $workvec1, $workvec2, $img, $ker,
         $fftpadsize, $img_compl, $ker_compl, $fft_plan, $ifft_plan)
     # 449.281 μs (0 allocations: 0 bytes)
