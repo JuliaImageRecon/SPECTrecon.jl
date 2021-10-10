@@ -8,10 +8,10 @@ using FFTW
 
 
 Power2 = x -> 2^(ceil(Int, log2(x)))
-_padup(mumap, psfs) = ceil(Int, (Power2(size(mumap, 1) + size(psfs, 1) - 1) - size(mumap, 1)) / 2)
-_paddown(mumap, psfs) = floor(Int, (Power2(size(mumap, 1) + size(psfs, 1) - 1) - size(mumap, 1)) / 2)
-_padleft(mumap, psfs) = ceil(Int, (Power2(size(mumap, 3) + size(psfs, 2) - 1) - size(mumap, 3)) / 2)
-_padright(mumap, psfs) = floor(Int, (Power2(size(mumap, 3) + size(psfs, 2) - 1) - size(mumap, 3)) / 2)
+_padup(nx, nx_psf) = ceil(Int, (Power2(nx + nx_psf - 1) - nx) / 2)
+_paddown(nx, nx_psf) = floor(Int, (Power2(nx + nx_psf - 1) - nx) / 2)
+_padleft(nz, nz_psf) = ceil(Int, (Power2(nz + nz_psf - 1) - nz) / 2)
+_padright(nz, nz_psf) = floor(Int, (Power2(nz + nz_psf - 1) - nz) / 2)
 
 
 """
@@ -320,4 +320,3 @@ Base.@propagate_inbounds function copy3dj!(
     end
     return mat2d
 end
-

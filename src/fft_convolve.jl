@@ -1,139 +1,134 @@
 # fft_convolve.jl
 
 export fft_conv!, fft_conv_adj!
-
-import AbstractFFTs
-import FFTW
-using FFTW: plan_fft!, plan_ifft!
-
-
-const AbsMatComplex = AbstractMatrix{<:Complex{T}} where T <: AbstractFloat # Real -> AbstractFloat
+export fft_conv, fft_conv_adj
 
 """
-    imfilter3!(output, img_compl, ker, ker_compl, fft_plan, ifft_plan)
-FFT-based convolution between `img_compl` and kernel `ker` (not centered)
-putting result in `output`.
+    imfilterz!(plan)
+FFT-based convolution between `plan.img_compl` and kernel `plan.ker_compl` (not centered)
+putting result in `plan.workmat`.
 """
-function imfilter3!(
-    output::AbstractMatrix{<:RealU},
-    img_compl::AbsMatComplex,
-    ker::AbstractMatrix{<:RealU},
-    ker_compl::AbsMatComplex,
-    fft_plan::Union{AbstractFFTs.ScaledPlan, FFTW.cFFTWPlan},
-    ifft_plan::Union{AbstractFFTs.ScaledPlan, FFTW.cFFTWPlan},
-)
-
-    # pad the kernel with zeros
-    pad2sizezero!(ker_compl, ker, size(img_compl))
-    mul!(img_compl, fft_plan, img_compl)
-    mul!(ker_compl, fft_plan, ker_compl)
-    img_compl .*= ker_compl 
-    mul!(img_compl, ifft_plan, img_compl)
-    fftshift2!(ker_compl, img_compl)
-    output .= real.(ker_compl)
-    return output
+function imfilterz!(
+    plan::PlanPSF,
+    )
+    mul!(plan.img_compl, plan.fft_plan, plan.img_compl)
+    mul!(plan.ker_compl, plan.fft_plan, plan.ker_compl)
+    # plan.img_compl .*= plan.ker_compl
+    broadcast!(*, plan.img_compl, plan.img_compl, plan.ker_compl)
+    mul!(plan.img_compl, plan.ifft_plan, plan.img_compl)
+    fftshift2!(plan.ker_compl, plan.img_compl)
+    plan.workmat .= real.(plan.ker_compl)
+    return plan.workmat
 end
 
 
 """
-    imfilter3_adj!(output, img_compl, kerev, ker_compl, fft_plan, ifft_plan)
-Apply FFT convolution between `img_compl` and *REVERSED* kernel (not centered),
-assuming the kernel is already be in reversed order.
-"""
-function imfilter3_adj!(
-    output::AbstractMatrix{<:RealU},
-    img_compl::AbsMatComplex,
-    kerev::AbstractMatrix{<:RealU}, # input kernel should already be in reversed order
-    ker_compl::AbsMatComplex,
-    fft_plan::Union{AbstractFFTs.ScaledPlan, FFTW.cFFTWPlan},
-    ifft_plan::Union{AbstractFFTs.ScaledPlan, FFTW.cFFTWPlan},
-)
-
-    # pad kernel with zeros
-    pad2sizezero!(ker_compl, kerev, size(img_compl))
-    mul!(img_compl, fft_plan, img_compl)
-    mul!(ker_compl, fft_plan, ker_compl)
-    img_compl .*= ker_compl
-    mul!(img_compl, ifft_plan, img_compl)
-    fftshift2!(ker_compl, img_compl)
-    output .= real.(ker_compl)
-    return output
-end
-
-
-"""
-    fft_conv!(output, workmat, img, ker, fftpadsize, img_compl, ker_compl, fft_plan, ifft_plan)
+    fft_conv!(output, img, ker, plan)
 Convolve `img` with `ker` using FFT, and store the result in `output`
 """
 function fft_conv!(
     output::AbstractMatrix{<:RealU},
-    workmat::AbstractMatrix{<:RealU},
     img::AbstractMatrix{<:RealU},
     ker::AbstractMatrix{<:RealU},
-    fftpadsize::NTuple{4, <:Int},
-    img_compl::AbsMatComplex,
-    ker_compl::AbsMatComplex,
-    fft_plan::Union{AbstractFFTs.ScaledPlan, FFTW.cFFTWPlan},
-    ifft_plan::Union{AbstractFFTs.ScaledPlan, FFTW.cFFTWPlan},
+    plan::PlanPSF,
 )
-    @boundscheck size(output) == size(img) || throw("size")
+    @boundscheck size(output) == size(img) || throw("size output")
+    @boundscheck size(img) == (plan.nx, plan.nz) || throw("size img")
+    @boundscheck size(ker, 1) == plan.nx_psf || throw("size nx_psf")
+    @boundscheck size(ker, 1) == size(ker, 2) || throw("size ker")
+
     # filter the image with a kernel, using replicate padding and fft convolution
-    padrepl!(img_compl, img, fftpadsize)
-    imfilter3!(workmat, img_compl, ker, ker_compl, fft_plan, ifft_plan)
+    padrepl!(plan.img_compl, img, plan.padsize)
+
+    pad2sizezero!(plan.ker_compl, ker, size(plan.ker_compl)) # pad the kernel with zeros
+
+    imfilterz!(plan)
+
     (M, N) = size(img)
-    copyto!(output, (@view workmat[fftpadsize[1]+1:fftpadsize[1]+M,
-                                   fftpadsize[3]+1:fftpadsize[3]+N]))
+    copyto!(output, (@view plan.workmat[plan.padsize[1]+1:plan.padsize[1]+M,
+                                        plan.padsize[3]+1:plan.padsize[3]+N]))
     return output
 end
 
 
 """
-    fft_conv_adj!(output, workmat, workvec1, workvec2, img, ker,
-                  fftpadsize, img_compl, ker_compl, fft_plan, ifft_plan)
+    fft_conv(img, ker)
+Convolve `img` with `ker` using FFT
+"""
+function fft_conv(img, ker)
+    nx, nz = size(img)
+    nx_psf = size(ker, 1)
+    plan = plan_psf(nx, nz, nx_psf; T = eltype(img), nthread = 1)[1]
+    output = similar(img)
+    fft_conv!(output, img, ker, plan)
+    return output
+end
+
+
+"""
+    fft_conv_adj!(output, img, ker, plan)
+Adjoint of convolving `img` with `ker` using FFT, and store the result in `output`
 """
 function fft_conv_adj!(
     output::AbstractMatrix{<:RealU},
-    workmat::AbstractMatrix{<:RealU},
-    workvec1::AbstractVector{T},
-    workvec2::AbstractVector{T},
     img::AbstractMatrix{<:RealU},
     ker::AbstractMatrix{<:RealU},
-    fftpadsize::NTuple{4, <:Int},
-    img_compl::AbsMatComplex,
-    ker_compl::AbsMatComplex,
-    fft_plan::Union{AbstractFFTs.ScaledPlan, FFTW.cFFTWPlan},
-    ifft_plan::Union{AbstractFFTs.ScaledPlan, FFTW.cFFTWPlan},
-) where {T}
+    plan::PlanPSF,
+    )
 
-    @boundscheck size(output) == size(img) || throw("size")
-    padzero!(img_compl, img, fftpadsize)
-    imfilter3_adj!(workmat, img_compl, ker, ker_compl, fft_plan, ifft_plan)
+    @boundscheck size(output) == size(img) || throw("size output")
+    @boundscheck size(img) == (plan.nx, plan.nz) || throw("size img")
+    @boundscheck size(ker, 1) == plan.nx_psf || throw("size nx_psf")
+    @boundscheck size(ker, 1) == size(ker, 2) || throw("size ker")
+
+    padzero!(plan.img_compl, img, plan.padsize) # pad the image with zeros
+    pad2sizezero!(plan.ker_compl, ker, size(plan.ker_compl)) # pad the kernel with zeros
+
+    imfilterz!(plan)
     (M, N) = size(img)
     # adjoint of replicate padding
-    workvec1 .= zero(T)
-    for i = 1:fftpadsize[1]
-        plus2di!(workvec1, workmat, i)
-    end
-    plus1di!(workmat, workvec1, 1+fftpadsize[1])
+    T = eltype(plan.workvecz)
 
-    workvec1 .= zero(T)
-    for i = fftpadsize[1]+M+1:size(workmat, 1)
-        plus2di!(workvec1, workmat, i)
+    plan.workvecz .= zero(T)
+    for i = 1:plan.padsize[1]
+        plus2di!(plan.workvecz, plan.workmat, i)
     end
-    plus1di!(workmat, workvec1, M+fftpadsize[1])
-    workvec2 .= zero(T)
-    for j = 1:fftpadsize[3]
-        plus2dj!(workvec2, workmat, j)
-    end
-    plus1dj!(workmat, workvec2, 1+fftpadsize[3])
+    plus1di!(plan.workmat, plan.workvecz, 1+plan.padsize[1])
 
-    workvec2 .= zero(T)
-    for j = fftpadsize[3]+N+1:size(workmat, 2)
-        plus2dj!(workvec2, workmat, j)
+    plan.workvecz .= zero(T)
+    for i = plan.padsize[1]+M+1:size(plan.workmat, 1)
+        plus2di!(plan.workvecz, plan.workmat, i)
     end
-    plus1dj!(workmat, workvec2, N+fftpadsize[3])
+    plus1di!(plan.workmat, plan.workvecz, M+plan.padsize[1])
 
-    copyto!(output, (@view workmat[fftpadsize[1]+1:fftpadsize[1]+M,
-                                   fftpadsize[3]+1:fftpadsize[3]+N]))
+    plan.workvecx .= zero(T)
+    for j = 1:plan.padsize[3]
+        plus2dj!(plan.workvecx, plan.workmat, j)
+    end
+    plus1dj!(plan.workmat, plan.workvecx, 1+plan.padsize[3])
+
+    plan.workvecx .= zero(T)
+    for j = plan.padsize[3]+N+1:size(plan.workmat, 2)
+        plus2dj!(plan.workvecx, plan.workmat, j)
+    end
+    plus1dj!(plan.workmat, plan.workvecx, N+plan.padsize[3])
+
+    copyto!(output, (@view plan.workmat[plan.padsize[1]+1:plan.padsize[1]+M,
+                                        plan.padsize[3]+1:plan.padsize[3]+N]))
+
+    return output
+end
+
+
+"""
+    fft_conv_adj(img, ker)
+Adjoint of convolving `img` with `ker` using FFT
+"""
+function fft_conv_adj(img, ker)
+    nx, nz = size(img)
+    nx_psf = size(ker, 1)
+    plan = plan_psf(nx, nz, nx_psf; T = eltype(img), nthread = 1)[1]
+    output = similar(img)
+    fft_conv_adj!(output, img, ker, plan)
     return output
 end

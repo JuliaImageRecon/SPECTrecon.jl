@@ -1,6 +1,6 @@
 # SPECTplan.jl
 
-using Main.SPECTrecon: SPECTplan, Workarray
+using Main.SPECTrecon: SPECTplan
 using BenchmarkTools: @btime
 using MATLAB
 
@@ -28,29 +28,18 @@ function SPECTplan_time()
 
     psfs = rand(T, nx_psf, nz_psf, ny, nview)
     psfs = psfs .+ mapslices(reverse, psfs, dims = [1, 2])
+    psfs = psfs .+ mapslices(transpose, psfs, dims = [1, 2])
     psfs = psfs ./ mapslices(sum, psfs, dims = [1, 2])
 
     plan = SPECTplan(mumap, psfs, dy)
-    workarray = Vector{Workarray}(undef, plan.ncore)
-    for i = 1:plan.ncore
-        workarray[i] = Workarray(plan.T, plan.imgsize, plan.pad_fft, plan.pad_rot) # allocate
-    end
     println("SPECTplan")
     @btime plan = SPECTplan($mumap, $psfs, $dy)
-    # 7.016 ms (50093 allocations: 9.16 MiB)
-    println("Workarrays")
-    @btime workarray = Vector{Workarray}(undef, $plan.ncore)
-    # 75.968 ns (1 allocation: 1008 bytes)
-
-    @btime for i = 1:$plan.ncore
-        $workarray[i] = Workarray($plan.T, $plan.imgsize, $plan.pad_fft, $plan.pad_rot) # allocate
-    end
-    # 1.376 ms (2432 allocations: 2.00 MiB)
+    # 13.818 ms (97826 allocations: 12.30 MiB)
     mpath = pwd()
     println("SPECTplan_matlab")
     println("Warning: Check if MIRT is installed")
     call_SPECTplan_matlab(mpath, mumap, psfs, dy)
-    # 0.941699 seconds, real memory size: 1.30 GB
+    # 1.053891 seconds, real memory size: 1.30 GB
     nothing
 end
 

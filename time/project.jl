@@ -1,7 +1,7 @@
 # project.jl
 
 using BenchmarkTools: @btime
-using Main.SPECTrecon: SPECTplan, Workarray
+using Main.SPECTrecon: SPECTplan
 using Main.SPECTrecon: project!
 using MATLAB
 
@@ -26,38 +26,28 @@ function project_time()
     nz_psf = 19
     psfs = rand(T, nx_psf, nz_psf, ny, nview)
     psfs = psfs .+ mapslices(reverse, psfs, dims = [1, 2])
+    psfs = psfs .+ mapslices(transpose, psfs, dims = [1, 2])
     psfs = psfs ./ mapslices(sum, psfs, dims = [1, 2])
 
     xtrue = rand(T, nx, ny, nz)
 
     dy = T(4.7952)
 
-    plan1d = SPECTplan(mumap, psfs, dy; interpidx = 1)
-    plan2d = SPECTplan(mumap, psfs, dy; interpidx = 2)
-
-    workarray1d = Vector{Workarray}(undef, plan1d.ncore)
-    workarray2d = Vector{Workarray}(undef, plan2d.ncore)
-
-    for i = 1:plan1d.ncore
-        workarray1d[i] = Workarray(plan1d.T, plan1d.imgsize, plan1d.pad_fft, plan1d.pad_rot) # allocate
-    end
-
-    for i = 1:plan2d.ncore
-        workarray2d[i] = Workarray(plan2d.T, plan2d.imgsize, plan2d.pad_fft, plan2d.pad_rot) # allocate
-    end
+    plan1d = SPECTplan(mumap, psfs, dy; interpmeth = :one)
+    plan2d = SPECTplan(mumap, psfs, dy; interpmeth = :two)
 
 
     views1d = zeros(T, nx, nz, nview)
     views2d = zeros(T, nx, nz, nview)
 
     println("project-1d")
-    @btime project!($views1d, $xtrue, $plan1d, $workarray1d) # 626.873 ms (129631 allocations: 4.54 MiB)
+    @btime project!($views1d, $xtrue, $plan1d) # 731.506 ms (31254 allocations: 1.76 MiB)
     println("project-2d")
-    @btime project!($views2d, $xtrue, $plan2d, $workarray2d) # 512.367 ms (129672 allocations: 4.54 MiB)
+    @btime project!($views2d, $xtrue, $plan2d) # 612.945 ms (31223 allocations: 1.76 MiB)
     mpath = pwd()
     println("project-matlab")
     println("Warning: Check if MIRT is installed")
-    call_SPECTproj_matlab(mpath, xtrue, mumap, psfs, dy) # 192.842 ms, about 0.01 GiB
+    call_SPECTproj_matlab(mpath, xtrue, mumap, psfs, dy) # 216.518 ms, about 0.01 GiB
     nothing
 end
 

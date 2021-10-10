@@ -1,6 +1,6 @@
 # project.jl
 
-using Main.SPECTrecon: SPECTplan, Workarray
+using Main.SPECTrecon: SPECTplan
 using Main.SPECTrecon: project!
 using MAT
 using LinearAlgebra: norm
@@ -28,19 +28,8 @@ function project_error()
     dy = T(4.7952)
     nview = size(psfs, 4)
 
-    plan1d = SPECTplan(mumap, psfs, dy; interpidx = 1)
-    plan2d = SPECTplan(mumap, psfs, dy; interpidx = 2)
-
-    workarray1d = Vector{Workarray}(undef, plan1d.ncore)
-    workarray2d = Vector{Workarray}(undef, plan2d.ncore)
-
-    for i = 1:plan1d.ncore
-        workarray1d[i] = Workarray(plan1d.T, plan1d.imgsize, plan1d.pad_fft, plan1d.pad_rot) # allocate
-    end
-
-    for i = 1:plan2d.ncore
-        workarray2d[i] = Workarray(plan2d.T, plan2d.imgsize, plan2d.pad_fft, plan2d.pad_rot) # allocate
-    end
+    plan1d = SPECTplan(mumap, psfs, dy; interpmeth = :one)
+    plan2d = SPECTplan(mumap, psfs, dy; interpmeth = :two)
 
 
     (nx, ny, nz) = size(xtrue)
@@ -49,8 +38,8 @@ function project_error()
     views1d = zeros(T, nx, nz, nview)
     views2d = zeros(T, nx, nz, nview)
 
-    project!(views1d, xtrue, plan1d, workarray1d)
-    project!(views2d, xtrue, plan2d, workarray2d)
+    project!(views1d, xtrue, plan1d)
+    project!(views2d, xtrue, plan2d)
 
     nrmse(x, xtrue) = norm(vec(x - xtrue)) / norm(vec(xtrue))
 
@@ -65,7 +54,7 @@ function project_error()
     end
 
     return err1d, err2d
-    # 1d interp: 1e-7 nrmse
+    # 1d interp: 2e-7 nrmse
     # 2d interp: 4e-3 nrmse
 end
 

@@ -3,38 +3,25 @@
 export backproject, backproject!
 
 """
-    backproject!(image, view, plan, workarray, viewidx)
+    backproject!(image, view, plan, viewidx)
 Backproject a single view.
 """
 function backproject!(
     image::AbstractArray{<:RealU, 3},
     view::AbstractMatrix{<:RealU},
     plan::SPECTplan,
-    workarray::Vector{Workarray},
-    viewidx::Int
+    viewidx::Int,
 )
 
     Threads.@threads for z = 1:plan.imgsize[3] # 1:nz
         thid = Threads.threadid() # thread id
-        if plan.interpidx == 1
-            imrotate3!((@view plan.mumapr[:, :, z]),
-                        workarray[thid].workmat_rot_1,
-                        workarray[thid].workmat_rot_2,
-                        (@view plan.mumap[:, :, z]),
-                        plan.viewangle[viewidx],
-                        workarray[thid].interp_x,
-                        workarray[thid].interp_y,
-                        workarray[thid].workvec_rot_x,
-                        workarray[thid].workvec_rot_y)
 
-        else
-            imrotate3!((@view plan.mumapr[:, :, z]),
-                        workarray[thid].workmat_rot_1,
-                        workarray[thid].workmat_rot_2,
-                        (@view plan.mumap[:, :, z]),
-                        plan.viewangle[viewidx])
-
-        end
+        # rotate mumap
+        imrotate!((@view plan.mumapr[:, :, z]),
+                  (@view plan.mumap[:, :, z]),
+                  plan.viewangle[viewidx],
+                  plan.planrot[thid],
+                  )
 
     end
 
@@ -42,73 +29,55 @@ function backproject!(
     Threads.@threads for y = 1:plan.imgsize[2] # 1:ny
         thid = Threads.threadid() # thread id
         # account for half of the final slice thickness
-        scale3dj!(workarray[thid].exp_mumapr, plan.mumapr, y, -0.5)
+        scale3dj!(plan.exp_mumapr[thid], plan.mumapr, y, -0.5)
         for j = 1:y
-            plus3dj!(workarray[thid].exp_mumapr, plan.mumapr, j)
+            plus3dj!(plan.exp_mumapr[thid], plan.mumapr, j)
         end
 
-        broadcast!(*, workarray[thid].exp_mumapr, workarray[thid].exp_mumapr, - plan.dy)
+        broadcast!(*, plan.exp_mumapr[thid], plan.exp_mumapr[thid], - plan.dy)
 
-        broadcast!(exp, workarray[thid].exp_mumapr, workarray[thid].exp_mumapr)
+        broadcast!(exp, plan.exp_mumapr[thid], plan.exp_mumapr[thid])
 
         fft_conv_adj!((@view plan.imgr[:, y, :]),
-                       workarray[thid].workmat_fft,
-                       workarray[thid].workvec_fft_1,
-                       workarray[thid].workvec_fft_2,
                        view,
                        (@view plan.psfs[:, :, y, viewidx]),
-                       plan.pad_fft,
-                       workarray[thid].img_compl,
-                       workarray[thid].ker_compl,
-                       workarray[thid].fft_plan,
-                       workarray[thid].ifft_plan)
+                       plan.planpsf[thid],
+                       )
 
-        mul3dj!(plan.imgr, workarray[thid].exp_mumapr, y)
+        mul3dj!(plan.imgr, plan.exp_mumapr[thid], y)
     end
 
     # adjoint of rotating image
     Threads.@threads for z = 1:plan.imgsize[3] # 1:nz
         thid = Threads.threadid()
-        if plan.interpidx == 1
-            imrotate3_adj!((@view image[:, :, z]),
-                           workarray[thid].workmat_rot_1,
-                           workarray[thid].workmat_rot_2,
-                           (@view plan.imgr[:, :, z]),
-                           plan.viewangle[viewidx],
-                           workarray[thid].interp_x,
-                           workarray[thid].interp_y,
-                           workarray[thid].workvec_rot_x,
-                           workarray[thid].workvec_rot_y)
 
-        else
-            imrotate3_adj!((@view image[:, :, z]),
-                           workarray[thid].workmat_rot_1,
-                           workarray[thid].workmat_rot_2,
-                           (@view plan.imgr[:, :, z]),
-                           plan.viewangle[viewidx])
-        end
+        imrotate_adj!((@view image[:, :, z]),
+                      (@view plan.imgr[:, :, z]),
+                      plan.viewangle[viewidx],
+                      plan.planrot[thid],
+                      )
     end
+
     return image
 end
 
 
 
 """
-    backproject!(image, views, plan, workarray; index)
+    backproject!(image, views, plan ; index)
 Backproject multiple views into `image`.
 Array `image` is not initialized to zero; caller must do that.
 """
 function backproject!(
     image::AbstractArray{<:RealU, 3},
     views::AbstractArray{<:RealU, 3},
-    plan::SPECTplan,
-    workarray::Vector{Workarray};
+    plan::SPECTplan;
     index::AbstractVector{<:Int} = 1:plan.nview, # all views
 )
 
     # loop over each view index
     for i in index
-        backproject!(plan.add_img, (@view views[:, :, i]), plan, workarray, i)
+        backproject!(plan.add_img, (@view views[:, :, i]), plan, i)
         broadcast!(+, image, image, plan.add_img)
     end
 end
@@ -116,25 +85,24 @@ end
 
 
 """
-    image = backproject(plan, workarray, views ; kwargs...)
+    image = backproject(views, plan ; kwargs...)
 SPECT backproject `views`; this allocates the returned 3D array.
 """
 function backproject(
-    plan::SPECTplan,
-    workarray::Vector{Workarray},
-    views::AbstractArray{<:RealU, 3} ;
+    views::AbstractArray{<:RealU, 3},
+    plan::SPECTplan;
     kwargs...,
 )
     image = zeros(plan.T, plan.imgsize)
-    backproject!(image, views, plan, workarray; kwargs...)
+    backproject!(image, views, plan; kwargs...)
     return image
 end
 
 
 """
-    image = backproject(views, mumap, psfs, dy; interpidx, kwargs...)
+    image = backproject(views, mumap, psfs, dy; interpmeth, kwargs...)
 SPECT backproject `views` using attenuation map `mumap` and PSF array `psfs` for pixel size `dy`.
-This method initializes the `plan` and `workarray` as a convenience.
+This method initializes the `plan` as a convenience.
 Most users should use `backproject!` instead after initializing those, for better efficiency.
 """
 function backproject(
@@ -142,14 +110,10 @@ function backproject(
     mumap::AbstractArray{<:RealU, 3}, # [nx,ny,nz] attenuation map, must be 3D, possibly zeros()
     psfs::AbstractArray{<:RealU, 4},
     dy::RealU;
-    interpidx::Int = 2,
+    interpmeth::Symbol = :two,
     kwargs...,
 )
 
-    plan = SPECTplan(mumap, psfs, dy; interpidx, kwargs...)
-    workarray = Vector{Workarray}(undef, plan.ncore)
-    for i = 1:plan.ncore
-        workarray[i] = Workarray(plan.T, plan.imgsize, plan.pad_fft, plan.pad_rot) # allocate
-    end
-    return backproject(plan, workarray, views; kwargs...)
+    plan = SPECTplan(mumap, psfs, dy; interpmeth, kwargs...)
+    return backproject(views, plan; kwargs...)
 end
