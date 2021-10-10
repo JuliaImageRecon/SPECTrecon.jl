@@ -40,7 +40,7 @@ end
 
 
 @testset "proj-adj-test-dot" begin
-    T = Float32
+    T = Float64
     nx = 64
     ny = 64
     nz = 40
@@ -61,9 +61,9 @@ end
 
     output_x = project(x, mumap, psfs, dy; interpmeth = :one)
     output_y = backproject(y, mumap, psfs, dy; interpmeth = :one)
-    @test isapprox(dot(y, output_x), dot(x, output_y))
+    @test isapprox(dot(y, output_x), dot(x, output_y); rtol = 1e-5)
 
     output_x = project(x, mumap, psfs, dy; interpmeth = :two)
     output_y = backproject(y, mumap, psfs, dy; interpmeth = :two)
-    @test isapprox(dot(y, output_x), dot(x, output_y))
+    @test isapprox(dot(y, output_x), dot(x, output_y); rtol = 1e-5)
 end
