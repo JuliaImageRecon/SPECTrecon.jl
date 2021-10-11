@@ -1,9 +1,6 @@
 # SPECTrecon
 SPECT image reconstruction tools in Julia
 
-This repo is almost a copy of [MIRT SPECTrecon Package](https://github.com/JeffFessler/SPECTrecon.jl),
-but with several commits ahead.
-
 https://github.com/JeffFessler/SPECTrecon.jl
 
 [![action status][action-img]][action-url]
