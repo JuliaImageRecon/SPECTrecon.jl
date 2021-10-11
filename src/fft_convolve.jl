@@ -8,9 +8,7 @@ export fft_conv, fft_conv_adj
 FFT-based convolution between `plan.img_compl` and kernel `plan.ker_compl` (not centered)
 putting result in `plan.workmat`.
 """
-function imfilterz!(
-    plan::PlanPSF,
-    )
+function imfilterz!(plan::PlanPSF)
     mul!(plan.img_compl, plan.fft_plan, plan.img_compl)
     mul!(plan.ker_compl, plan.fft_plan, plan.ker_compl)
     # plan.img_compl .*= plan.ker_compl
