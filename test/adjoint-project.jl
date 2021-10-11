@@ -28,13 +28,10 @@ using Test: @test, @testset
 
     for interpmeth in (:one, :two)
         forw = x -> project(x, mumap, psfs, dy; interpmeth)
-    back1 = y -> backproject(y, mumap, psfs, dy; interpmeth = :one)
-    A1 = LinearMapAA(forw1, back1, (prod(odim),prod(idim)); T, idim, odim)
-    @test Matrix(A1)' ≈ Matrix(A1')
-
-    forw2 = x -> project(x, mumap, psfs, dy; interpmeth = :two)
-    back2 = y -> backproject(y, mumap, psfs, dy; interpmeth = :two)
-    A2 = LinearMapAA(forw2, back2, (prod(odim),prod(idim)); T, idim, odim)
+        back = y -> backproject(y, mumap, psfs, dy; interpmeth)
+        A = LinearMapAA(forw, back, (prod(odim),prod(idim)); T, idim, odim)
+        @test Matrix(A)' ≈ Matrix(A')
+    end
     @test Matrix(A2)' ≈ Matrix(A2')
 
 end
