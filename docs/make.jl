@@ -43,12 +43,13 @@ format = Documenter.HTML(;
 
 makedocs(;
     modules = [SPECTrecon],
-    authors = "Jeff Fessler and contributors",
+    authors = "Jeff Fessler & Zongyu Li & contributors",
     sitename = "SPECTrecon.jl",
     format,
     pages = [
         "Home" => "index.md",
         "Methods" => "methods.md",
+        "History" => "history.md",
         "Examples" => pages("examples")
     ],
 )
