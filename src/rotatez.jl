@@ -296,14 +296,11 @@ end
 Rotate an image by angle θ (must be within 0 to 2π) in counter-clockwise direction
 (opposite to `imrotate` in Julia) using a series of 1d linear interpolations.
 """
-function imrotate1(img::AbstractMatrix{<:RealU},
-                   θ::RealU,
-                   )
-
-        output = similar(img)
-        plan = plan_rotate(size(img, 1); T = eltype(img), nthread = 1)[1]
-        imrotate1!(output, img, θ, plan)
-        return output
+function imrotate1(img::AbstractMatrix{<:RealU}, θ::RealU)
+    output = similar(img)
+    plan = plan_rotate(size(img, 1); T = eltype(img), nthread = 1)[1]
+    imrotate1!(output, img, θ, plan)
+    return output
 end
 
 
@@ -354,14 +351,11 @@ end
 The adjoint of rotating an image by angle θ (must be within 0 to 2π) in counter-clockwise direction
 (opposite to `imrotate` in Julia) using a series of 1d linear interpolations.
 """
-function imrotate1_adj(img::AbstractMatrix{<:RealU},
-                       θ::RealU,
-                       )
-
-        output = similar(img)
-        plan = plan_rotate(size(img, 1); T = eltype(img), nthread = 1)[1]
-        imrotate1_adj!(output, img, θ, plan)
-        return output
+function imrotate1_adj(img::AbstractMatrix{<:RealU}, θ::RealU)
+    output = similar(img)
+    plan = plan_rotate(size(img, 1); T = eltype(img), nthread = 1)[1]
+    imrotate1_adj!(output, img, θ, plan)
+    return output
 end
 
 
@@ -409,9 +403,7 @@ end
 Rotate an image by angle θ (must be within 0 to 2π) in counter-clockwise direction
 (opposite to `imrotate` in Julia) using 2d linear interpolations.
 """
-function imrotate2(img::AbstractMatrix{<:RealU},
-                   θ::RealU,
-                   )
+function imrotate2(img::AbstractMatrix{<:RealU}, θ::RealU)
     output = similar(img)
     plan = plan_rotate(size(img, 1); T = eltype(img), nthread = 1)[1]
     imrotate2!(output, img, θ, plan)
@@ -458,9 +450,7 @@ end
 The adjoint of rotating an image by angle θ (must be within 0 to 2π) in counter-clockwise direction
 (opposite to `imrotate` in Julia) using 2d linear interpolations.
 """
-function imrotate2_adj(img::AbstractMatrix{<:RealU},
-                       θ::RealU,
-                       )
+function imrotate2_adj(img::AbstractMatrix{<:RealU}, θ::RealU)
     output = similar(img)
     plan = plan_rotate(size(img, 1); T = eltype(img), nthread = 1)[1]
     imrotate2_adj!(output, img, θ, plan)
@@ -473,11 +463,12 @@ end
 In-place version of rotating an `image` by `θ` in counter-clockwise direction
 (opposite to `imrotate` in Julia)
 """
-function imrotate!(output::AbstractMatrix{<:RealU},
-                   img::AbstractMatrix{<:RealU},
-                   θ::RealU,
-                   plan::PlanRotate,
-                   )
+function imrotate!(
+    output::AbstractMatrix{<:RealU},
+    img::AbstractMatrix{<:RealU},
+    θ::RealU,
+    plan::PlanRotate,
+)
 
     if plan.method === :one
         imrotate1!(output, img, θ, plan)
@@ -493,16 +484,92 @@ end
 In-place version of the adjoint of rotating an `image` by `θ` in counter-clockwise direction
 (opposite to `imrotate` in Julia)
 """
-function imrotate_adj!(output::AbstractMatrix{<:RealU},
-                       img::AbstractMatrix{<:RealU},
-                       θ::RealU,
-                       plan::PlanRotate,
-                       )
+function imrotate_adj!(
+    output::AbstractMatrix{<:RealU},
+    img::AbstractMatrix{<:RealU},
+    θ::RealU,
+    plan::PlanRotate,
+)
 
     if plan.method === :one
         imrotate1_adj!(output, img, θ, plan)
     else
         imrotate2_adj!(output, img, θ, plan)
     end
+    return output
+end
+
+
+# prepare for "foreach" threaded computation
+_setup = (z) -> Channel() do ch
+    foreach(i -> put!(ch, i), z)
+end
+
+
+"""
+    imrotate!(output, image3, θ, plans)
+In-place version of rotating a 3D `image3` by `θ`
+in counter-clockwise direction (opposite to `imrotate` in Julia)
+"""
+function imrotate!(
+    output::AbstractArray{<:RealU,3},
+    image3::AbstractArray{<:RealU,3},
+    θ::RealU,
+    plans::Vector{<:PlanRotate},
+)
+
+    size(output) == size(image3) || throw(DimensionMismatch())
+
+    fun = z -> imrotate!(
+        (@view output[:,:,z]),
+        (@view image3[:,:,z]),
+        θ,
+        plans[Threads.threadid()],
+    )
+
+    ntasks = length(plans)
+    Threads.foreach(fun, _setup(1:size(image3,3)); ntasks)
+
+#=
+    Threads.@threads for z = 1:size(image3,3) # 1:nz
+        id = Threads.threadid() # thread id
+
+        imrotate!(
+            (@view output[:,:,z]),
+            (@view image3[:,:,z]),
+            θ,
+            plans[id],
+        )
+    end
+=#
+
+    return output
+end
+
+
+"""
+    imrotate_adj!(output, image3, θ, plan)
+In-place version of the adjoint of rotating a 3D `image3` by `θ`
+in counter-clockwise direction (opposite to `imrotate` in Julia)
+"""
+function imrotate_adj!(
+    output::AbstractArray{<:RealU,3},
+    image3::AbstractArray{<:RealU,3},
+    θ::RealU,
+    plans::Vector{<:PlanRotate},
+)
+
+    size(output) == size(image3) || throw(DimensionMismatch())
+
+    fun = z -> imrotate_adj!(
+        (@view output[:,:,z]),
+        (@view image3[:,:,z]),
+        θ,
+        plans[Threads.threadid()],
+    )
+
+    ntasks = length(plans)
+    Threads.foreach(fun, _setup(1:size(image3,3)); ntasks)
+
     return output
 end
