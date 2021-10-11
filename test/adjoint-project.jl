@@ -7,7 +7,6 @@ using SPECTrecon: project, backproject
 using LinearMapsAA: LinearMapAA
 using LinearAlgebra: dot
 using Test: @test, @testset
-using Random: seed!
 
 
 @testset "adjoint-project-matrix" begin
@@ -28,6 +27,16 @@ using Random: seed!
     dy = T(4.7952)
     idim = (nx,ny,nz)
     odim = (nx,nz,nview)
+
+    for interpmeth in (:one, :two)
+        for mode in (:fast, :mem)
+            plan = SPECTplan(mumap, psfs, dy; interpmeth, mode)
+            forw! = (y,x) -> project!(y, x, plan)
+            back! = (x,y) -> backproject!(x, y, plan)
+            A = LinearMapAA(forw!, back!, (prod(odim),prod(idim)); T, idim, odim)
+            @test Matrix(A)' ≈ Matrix(A')
+        end
+    end
 
     for interpmeth in (:one, :two)
         for mode in (:fast, :mem)
@@ -57,7 +66,6 @@ end
     psfs = psfs ./ mapslices(sum, psfs, dims = [1, 2])
 
     dy = T(4.7952)
-    seed!(0)
 
     for interpmeth in (:one, :two)
         for mode in (:fast, :mem)

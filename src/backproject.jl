@@ -138,6 +138,8 @@ function backproject!(
     # loop over each view index
     if plan.mode === :fast
         [plan.add_img[i] .= zero(plan.T) for i = 1:plan.nthread]
+        [plan.imgr[i] .= zero(plan.T) for i = 1:plan.nthread]
+        [plan.mumapr[i] .= zero(plan.T) for i = 1:plan.nthread]
         Threads.@threads for i in index
             thid = Threads.threadid()
             backproject!(plan.add_img[thid], (@view views[:, :, i]), plan, thid, i)
