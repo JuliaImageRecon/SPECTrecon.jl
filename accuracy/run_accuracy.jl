@@ -1,5 +1,5 @@
 # run_accuracy.jl
 
-using Main.SPECTrecon
+using SPECTrecon
 
 include("project.jl")

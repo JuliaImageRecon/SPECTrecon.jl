@@ -3,7 +3,7 @@
 export project, project!
 
 """
-    project!(view, plan, workarray, image, viewidx)
+    project!(view, plan, image, viewidx)
 SPECT projection of `image` into a single `view` with index `viewidx`.
 The `view` must be pre-allocated but need not be initialized to zero.
 """
@@ -11,85 +11,47 @@ function project!(
     view::AbstractMatrix{<:RealU},
     image::AbstractArray{<:RealU, 3},
     plan::SPECTplan,
-    workarray::Vector{Workarray},
-    viewidx::Int
+    viewidx::Int,
 )
     # rotate image and mumap using multiple processors
 
     Threads.@threads for z = 1:plan.imgsize[3] # 1:nz
         thid = Threads.threadid() # thread id
-#       work = workarray[thid] # todo: how to avoid repeating?
-        if plan.interpidx == 1
-            # rotate image and store in plan.imgr using 1D interpolation
-            imrotate3!(
-                (@view plan.imgr[:, :, z]),
-                workarray[thid].workmat_rot_1,
-                workarray[thid].workmat_rot_2,
-                (@view image[:, :, z]),
-                plan.viewangle[viewidx],
-                workarray[thid].interp_x,
-                workarray[thid].interp_y,
-                workarray[thid].workvec_rot_x,
-                workarray[thid].workvec_rot_y,
-            )
-
-            # rotate mumap and store in plan.mumapr
-            imrotate3!(
-                (@view plan.mumapr[:, :, z]),
-                workarray[thid].workmat_rot_1,
-                workarray[thid].workmat_rot_2,
-                (@view plan.mumap[:, :, z]),
-                plan.viewangle[viewidx],
-                workarray[thid].interp_x,
-                workarray[thid].interp_y,
-                workarray[thid].workvec_rot_x,
-                workarray[thid].workvec_rot_y,
-            )
-
-        else
-            # rotate image and store in plan.imgr using 2d interpolation method
-            imrotate3!(
-                (@view plan.imgr[:, :, z]),
-                workarray[thid].workmat_rot_1,
-                workarray[thid].workmat_rot_2,
-                (@view image[:, :, z]),
-                plan.viewangle[viewidx],
-            )
-
-            # rotate mumap and store in plan.mumapr
-            imrotate3!(
-                (@view plan.mumapr[:, :, z]),
-                workarray[thid].workmat_rot_1,
-                workarray[thid].workmat_rot_2,
-                (@view plan.mumap[:, :, z]),
-                plan.viewangle[viewidx],
-            )
-        end
+        # rotate image in plan.imgr
+        imrotate!((@view plan.imgr[:, :, z]),
+                  (@view image[:, :, z]),
+                  plan.viewangle[viewidx],
+                  plan.planrot[thid],
+                  )
+        # rotate mumap and store in plan.mumapr
+        imrotate!((@view plan.mumapr[:, :, z]),
+                  (@view plan.mumap[:, :, z]),
+                  plan.viewangle[viewidx],
+                  plan.planrot[thid],
+                  )
     end
 
     Threads.@threads for y = 1:plan.imgsize[2] # 1:ny
         thid = Threads.threadid() # thread id
         # account for half of the final slice thickness
-        scale3dj!(workarray[thid].exp_mumapr, plan.mumapr, y, -0.5)
+        scale3dj!(plan.exp_mumapr[thid], plan.mumapr, y, -0.5)
+
         for j = 1:y
-            plus3dj!(workarray[thid].exp_mumapr, plan.mumapr, j)
+            plus3dj!(plan.exp_mumapr[thid], plan.mumapr, j)
         end
 
-        broadcast!(*, workarray[thid].exp_mumapr, workarray[thid].exp_mumapr, - plan.dy)
+        broadcast!(*, plan.exp_mumapr[thid], plan.exp_mumapr[thid], - plan.dy)
 
-        broadcast!(exp, workarray[thid].exp_mumapr, workarray[thid].exp_mumapr)
+        broadcast!(exp, plan.exp_mumapr[thid], plan.exp_mumapr[thid])
+
         # apply depth-dependent attenuation
-        mul3dj!(plan.imgr, workarray[thid].exp_mumapr, y)
+        mul3dj!(plan.imgr, plan.exp_mumapr[thid], y)
 
         fft_conv!((@view plan.add_img[:, y, :]),
-                  workarray[thid].workmat_fft,
                   (@view plan.imgr[:, y, :]),
                   (@view plan.psfs[:, :, y, viewidx]),
-                  plan.pad_fft,
-                  workarray[thid].img_compl,
-                  workarray[thid].ker_compl,
-                  workarray[thid].fft_plan,
-                  workarray[thid].ifft_plan)
+                  plan.planpsf[thid],
+                  )
     end
 
     copy3dj!(view, plan.add_img, 1) # initialize accumulator
@@ -104,46 +66,115 @@ end
 
 
 """
-    project!(views, image, plan, workarray; index)
+    project!(view, plan, image, thid, viewidx)
+SPECT projection of `image` into a single `view` with index `viewidx`.
+The `view` must be pre-allocated but need not be initialized to zero.
+"""
+function project!(
+    view::AbstractMatrix{<:RealU},
+    image::AbstractArray{<:RealU, 3},
+    plan::SPECTplan,
+    thid::Int,
+    viewidx::Int,
+)
+    # rotate image and mumap using multiple processors
+
+    for z = 1:plan.imgsize[3] # 1:nz
+        # rotate image in plan.imgr
+        imrotate!((@view plan.imgr[thid][:, :, z]),
+                  (@view image[:, :, z]),
+                  plan.viewangle[viewidx],
+                  plan.planrot[thid],
+                  )
+        # rotate mumap and store in plan.mumapr
+        imrotate!((@view plan.mumapr[thid][:, :, z]),
+                  (@view plan.mumap[:, :, z]),
+                  plan.viewangle[viewidx],
+                  plan.planrot[thid],
+                  )
+    end
+
+    for y = 1:plan.imgsize[2] # 1:ny
+        # account for half of the final slice thickness
+        scale3dj!(plan.exp_mumapr[thid], plan.mumapr[thid], y, -0.5)
+
+        for j = 1:y
+            plus3dj!(plan.exp_mumapr[thid], plan.mumapr[thid], j)
+        end
+
+        broadcast!(*, plan.exp_mumapr[thid], plan.exp_mumapr[thid], - plan.dy)
+
+        broadcast!(exp, plan.exp_mumapr[thid], plan.exp_mumapr[thid])
+
+        # apply depth-dependent attenuation
+        mul3dj!(plan.imgr[thid], plan.exp_mumapr[thid], y)
+
+        fft_conv!((@view plan.add_img[thid][:, y, :]),
+                  (@view plan.imgr[thid][:, y, :]),
+                  (@view plan.psfs[:, :, y, viewidx]),
+                  plan.planpsf[thid],
+                  )
+
+    end
+
+    copy3dj!(view, plan.add_img[thid], 1) # initialize accumulator
+    for y in 2:plan.imgsize[2] # accumulate to get total view
+        plus3dj!(view, plan.add_img[thid], y)
+    end
+
+    # plan.add_img[2] # why does julia allocate (on heap!?) here?
+
+    return view
+end
+
+
+"""
+    project!(views, image, plan; index)
 Project `image` into multiple `views` with indexes `index` (defaults to `1:nview`).
 The 3D `views` array must be pre-allocated, but need not be initialized.
 """
 function project!(
     views::AbstractArray{<:RealU,3},
     image::AbstractArray{<:RealU,3},
-    plan::SPECTplan,
-    workarray::Vector{Workarray};
+    plan::SPECTplan;
     index::AbstractVector{<:Int} = 1:plan.nview, # all views
 )
 
     # loop over each view index
-    for i in index
-        project!((@view views[:,:,i]), image, plan, workarray, i)
+    if plan.mode === :fast
+        Threads.@threads for i in index
+            thid = Threads.threadid()
+            project!((@view views[:,:,i]), image, plan, thid, i)
+        end
+    else
+        for i in index
+            project!((@view views[:,:,i]), image, plan, i)
+        end
     end
+
     return views
 end
 
 
 """
-    views = project(image, plan, workarray ; kwargs...)
+    views = project(image, plan ; kwargs...)
 Convenience method for SPECT forward projector that allocates and returns views.
 """
 function project(
     image::AbstractArray{<:RealU,3},
-    plan::SPECTplan,
-    workarray::Vector{Workarray};
+    plan::SPECTplan;
     kwargs...,
 )
     views = Array{plan.T}(undef, plan.imgsize[1], plan.imgsize[3], plan.nview)
-    project!(views, image, plan, workarray; kwargs...)
+    project!(views, image, plan; kwargs...)
     return views
 end
 
 
 """
-    views = project(image, mumap, psfs, dy; interpidx, kwargs...)
+    views = project(image, mumap, psfs, dy; interpmeth, kwargs...)
 Convenience method for SPECT forward projector that does all allocation
-including initializing `plan` and `workarray`.
+including initializing `plan`.
 
 In
 * `image` : 3D array `[nx,ny,nz]`
@@ -151,21 +182,18 @@ In
 * `psfs` : 4D PSF array
 * `dy::RealU` : pixel size
 Option
-* `interpidx` : 1 or 2
+* `interpmeth` : :one or :two
 """
 function project(
     image::AbstractArray{<:RealU, 3},
     mumap::AbstractArray{<:RealU, 3}, # [nx,ny,nz] 3D attenuation map
     psfs::AbstractArray{<:RealU, 4},
     dy::RealU;
-    interpidx::Int = 2,
+    interpmeth::Symbol = :two,
+    mode::Symbol = :fast,
 #   nthread::Int = Threads.nthreads(), # todo: option for plan
     kwargs...,
 )
-    plan = SPECTplan(mumap, psfs, dy; interpidx, kwargs...)
-    workarray = Vector{Workarray}(undef, plan.ncore) # todo: move into plan
-    for i = 1:plan.ncore
-        workarray[i] = Workarray(plan.T, plan.imgsize, plan.pad_fft, plan.pad_rot) # allocate
-    end
-    return project(image, plan, workarray; kwargs...)
+    plan = SPECTplan(mumap, psfs, dy; interpmeth, mode, kwargs...)
+    return project(image, plan; kwargs...)
 end

@@ -1,9 +1,9 @@
 # runtime.jl
 
-using Main.SPECTrecon
+using SPECTrecon
 
 include("helper.jl")
-include("rotate3.jl")
+include("rotatez.jl")
 include("fft_convolve.jl")
 include("SPECTplan.jl")
 include("project.jl")

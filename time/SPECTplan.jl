@@ -1,38 +1,52 @@
 # SPECTplan.jl
 
-using Main.SPECTrecon: SPECTplan, Workarray
-using Test: @test, @testset, detect_ambiguities
+using SPECTrecon: SPECTplan
 using BenchmarkTools: @btime
+using MATLAB
+
+function call_SPECTplan_matlab(mpath, mumap, psfs, dy)
+
+    mat"""
+    addpath($mpath)
+    SPECTplan_matlab($mumap, $psfs, $dy);
+    """
+end
 
 
 function SPECTplan_time()
     T = Float32
-    nx = 128
-    ny = 128
-    nz = 81
-    nx_psf = 37
-    nz_psf = 37
-    dy = T(4.80)
-    mumap = randn(T, nx, ny, nz)
-    nview = 120
-    psfs = ones(T, nx_psf, nz_psf, ny, nview)
+    nx = 64
+    ny = 64
+    nz = 40
+    nview = 60
+
+    mumap = rand(T, nx, ny, nz)
+
+    nx_psf = 19
+    nz_psf = 19
+    dy = T(4.7952)
+
+    psfs = rand(T, nx_psf, nz_psf, ny, nview)
+    psfs = psfs .+ mapslices(reverse, psfs, dims = [1, 2])
+    psfs = psfs .+ mapslices(transpose, psfs, dims = [1, 2])
+    psfs = psfs ./ mapslices(sum, psfs, dims = [1, 2])
 
     plan = SPECTplan(mumap, psfs, dy)
-    workarray = Vector{Workarray}(undef, plan.ncore)
-    for i = 1:plan.ncore
-        workarray[i] = Workarray(plan.T, plan.imgsize, plan.pad_fft, plan.pad_rot) # allocate
-    end
 
-    @btime plan = SPECTplan($mumap, $psfs, $dy)
-    # 57.470 ms (199862 allocations: 102.89 MiB)
+    println("SPECTplanfast")
+    @btime plan = SPECTplan($mumap, $psfs, $dy; mode = :fast)
+    # 13.585 ms (97843 allocations: 25.42 MiB)
 
-    @btime workarray = Vector{Workarray}(undef, $plan.ncore)
-    # 85.247 ns (1 allocation: 1008 bytes)
+    println("SPECTplanmem")
+    @btime plan = SPECTplan($mumap, $psfs, $dy; mode = :mem)
+    # 13.578 ms (97789 allocations: 12.30 MiB)
 
-    @btime for i = 1:$plan.ncore
-        $workarray[i] = Workarray($plan.T, $plan.imgsize, $plan.pad_fft, $plan.pad_rot) # allocate
-    end
-    # 1.902 ms (3920 allocations: 7.58 MiB)
+    mpath = pwd()
+    println("SPECTplan_matlab")
+    println("Warning: Check if MIRT is installed")
+    call_SPECTplan_matlab(mpath, mumap, psfs, dy)
+    # 1.103891 seconds, real memory size: 1.30 GB
+    nothing
 end
 
 
