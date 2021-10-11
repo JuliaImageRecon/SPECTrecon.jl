@@ -6,7 +6,7 @@ using LinearInterpolators: SparseInterpolator, LinearSpline
 
 """
     PlanRotate(nx::Int; T::DataType, method::Symbol)
-Make struct for storing work arrays and factors for 2D `square` image rotation for one thread
+Struct for storing work arrays and factors for 2D square image rotation for one thread
 - `T` datatype of work arrays
 - `nx` must be Int
 - `method` interpolation methods, `:one` is to use 3-pass 1D interpolation, `:two` is to use 2D interpolation
@@ -65,13 +65,17 @@ end
 
 """
     plan_rotate(nx::Int; nthread::Int, T::DataType, method::Symbol)
-Make Vector of structs for storing work arrays and factors for 2D image rotation.
-Input
+Make `Vector` of `PlanRotate` structs
+for storing work arrays and factors for 2D square image rotation.
+
+# Input
 - `nx::Int` must equal to `ny`
-Option
+# Option
 - `T` : datatype of work arrays, defaults to `Float32`
+- `method::Symbol` : default is `:two` for 2D interpolation;
+  use `:one` for 3-pass rotation with 1D interpolation
 - `nthread::Int` # of threads, defaults to `Threads.nthreads()`
-warning: must use that default currently!
+  warning: must use that default currently!
 """
 function plan_rotate(
     nx::Int ;
@@ -80,4 +84,42 @@ function plan_rotate(
     method::Symbol = :two,
     )
     return [PlanRotate(nx; T, method) for id = 1:nthread]
+end
+
+
+"""
+    show(io::IO, ::MIME"text/plain", plan::PlanRotate)
+"""
+function Base.show(io::IO, ::MIME"text/plain", plan::PlanRotate{T}) where T
+    t = typeof(plan)
+    println(io, t)
+    for f in (:nx, :method, :padsize)
+        p = getproperty(plan, f)
+        t = typeof(p)
+        println(io, " ", f, "::", t, " ", p)
+    end
+    for f in (:interp, :workmat1, :workmat2, :workvec)
+        p = getproperty(plan, f)
+        println(io, " ", f, ":", " ", summary(p))
+    end
+    println(io, " (", sizeof(plan), " bytes)")
+end
+
+
+"""
+    show(io::IO, mime::MIME"text/plain", vp::Vector{<:PlanRotate})
+"""
+function Base.show(io::IO, mime::MIME"text/plain", vp::Vector{<:PlanRotate})
+    t = typeof(vp)
+    println(io, length(vp), "-element ", t)
+#   show(io, mime, vp[1])
+end
+
+
+"""
+    sizeof(::PlanRotate)
+Show size in bytes of `PlanRotate` object.
+"""
+function Base.sizeof(ob::T) where {T <: Union{PlanRotate, SparseInterpolator}}
+    sum(f -> sizeof(getfield(ob, f)), fieldnames(typeof(ob)))
 end
