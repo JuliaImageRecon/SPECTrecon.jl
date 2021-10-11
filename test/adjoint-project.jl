@@ -26,7 +26,8 @@ using Test: @test, @testset
     idim = (nx,ny,nz)
     odim = (nx,nz,nview)
 
-    forw1 = x -> project(x, mumap, psfs, dy; interpmeth = :one)
+    for interpmeth in (:one, :two)
+        forw = x -> project(x, mumap, psfs, dy; interpmeth)
     back1 = y -> backproject(y, mumap, psfs, dy; interpmeth = :one)
     A1 = LinearMapAA(forw1, back1, (prod(odim),prod(idim)); T, idim, odim)
     @test Matrix(A1)' ≈ Matrix(A1')
