@@ -17,6 +17,7 @@ Struct for storing key factors for a SPECT system model
 - `nview` number of views, must be integer
 - `viewangle` set of view angles, must be from 0 to 2π
 - `interpmeth` interpolation method, :one means 1d, :two means 2d
+- `mode` pre-allcoation method, :fast means faster, :mem means use less memory
 - `dy` voxel size in y direction (dx is the same value)
 - `nthread` number of CPU threads used to process data, must be integer
 - `planrot` Vector of struct `PlanRotate`
@@ -33,15 +34,16 @@ struct SPECTplan{T}
     T::DataType # default type for work arrays etc.
     imgsize::NTuple{3, Int}
     nx_psf::Int
-    imgr::Array{T, 3} # 3D rotated image, (nx, ny, nz)
-    add_img::Array{T, 3}
+    imgr::Union{Array{T, 3}, Vector{Array{T, 3}}} # 3D rotated image, (nx, ny, nz)
+    add_img::Union{Array{T, 3}, Vector{Array{T, 3}}}
     mumap::Array{T, 3} # [nx,ny,nz] attenuation map, must be 3D, possibly zeros()
-    mumapr::Array{T, 3} # 3D rotated mumap, (nx, ny, nz)
+    mumapr::Union{Array{T, 3}, Vector{Array{T, 3}}} # 3D rotated mumap, (nx, ny, nz)
     exp_mumapr::Vector{Matrix{T}} # 2D exponential rotated mumap, (nx, ny)
     psfs::Array{T, 4} # PSFs must be 4D, [nx_psf, nz_psf, ny, nview], finally be centered psf
     nview::Int # number of views
     viewangle::StepRangeLen{T}
     interpmeth::Symbol
+    mode::Symbol
     dy::T
     nthread::Int # number of threads
     planrot::Vector{PlanRotate}
@@ -55,6 +57,7 @@ struct SPECTplan{T}
                        viewangle::StepRangeLen{<:RealU} = (0:size(psfs, 4) - 1) / size(psfs, 4) * T(2π), # set of view angles
                        interpmeth::Symbol = :two, # :one is for 1d interpolation, :two is for 2d interpolation
                        nthread::Int = Threads.nthreads(),
+                       mode::Symbol = :fast,
                        )
 
         # convert to the same type
@@ -77,17 +80,29 @@ struct SPECTplan{T}
         all(mapslices(x -> x == reverse(x), psfs, dims = [1, 2])) || throw("asym. psf rever.")
 
         # check interpidx
-        (interpmeth == :one || interpmeth == :two) || throw("bad interpmeth")
+        (interpmeth === :one || interpmeth === :two) || throw("bad interpmeth")
 
         # remember to check if nthread == Threads.nthreads()
         (nthread == Threads.nthreads()) || throw("bad nthread")
 
-        # imgr stores 3D image in different view angles
-        imgr = Array{T, 3}(undef, nx, ny, nz)
-        # add_img stores 3d image for backprojection
-        add_img = Array{T ,3}(undef, nx, ny, nz)
-        # mumapr stores 3D mumap in different view angles
-        mumapr = Array{T, 3}(undef, nx, ny, nz)
+        # check mode
+        (mode === :fast || mode === :mem) || throw("bad mode")
+
+        if mode === :fast
+            # imgr stores 3D image in different view angles
+            imgr = [Array{T, 3}(undef, nx, ny, nz) for id = 1:nthread]
+            # add_img stores 3d image for backprojection
+            add_img = [Array{T, 3}(undef, nx, ny, nz) for id = 1:nthread]
+            # mumapr stores 3D mumap in different view angles
+            mumapr = [Array{T, 3}(undef, nx, ny, nz) for id = 1:nthread]
+        else
+            # imgr stores 3D image in different view angles
+            imgr = Array{T, 3}(undef, nx, ny, nz)
+            # add_img stores 3d image for backprojection
+            add_img = Array{T ,3}(undef, nx, ny, nz)
+            # mumapr stores 3D mumap in different view angles
+            mumapr = Array{T, 3}(undef, nx, ny, nz)
+        end
 
         exp_mumapr = [Matrix{T}(undef, nx, nz) for id = 1:nthread]
 
@@ -107,6 +122,7 @@ struct SPECTplan{T}
                nview, # number of views
                viewangle,
                interpmeth,
+               mode,
                dy,
                nthread, # number of threads
                planrot,

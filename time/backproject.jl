@@ -29,23 +29,20 @@ function backproject_time()
     psfs = psfs .+ mapslices(transpose, psfs, dims = [1, 2])
     psfs = psfs ./ mapslices(sum, psfs, dims = [1, 2])
 
-    xtrue = rand(T, nx, ny, nz)
-
     dy = T(4.7952)
 
-    plan1d = SPECTplan(mumap, psfs, dy; interpmeth = :one)
-    plan2d = SPECTplan(mumap, psfs, dy; interpmeth = :two)
+    for interpmeth in (:one, :two)
+        for mode in (:fast, :mem)
+            plan = SPECTplan(mumap, psfs, dy; interpmeth, mode)
+            image = zeros(T, nx, ny, nz)
+            proj = rand(T, nx, nz, nview)
+            println(string(interpmeth)*", "*string(mode))
+            @btime backproject!($image, $proj, $plan)
+        end
+    end
 
-
-    image1d = zeros(T, nx, ny, nz)
-    image2d = zeros(T, nx, ny, nz)
-    proj = rand(T, nx, nz, nview)
-
-    println("backproject-1d")
-    @btime backproject!($image1d, $proj, $plan1d) # 373.614 ms (26002 allocations: 2.00 MiB)
-    println("backproject-2d")
-    @btime backproject!($image2d, $proj, $plan2d) # 197.220 ms (25962 allocations: 1.37 MiB)
     mpath = pwd()
+    proj = rand(T, nx, nz, nview)
     println("backproject-matlab")
     println("Warning: Check if MIRT is installed")
     call_SPECTbackproj_matlab(mpath, proj, mumap, psfs, dy) # 236.958 ms, about 0.01 GiB
@@ -54,3 +51,14 @@ end
 
 # run all functions, time may vary on different machines, but should be all zero allocation.
 backproject_time()
+#=one, fast
+  343.419 ms (26022 allocations: 2.00 MiB)
+one, mem
+  379.044 ms (33691 allocations: 1.96 MiB)
+two, fast
+  208.163 ms (25981 allocations: 1.37 MiB)
+two, mem
+  246.847 ms (33666 allocations: 1.96 MiB)
+MIRT
+  212.261 ms
+=#

@@ -29,22 +29,21 @@ function project_time()
     psfs = psfs .+ mapslices(transpose, psfs, dims = [1, 2])
     psfs = psfs ./ mapslices(sum, psfs, dims = [1, 2])
 
-    xtrue = rand(T, nx, ny, nz)
 
     dy = T(4.7952)
 
-    plan1d = SPECTplan(mumap, psfs, dy; interpmeth = :one)
-    plan2d = SPECTplan(mumap, psfs, dy; interpmeth = :two)
+    for interpmeth in (:one, :two)
+        for mode in (:fast, :mem)
+            plan = SPECTplan(mumap, psfs, dy; interpmeth, mode)
+            xtrue = rand(T, nx, ny, nz)
+            views = zeros(T, nx, nz, nview)
+            println(string(interpmeth)*", "*string(mode))
+            @btime project!($views, $xtrue, $plan)
+        end
+    end
 
-
-    views1d = zeros(T, nx, nz, nview)
-    views2d = zeros(T, nx, nz, nview)
-
-    println("project-1d")
-    @btime project!($views1d, $xtrue, $plan1d) # 394.127 ms (25961 allocations: 1.37 MiB)
-    println("project-2d")
-    @btime project!($views2d, $xtrue, $plan2d) # 275.048 ms (25962 allocations: 1.37 MiB)
     mpath = pwd()
+    xtrue = rand(T, nx, ny, nz)
     println("project-matlab")
     println("Warning: Check if MIRT is installed")
     call_SPECTproj_matlab(mpath, xtrue, mumap, psfs, dy) # 216.518 ms, about 0.01 GiB
@@ -53,3 +52,15 @@ end
 
 # run all functions, time may vary on different machines, will allocate ~4MB memory.
 project_time()
+
+#= one, fast
+    378.348 ms (25983 allocations: 1.37 MiB)
+one, mem
+    793.918 ms (31257 allocations: 1.76 MiB)
+two, fast
+    289.804 ms (25982 allocations: 1.37 MiB)
+two, mem
+    618.369 ms (31268 allocations: 1.76 MiB)
+MIRT
+    230.125 ms
+=#

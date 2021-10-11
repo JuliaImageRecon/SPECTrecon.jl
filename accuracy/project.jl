@@ -5,6 +5,15 @@ using SPECTrecon: project!
 using MAT
 using LinearAlgebra: norm
 
+function cal_nrmse(x, xtrue)
+    len = size(xtrue, 3)
+    err = zeros(eltype(xtrue), len)
+    for l = 1:len
+        err[l] = norm(vec(x[:,:,l]) - vec(xtrue[:,:,l])) / norm(vec(xtrue[:,:,l]))
+    end
+    nrmse = sum(err) / len
+    return nrmse
+end
 
 function project_error()
     T = Float32
@@ -28,41 +37,24 @@ function project_error()
     dy = T(4.7952)
     nview = size(psfs, 4)
 
-    plan1d = SPECTplan(mumap, psfs, dy; interpmeth = :one)
-    plan2d = SPECTplan(mumap, psfs, dy; interpmeth = :two)
-
-
     (nx, ny, nz) = size(xtrue)
-    nview = size(psfs, 4)
 
-    views1d = zeros(T, nx, nz, nview)
-    views2d = zeros(T, nx, nz, nview)
-
-    project!(views1d, xtrue, plan1d)
-    project!(views2d, xtrue, plan2d)
-
-    nrmse(x, xtrue) = norm(vec(x - xtrue)) / norm(vec(xtrue))
-
-    err1d = zeros(nview)
-    for idx = 1:nview
-        err1d[idx] = nrmse(views1d[:,:,idx], proj_jeff[:,:,idx])
+    for interpmeth in (:one, :two)
+        for mode in (:fast, :mem)
+            println(string(interpmeth)*", "*string(mode))
+            plan = SPECTplan(mumap, psfs, dy; interpmeth, mode)
+            views = zeros(T, nx, nz, nview)
+            project!(views, xtrue, plan)
+            nrmse = cal_nrmse(views, proj_jeff)
+            @show nrmse
+        end
     end
 
-    err2d = zeros(nview)
-    for idx = 1:nview
-        err2d[idx] = nrmse(views2d[:,:,idx], proj_jeff[:,:,idx])
-    end
-
-    return err1d, err2d
     # 1d interp: 2e-7 nrmse
     # 2d interp: 4e-3 nrmse
 end
 
 # shows accuracy
-err1d, err2d = project_error()
-nrmse1d = sum(err1d) / length(err1d)
-nrmse2d = sum(err2d) / length(err2d)
-@show nrmse1d
-@show nrmse2d
+project_error()
 nothing
 # plot(nrmse1d)

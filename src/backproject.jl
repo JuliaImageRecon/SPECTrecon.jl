@@ -62,6 +62,66 @@ function backproject!(
 end
 
 
+"""
+    backproject!(image, view, plan, thid, viewidx)
+Backproject a single view.
+"""
+function backproject!(
+    image::AbstractArray{<:RealU, 3},
+    view::AbstractMatrix{<:RealU},
+    plan::SPECTplan,
+    thid::Int,
+    viewidx::Int,
+)
+
+    for z = 1:plan.imgsize[3] # 1:nz
+        # thid = Threads.threadid() # thread id
+
+        # rotate mumap
+        imrotate!((@view plan.mumapr[thid][:, :, z]),
+                  (@view plan.mumap[:, :, z]),
+                  plan.viewangle[viewidx],
+                  plan.planrot[thid],
+                  )
+
+    end
+
+    # adjoint of convolving img with psf and applying attenuation map
+    for y = 1:plan.imgsize[2] # 1:ny
+        thid = Threads.threadid() # thread id
+        # account for half of the final slice thickness
+        scale3dj!(plan.exp_mumapr[thid], plan.mumapr[thid], y, -0.5)
+        for j = 1:y
+            plus3dj!(plan.exp_mumapr[thid], plan.mumapr[thid], j)
+        end
+
+        broadcast!(*, plan.exp_mumapr[thid], plan.exp_mumapr[thid], - plan.dy)
+
+        broadcast!(exp, plan.exp_mumapr[thid], plan.exp_mumapr[thid])
+
+        fft_conv_adj!((@view plan.imgr[thid][:, y, :]),
+                       view,
+                       (@view plan.psfs[:, :, y, viewidx]),
+                       plan.planpsf[thid],
+                       )
+
+        mul3dj!(plan.imgr[thid], plan.exp_mumapr[thid], y)
+    end
+
+    # adjoint of rotating image
+    for z = 1:plan.imgsize[3] # 1:nz
+        imrotate_adj!((@view plan.imgr[thid][:, :, z]),
+                      (@view plan.imgr[thid][:, :, z]),
+                      plan.viewangle[viewidx],
+                      plan.planrot[thid],
+                      )
+    end
+
+    broadcast!(+, image, image, plan.imgr[thid])
+
+    return image
+end
+
 
 """
     backproject!(image, views, plan ; index)
@@ -76,10 +136,24 @@ function backproject!(
 )
 
     # loop over each view index
-    for i in index
-        backproject!(plan.add_img, (@view views[:, :, i]), plan, i)
-        broadcast!(+, image, image, plan.add_img)
+    if plan.mode === :fast
+        [plan.add_img[i] .= zero(plan.T) for i = 1:plan.nthread]
+        Threads.@threads for i in index
+            thid = Threads.threadid()
+            backproject!(plan.add_img[thid], (@view views[:, :, i]), plan, thid, i)
+        end
+
+        for i = 1:plan.nthread
+            broadcast!(+, image, image, plan.add_img[i])
+        end
+    else
+        for i in index
+            backproject!(plan.add_img, (@view views[:, :, i]), plan, i)
+            broadcast!(+, image, image, plan.add_img)
+        end
     end
+
+    return image
 end
 
 
@@ -111,9 +185,10 @@ function backproject(
     psfs::AbstractArray{<:RealU, 4},
     dy::RealU;
     interpmeth::Symbol = :two,
+    mode::Symbol = :fast,
     kwargs...,
 )
 
-    plan = SPECTplan(mumap, psfs, dy; interpmeth, kwargs...)
+    plan = SPECTplan(mumap, psfs, dy; interpmeth, mode, kwargs...)
     return backproject(views, plan; kwargs...)
 end
