@@ -7,6 +7,7 @@ using SPECTrecon: project, backproject
 using LinearMapsAA: LinearMapAA
 using LinearAlgebra: dot
 using Test: @test, @testset
+using Random: seed!
 
 
 @testset "adjoint-project-matrix" begin
@@ -56,6 +57,7 @@ end
     psfs = psfs ./ mapslices(sum, psfs, dims = [1, 2])
 
     dy = T(4.7952)
+    seed!(0)
 
     for interpmeth in (:one, :two)
         for mode in (:fast, :mem)
