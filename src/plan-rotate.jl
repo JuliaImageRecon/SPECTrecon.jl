@@ -38,14 +38,14 @@ struct PlanRotate{T}
         padsize = ceil(Int, 1 + nx * sqrt(2)/2 - nx / 2)
 
         # for both 3-pass 1D and 2D interpolators:
-        workmat1 = zeros(T, nx + 2 * padsize, nx + 2 * padsize)
-        workmat2 = zeros(T, nx + 2 * padsize, nx + 2 * padsize)
+        workmat1 = Matrix{T}(undef, nx + 2 * padsize, nx + 2 * padsize)
+        workmat2 = Matrix{T}(undef, nx + 2 * padsize, nx + 2 * padsize)
 
         # used for 1D interpolation only
         # todo: look for non-allocating 1D interpolator?
 #       workvec_x = Vector{T}(undef, nx+padu_rot+padd_rot) # todo: why won't work?
 #       workvec_y = Vector{T}(undef, ny+padl_rot+padr_rot)
-        workvec = zeros(T, nx + 2 * padsize)
+        workvec = zeros(T, nx + 2 * padsize) # cannot initialize as undef, otherwise interp cannot be properly initialized
 
         interp = SparseInterpolator(LinearSpline(T), workvec, length(workvec))
 

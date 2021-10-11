@@ -32,7 +32,6 @@ using Test: @test, @testset
         A = LinearMapAA(forw, back, (prod(odim),prod(idim)); T, idim, odim)
         @test Matrix(A)' ≈ Matrix(A')
     end
-    @test Matrix(A2)' ≈ Matrix(A2')
 
 end
 
@@ -57,11 +56,10 @@ end
     y = randn(T, nx, nz, nview)
     dy = T(4.7952)
 
-    output_x = project(x, mumap, psfs, dy; interpmeth = :one)
-    output_y = backproject(y, mumap, psfs, dy; interpmeth = :one)
-    @test isapprox(dot(y, output_x), dot(x, output_y); rtol = 1e-5)
+    for interpmeth in (:one, :two)
+        output_x = project(x, mumap, psfs, dy; interpmeth)
+        output_y = backproject(y, mumap, psfs, dy; interpmeth)
+        @test isapprox(dot(y, output_x), dot(x, output_y); rtol = 1e-5)
+    end
 
-    output_x = project(x, mumap, psfs, dy; interpmeth = :two)
-    output_y = backproject(y, mumap, psfs, dy; interpmeth = :two)
-    @test isapprox(dot(y, output_x), dot(x, output_y); rtol = 1e-5)
 end

@@ -1,7 +1,7 @@
 # project.jl
 
-using Main.SPECTrecon: SPECTplan
-using Main.SPECTrecon: project!
+using SPECTrecon: SPECTplan
+using SPECTrecon: project!
 using MAT
 using LinearAlgebra: norm
 

@@ -24,12 +24,7 @@ using Test: @test, @testset
         forw = img -> fft_conv(img, ker)
         back = img -> fft_conv_adj(img, ker)
 
-        A = LinearMapAA(forw,
-                        back,
-                        (prod(odim), prod(idim));
-                        T,
-                        odim,
-                        idim)
+        A = LinearMapAA(forw, back, (prod(odim), prod(idim)); T, odim, idim)
         @test Matrix(A') ≈ Matrix(A)' # todo
     end
 end

@@ -1,7 +1,6 @@
 # runtime.jl
 
-include("../src/SPECTrecon.jl")
-using Main.SPECTrecon
+using SPECTrecon
 
 include("helper.jl")
 include("rotatez.jl")

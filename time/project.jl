@@ -1,8 +1,8 @@
 # project.jl
 
 using BenchmarkTools: @btime
-using Main.SPECTrecon: SPECTplan
-using Main.SPECTrecon: project!
+using SPECTrecon: SPECTplan
+using SPECTrecon: project!
 using MATLAB
 
 function call_SPECTproj_matlab(mpath, image, mumap, psfs, dy)
@@ -41,9 +41,9 @@ function project_time()
     views2d = zeros(T, nx, nz, nview)
 
     println("project-1d")
-    @btime project!($views1d, $xtrue, $plan1d) # 731.506 ms (31254 allocations: 1.76 MiB)
+    @btime project!($views1d, $xtrue, $plan1d) # 394.127 ms (25961 allocations: 1.37 MiB)
     println("project-2d")
-    @btime project!($views2d, $xtrue, $plan2d) # 612.945 ms (31223 allocations: 1.76 MiB)
+    @btime project!($views2d, $xtrue, $plan2d) # 275.048 ms (25962 allocations: 1.37 MiB)
     mpath = pwd()
     println("project-matlab")
     println("Warning: Check if MIRT is installed")

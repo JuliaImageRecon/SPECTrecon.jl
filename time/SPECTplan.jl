@@ -1,6 +1,6 @@
 # SPECTplan.jl
 
-using Main.SPECTrecon: SPECTplan
+using SPECTrecon: SPECTplan
 using BenchmarkTools: @btime
 using MATLAB
 
@@ -34,7 +34,7 @@ function SPECTplan_time()
     plan = SPECTplan(mumap, psfs, dy)
     println("SPECTplan")
     @btime plan = SPECTplan($mumap, $psfs, $dy)
-    # 13.818 ms (97826 allocations: 12.30 MiB)
+    # 18.104 ms (97901 allocations: 25.43 MiB)
     mpath = pwd()
     println("SPECTplan_matlab")
     println("Warning: Check if MIRT is installed")

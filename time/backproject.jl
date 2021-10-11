@@ -1,7 +1,7 @@
 # backproject.jl
 
-using Main.SPECTrecon: SPECTplan
-using Main.SPECTrecon: backproject!
+using SPECTrecon: SPECTplan
+using SPECTrecon: backproject!
 using BenchmarkTools: @btime
 using MATLAB
 
@@ -42,13 +42,13 @@ function backproject_time()
     proj = rand(T, nx, nz, nview)
 
     println("backproject-1d")
-    @btime backproject!($image1d, $proj, $plan1d) # 358.278 ms (33698 allocations: 1.95 MiB)
+    @btime backproject!($image1d, $proj, $plan1d) # 373.614 ms (26002 allocations: 2.00 MiB)
     println("backproject-2d")
-    @btime backproject!($image2d, $proj, $plan2d) # 237.452 ms (33668 allocations: 1.95 MiB)
+    @btime backproject!($image2d, $proj, $plan2d) # 197.220 ms (25962 allocations: 1.37 MiB)
     mpath = pwd()
     println("backproject-matlab")
     println("Warning: Check if MIRT is installed")
-    call_SPECTbackproj_matlab(mpath, proj, mumap, psfs, dy) # 220.071 ms, about 0.01 GiB
+    call_SPECTbackproj_matlab(mpath, proj, mumap, psfs, dy) # 236.958 ms, about 0.01 GiB
     nothing
 end
 

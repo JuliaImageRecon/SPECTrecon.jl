@@ -37,7 +37,7 @@ struct SPECTplan{T}
     add_img::Array{T, 3}
     mumap::Array{T, 3} # [nx,ny,nz] attenuation map, must be 3D, possibly zeros()
     mumapr::Array{T, 3} # 3D rotated mumap, (nx, ny, nz)
-    exp_mumapr::Vector{Array{T, 2}} # 2D exponential rotated mumap, (nx, ny)
+    exp_mumapr::Vector{Matrix{T}} # 2D exponential rotated mumap, (nx, ny)
     psfs::Array{T, 4} # PSFs must be 4D, [nx_psf, nz_psf, ny, nview], finally be centered psf
     nview::Int # number of views
     viewangle::StepRangeLen{T}
@@ -83,13 +83,13 @@ struct SPECTplan{T}
         (nthread == Threads.nthreads()) || throw("bad nthread")
 
         # imgr stores 3D image in different view angles
-        imgr = zeros(T, nx, ny, nz)
+        imgr = Array{T, 3}(undef, nx, ny, nz)
         # add_img stores 3d image for backprojection
-        add_img = zeros(T, nx, ny, nz)
+        add_img = Array{T ,3}(undef, nx, ny, nz)
         # mumapr stores 3D mumap in different view angles
-        mumapr = zeros(T, nx, ny, nz)
+        mumapr = Array{T, 3}(undef, nx, ny, nz)
 
-        exp_mumapr = [zeros(T, nx, nz) for id = 1:nthread]
+        exp_mumapr = [Matrix{T}(undef, nx, nz) for id = 1:nthread]
 
         planrot = plan_rotate(nx; nthread = nthread, T = T, method = interpmeth)
 

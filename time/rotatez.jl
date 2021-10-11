@@ -1,7 +1,7 @@
 # rotatez.jl
 
-using Main.SPECTrecon: plan_rotate
-using Main.SPECTrecon: imrotate!, imrotate_adj!
+using SPECTrecon: plan_rotate
+using SPECTrecon: imrotate!, imrotate_adj!
 using BenchmarkTools: @btime
 
 

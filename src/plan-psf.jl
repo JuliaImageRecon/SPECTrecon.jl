@@ -47,14 +47,14 @@ struct PlanPSF{T}
         padright = _padright(nz, nx_psf) # nx_psf = nz_psf!
         padsize = (padup, paddown, padleft, padright)
 
-        workmat = zeros(T, nx+padup+paddown, nz+padleft+padright)
-        workvecx = zeros(T, nx+padup+paddown)
-        workvecz = zeros(T, nz+padleft+padright)
+        workmat = Matrix{T}(undef, nx+padup+paddown, nz+padleft+padright)
+        workvecx = Vector{T}(undef, nx+padup+paddown)
+        workvecz = Vector{T}(undef, nz+padleft+padright)
 
         # complex padimg
-        img_compl = zeros(Complex{T}, nx+padup+paddown, nz+padleft+padright)
+        img_compl = Matrix{Complex{T}}(undef, nx+padup+paddown, nz+padleft+padright)
         # complex kernel
-        ker_compl = zeros(Complex{T}, nx+padup+paddown, nz+padleft+padright)
+        ker_compl = Matrix{Complex{T}}(undef, nx+padup+paddown, nz+padleft+padright)
 
         fft_plan = plan_fft!(ker_compl)
         ifft_plan = plan_ifft!(ker_compl)

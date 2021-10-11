@@ -1,8 +1,8 @@
 # fft_convolve.jl
 
 using BenchmarkTools: @btime
-using Main.SPECTrecon: plan_psf
-using Main.SPECTrecon: fft_conv!, fft_conv_adj!
+using SPECTrecon: plan_psf
+using SPECTrecon: fft_conv!, fft_conv_adj!
 
 
 function fft_conv_time()

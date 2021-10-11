@@ -11,7 +11,6 @@ putting result in `plan.workmat`.
 function imfilterz!(plan::PlanPSF)
     mul!(plan.img_compl, plan.fft_plan, plan.img_compl)
     mul!(plan.ker_compl, plan.fft_plan, plan.ker_compl)
-    # plan.img_compl .*= plan.ker_compl
     broadcast!(*, plan.img_compl, plan.img_compl, plan.ker_compl)
     mul!(plan.img_compl, plan.ifft_plan, plan.img_compl)
     fftshift2!(plan.ker_compl, plan.img_compl)
