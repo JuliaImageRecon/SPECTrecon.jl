@@ -530,19 +530,6 @@ function imrotate!(
     ntasks = length(plans)
     Threads.foreach(fun, _setup(1:size(image3,3)); ntasks)
 
-#=
-    Threads.@threads for z = 1:size(image3,3) # 1:nz
-        id = Threads.threadid() # thread id
-
-        imrotate!(
-            (@view output[:,:,z]),
-            (@view image3[:,:,z]),
-            θ,
-            plans[id],
-        )
-    end
-=#
-
     return output
 end
 
