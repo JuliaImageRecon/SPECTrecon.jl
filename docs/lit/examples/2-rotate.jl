@@ -11,7 +11,8 @@
 
 using SPECTrecon
 using MIRTjim: jim, prompt
-using Plots: scatter, plot!, default; default(markerstrokecolor=:auto)
+using Plots: scatter, scatter!, plot!, default
+default(markerstrokecolor=:auto, markersize=3)
 
 # The following line is helpful when running this example.jl file as a script;
 # this way it will prompt user to hit a key after each figure is displayed.
@@ -155,18 +156,33 @@ jim(adj1, "Adjoint image rotation (3-pass 1D)")
 using LinearMapsAA: LinearMapAA
 
 nx = 20 # small size for illustration
-plan0 = plan_rotate(nx; T, nthread = 1, method=:two)[1]
-#plan0 = plan_rotate(nx; T, nthread = 1, method=:one)[1]
+r1 = plan_rotate(nx; T, nthread = 1, method=:two)[1]
+r2 = plan_rotate(nx; T, nthread = 1, method=:one)[1]
 idim = (nx,nx)
 odim = (nx,nx)
-forw! = (y,x) -> imrotate!(y, x, π/6, plan0)
-back! = (x,y) -> imrotate_adj!(x, y, π/6, plan0)
-A = LinearMapAA(forw!, back!, (prod(odim),prod(idim)); T, odim, idim)
+forw! = (y,x) -> imrotate!(y, x, π/6, r1)
+back! = (x,y) -> imrotate_adj!(x, y, π/6, r1)
+A1 = LinearMapAA(forw!, back!, (prod(odim),prod(idim)); T, odim, idim)
+forw! = (y,x) -> imrotate!(y, x, π/6, r2)
+back! = (x,y) -> imrotate_adj!(x, y, π/6, r2)
+A2 = LinearMapAA(forw!, back!, (prod(odim),prod(idim)); T, odim, idim)
 
-Afull = Matrix(A)
-Aadj = Matrix(A')
-jim(cat(dims=3, Afull, Aadj), "Linear map for 2D rotation and its adjoint")
+Afull1 = Matrix(A1)
+Aadj1 = Matrix(A1')
+Afull2 = Matrix(A2)
+Aadj2 = Matrix(A2')
+jim(cat(dims=3, Afull1', Aadj1', Afull2', Aadj2'), "Linear map for 2D rotation and its adjoint")
 
 
-# The following line verifies adjoint consistency:
-@assert isapprox(Afull', Aadj)
+# The following verify adjoint consistency:
+@assert Afull1' ≈ Aadj1
+@assert Afull2' ≈ Aadj2
+
+
+# Examine row and column sums of linear map
+
+scatter(xlabel="pixel index", ylabel="row or col sum")
+scatter!(vec(sum(Afull1, dims=1)), label="dim1 sum1", marker=:x)
+scatter!(vec(sum(Afull1, dims=2)), label="dim2 sum1", marker=:square)
+scatter!(vec(sum(Afull2, dims=1)), label="dim1 sum2")
+scatter!(vec(sum(Afull2, dims=2)), label="dim2 sum2")
