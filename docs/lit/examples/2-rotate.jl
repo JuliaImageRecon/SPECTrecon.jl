@@ -3,7 +3,7 @@
 #---------------------------------------------------------
 
 # This page explains the image rotation portion of the Julia package
-# [`SPECTrecon`](https://github.com/JeffFessler/SPECTrecon.jl).
+# [`SPECTrecon.jl`](https://github.com/JeffFessler/SPECTrecon.jl).
 
 # ### Setup
 
@@ -41,15 +41,15 @@ isinteractive() ? jim(:prompt, true) : prompt(:draw);
 # as the most viable options.
 
 # This package supports two 1st-order linear interpolators:
-# * 2D bilinear interpolation
+# * 2D bilinear interpolation,
 # * a 3-pass rotation method based on 1D linear interpolation.
 
 # Because image rotation is done repeatedly
 # (for every slice of both the emission image and the attenuation map,
 # for both projection and back-projection,
-# and for multiple iterations)
+# and for multiple iterations),
 # it is important for efficiency
-# to use mutating functions
+# to use mutating methods
 # rather than to repeatedly make heap allocations.
 
 # Following other libraries like
@@ -57,12 +57,16 @@ isinteractive() ? jim(:prompt, true) : prompt(:draw);
 # the rotation operations herein start with a `plan`
 # where work arrays are preallocated
 # for subsequent use.
-
-# This
+# The `plan` is a `Vector` of `PlanRotate` objects:
+# one for each thread.
+# The number of threads defaults to `Threads.nthreads()`,
+# but one can select any number
+# and selecting more threads than number of cores
+# empirically can reduce computation time.
 
 # ### Example
 
-# Start with a 3D image volume (just 2 slices here for simplicity)
+# Start with a 3D image volume (just 2 slices here for simplicity).
 
 T = Float32 # work with single precision to save memory
 image = zeros(T, 64, 64, 2)
@@ -71,18 +75,22 @@ image[25:28,20:40,2] .= 1
 jim(image, "Original image")
 
 # Now plan the rotation
+# by specifying
+# * the image size (must be square)
+# * the `DataType` used for the work arrays
+# * the (maximum) number of threads.
 
-rplan = plan_rotate(size(image, 1); T, nthread = Threads.nthreads())
+plan2 = plan_rotate(size(image, 1); T, nthread = Threads.nthreads())
 
-# Here are the plan internals:
+# Here are the internals for the plan for the first thread:
 
-rplan[1]
+plan2[1]
 
 # With this `plan` preallocated, now we can rotate the image volume: 
 
-result = similar(image)
-imrotate!(result, image, π/6, rplan)
-jim(result, "Rotated image by π/6 (2D bilinear)")
+result2 = similar(image) # allocate memory for the result
+imrotate!(result2, image, π/6, plan2) # mutates the first argument
+jim(result2, "Rotated image by π/6 (2D bilinear)")
 
 
 # The rotation angle can (and should!) be a value with units.
@@ -92,26 +100,31 @@ jim(result, "Rotated image by π/6 (2D bilinear)")
 # using Unitful: °
 
 
-# imrotate!(result, image, 10°, rplan)
-# jim(result, "Rotated image by 10°")
+# imrotate!(result2, image, 10°, plan2)
+# jim(result2, "Rotated image by 10°")
 
 # The default, shown above, is 2D bilinear iterpolation for rotation.
 # That is the recommended approach because it is faster.
 
 # Here is the 3-pass 1D interpolation approach,
-# included mainly for checking consistency with the ASPIRE approach.
+# included mainly for checking consistency
+# with the historical ASPIRE approach used in Matlab version of MIRT.
 
 plan1 = plan_rotate(size(image, 1); T, nthread = Threads.nthreads(), method=:one)
 
-# Here are the plan internals:
+# Here are the plan internals for the first thread:
 
 plan1[1]
 
-# And the results look quite similar:
+# The results of rotation using 3-pass 1D interpolation look quite similar:
 
 result1 = similar(image)
-imrotate!(result1, image, π/6, rplan)
+imrotate!(result1, image, π/6, plan1)
 jim(result1, "Rotated image by π/6 (3-pass 1D)")
+
+# Here are the difference images for comparison.
+
+jim(result1 - result2, "Difference images")
 
 
 ### Adjoint
@@ -119,9 +132,14 @@ jim(result1, "Rotated image by π/6 (3-pass 1D)")
 # To ensure adjoint consistency between SPECT forward- and back-projection,
 # there is also an adjoint routine:
 
-imagea = similar(result)
-imrotate_adj!(imagea, result, π/6, rplan)
-jim(imagea, "Adjoint image rotation")
+adj2 = similar(result2)
+imrotate_adj!(adj2, result2, π/6, plan2)
+jim(adj2, "Adjoint image rotation (2D)")
+
+adj1 = similar(result1)
+imrotate_adj!(adj1, result1, π/6, plan1)
+jim(adj1, "Adjoint image rotation (3-pass 1D)")
+
 
 
 # The adjoint is *not* the same as the inverse
@@ -138,6 +156,7 @@ using LinearMapsAA: LinearMapAA
 
 nx = 20 # small size for illustration
 plan0 = plan_rotate(nx; T, nthread = 1, method=:two)[1]
+#plan0 = plan_rotate(nx; T, nthread = 1, method=:one)[1]
 idim = (nx,nx)
 odim = (nx,nx)
 forw! = (y,x) -> imrotate!(y, x, π/6, plan0)
@@ -146,7 +165,7 @@ A = LinearMapAA(forw!, back!, (prod(odim),prod(idim)); T, odim, idim)
 
 Afull = Matrix(A)
 Aadj = Matrix(A')
-jim(cat(dims=3,Afull,Aadj), "Linear map for 2D rotation and its adjoint")
+jim(cat(dims=3, Afull, Aadj), "Linear map for 2D rotation and its adjoint")
 
 
 # The following line verifies adjoint consistency:
