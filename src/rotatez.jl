@@ -16,7 +16,7 @@ function linearinterp!(
     A::SparseInterpolator{<:AbstractFloat},
     x::AbstractVector{<:RealU},
 )
-    # x must be a constant vector todo: why? it only uses the 1st and end of x!?
+    # x must be in non-decreasing order (todo: but only the 1st and end are used)
     dec = ceil(Int, x[1]) - x[1]
     ncoeff = length(A.C)
     ncol = length(x)
