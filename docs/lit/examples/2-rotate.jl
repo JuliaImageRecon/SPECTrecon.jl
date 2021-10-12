@@ -60,6 +60,7 @@ isinteractive() ? jim(:prompt, true) : prompt(:draw);
 # for subsequent use.
 # The `plan` is a `Vector` of `PlanRotate` objects:
 # one for each thread.
+# (Parallelism is across slices for a 3D image volume.)
 # The number of threads defaults to `Threads.nthreads()`,
 # but one can select any number
 # and selecting more threads than number of cores
@@ -87,25 +88,15 @@ plan2 = plan_rotate(size(image, 1); T, nthread = Threads.nthreads())
 
 plan2[1]
 
-# With this `plan` preallocated, now we can rotate the image volume: 
+# With this `plan` preallocated, now we can rotate the image volume,
+# specifying the rotation angle in radians:
 
 result2 = similar(image) # allocate memory for the result
 imrotate!(result2, image, π/6, plan2) # mutates the first argument
 jim(result2, "Rotated image by π/6 (2D bilinear)")
 
-
-# The rotation angle can (and should!) be a value with units.
-# (todo: but it is failing currently)
-
-# using UnitfulRecipes
-# using Unitful: °
-
-
-# imrotate!(result2, image, 10°, plan2)
-# jim(result2, "Rotated image by 10°")
-
-# The default, shown above, is 2D bilinear iterpolation for rotation.
-# That is the recommended approach because it is faster.
+# The default, shown above, uses 2D bilinear interpolation for rotation.
+# That default is the recommended approach because it is faster.
 
 # Here is the 3-pass 1D interpolation approach,
 # included mainly for checking consistency
@@ -144,7 +135,7 @@ jim(adj1, "Adjoint image rotation (3-pass 1D)")
 
 
 # The adjoint is *not* the same as the inverse
-# so one does not expect the output here to be the original image!
+# so one does not expect the output here to match the original image!
 
 
 ### LinearMap
@@ -177,6 +168,19 @@ jim(cat(dims=3, Afull1', Aadj1', Afull2', Aadj2'), "Linear map for 2D rotation a
 # The following verify adjoint consistency:
 @assert Afull1' ≈ Aadj1
 @assert Afull2' ≈ Aadj2
+
+
+# Applying this linear map to a 2D or 3D image performs rotation:
+
+image2 = zeros(nx,nx); image2[4:6, 5:13] .= 1
+jim(cat(dims=3, image2, A2 * image2), "Rotation via linear map: 2D")
+
+# Here is 3D too.
+# The `A2 * image3` here uses the advanced "operator" feature of
+# [LinearMapsAA.jl](https://github.com/JeffFessler/LinearMapsAA.jl).
+
+image3 = cat(dims=3, image2, image2')
+jim(cat(dims=4, image3, A2 * image3), "Rotation via linear map: 3D")
 
 
 # Examine row and column sums of linear map
