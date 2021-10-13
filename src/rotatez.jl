@@ -8,18 +8,22 @@ using LinearInterpolators: TwoDimensionalTransformInterpolator
 
 
 """
-    linearinterp!(A, x)
-Assign key values in `SparseInterpolator` (linear) `A` that are calculated from `x`.
-`x` must be a constant vector
+    linearinterp!(A, s, e, len)
+Assign key values in `SparseInterpolator` (linear) `A` that are calculated from `s`, `e` and `len`.
+`s` means start (x[1])
+`e` means end (x[end])
+`len` means length (length(x))
 """
 function linearinterp!(
     A::SparseInterpolator{<:AbstractFloat},
-    x::AbstractVector{<:RealU},
+    s::RealU,
+    e::RealU,
+    len::Int,
 )
-    # x must be in non-decreasing order (todo: but only the 1st and end are used)
-    dec = ceil(Int, x[1]) - x[1]
+
+    dec = ceil(Int, s) - s
     ncoeff = length(A.C)
-    ncol = length(x)
+    ncol = len
     for i = 1:ncoeff
         if isodd(i)
             A.C[i] = dec
@@ -28,13 +32,13 @@ function linearinterp!(
         end
     end
 
-    if x[end] <= ncol
-        A.J[end] = ceil(Int, x[end])
+    if e <= ncol
+        A.J[end] = ceil(Int, e)
         for i = ncoeff-1:-1:1
             A.J[i] = max(1, A.J[end] - ceil(Int, (ncoeff - i) / 2))
         end
     else
-        A.J[1] = floor(Int, x[1])
+        A.J[1] = floor(Int, s)
         for i = 2:ncoeff
             A.J[i] = min(ncol, A.J[1] + ceil(Int, (i - 1) / 2))
         end
@@ -44,26 +48,23 @@ end
 
 
 """
-    rotate_x!(output, img, tan_θ, workvec, interp)
+    rotate_x!(output, img, tan_θ, interp)
 """
 function rotate_x!(
     output::AbstractMatrix{<:RealU},
     img::AbstractMatrix{<:RealU},
     tan_θ::RealU,
-    workvec::AbstractVector{<:RealU},
     interp::SparseInterpolator,
 )
 
-    len = length(workvec)
+    len = size(img, 1) # size of a square image
     c_y = (len + 1)/2 # center of yi
     idx = 1:len
 
     for i in idx
-        workvec .= idx[i]
-        broadcast!(-, workvec, workvec, c_y)
-        broadcast!(*, workvec, workvec, tan_θ)
-        broadcast!(+, workvec, workvec, idx)
-        linearinterp!(interp, workvec)
+        s = (idx[i] - c_y) * tan_θ + 1
+        e = (idx[i] - c_y) * tan_θ + len
+        linearinterp!(interp, s, e, len)
         mul!((@view output[:, i]), interp, (@view img[:, i])) # need mul! to avoid allocating
     end
     return output
@@ -71,26 +72,23 @@ end
 
 
 """
-    rotate_x_adj!(output, img, tan_θ, workvec, interp)
+    rotate_x_adj!(output, img, tan_θ, interp)
 """
 function rotate_x_adj!(
     output::AbstractMatrix{<:RealU},
     img::AbstractMatrix{<:RealU},
     tan_θ::RealU,
-    workvec::AbstractVector{<:RealU},
     interp::SparseInterpolator,
 )
 
-    len = length(workvec)
+    len = size(img, 1)
     c_y = (len + 1)/2 # center of yi
     idx = 1:len
 
     for i in idx
-        workvec .= idx[i]
-        broadcast!(-, workvec, workvec, c_y)
-        broadcast!(*, workvec, workvec, tan_θ)
-        broadcast!(+, workvec, workvec, idx)
-        linearinterp!(interp, workvec)
+        s = (idx[i] - c_y) * tan_θ + 1
+        e = (idx[i] - c_y) * tan_θ + len
+        linearinterp!(interp, s, e, len)
         mul!((@view output[:, i]), interp', (@view img[:, i])) # need mul! to avoid allocating
     end
     return output
@@ -98,26 +96,23 @@ end
 
 
 """
-    rotate_y!(output, img, sin_θ, workvec, interp)
+    rotate_y!(output, img, sin_θ, interp)
 """
 function rotate_y!(
     output::AbstractMatrix{<:RealU},
     img::AbstractMatrix{<:RealU},
     sin_θ::RealU,
-    workvec::AbstractVector{<:RealU},
     interp::SparseInterpolator,
 )
 
-    len = length(workvec)
+    len = size(img, 1)
     c_x = (len + 1)/2 # center of xi
     idx = 1:len
 
     for i in idx
-        workvec .= idx[i]
-        broadcast!(-, workvec, workvec, c_x)
-        broadcast!(*, workvec, workvec, sin_θ)
-        broadcast!(+, workvec, workvec, idx)
-        linearinterp!(interp, workvec)
+        s = (idx[i] - c_x) * sin_θ + 1
+        e = (idx[i] - c_x) * sin_θ + len
+        linearinterp!(interp, s, e, len)
         mul!((@view output[i, :]), interp, (@view img[i, :]))
     end
     return output
@@ -125,26 +120,23 @@ end
 
 
 """
-    rotate_y_adj!(output, img, sin_θ, workvec, interp)
+    rotate_y_adj!(output, img, sin_θ, interp)
 """
 function rotate_y_adj!(
     output::AbstractMatrix{<:RealU},
     img::AbstractMatrix{<:RealU},
     sin_θ::RealU,
-    workvec::AbstractVector{<:RealU},
     interp::SparseInterpolator,
 )
 
-    len = length(workvec)
+    len = size(img, 1)
     c_x = (len + 1)/2 # center of xi
     idx = 1:len
 
     for i in idx
-        workvec .= idx[i]
-        broadcast!(-, workvec, workvec, c_x)
-        broadcast!(*, workvec, workvec, sin_θ)
-        broadcast!(+, workvec, workvec, idx)
-        linearinterp!(interp, workvec)
+        s = (idx[i] - c_x) * sin_θ + 1
+        e = (idx[i] - c_x) * sin_θ + len
+        linearinterp!(interp, s, e, len)
         mul!((@view output[i, :]), interp', (@view img[i, :]))
     end
     return output
@@ -268,9 +260,9 @@ function imrotate!(
         sin_mod_theta = - sin(mod_theta)
         padzero!(plan.workmat1, img, (plan.padsize, plan.padsize, plan.padsize, plan.padsize))
         rot_f90!(plan.workmat2, plan.workmat1, m)
-        rotate_x!(plan.workmat1, plan.workmat2, tan_mod_theta, plan.workvec, plan.interp)
-        rotate_y!(plan.workmat2, plan.workmat1, sin_mod_theta, plan.workvec, plan.interp)
-        rotate_x!(plan.workmat1, plan.workmat2, tan_mod_theta, plan.workvec, plan.interp)
+        rotate_x!(plan.workmat1, plan.workmat2, tan_mod_theta, plan.interp)
+        rotate_y!(plan.workmat2, plan.workmat1, sin_mod_theta, plan.interp)
+        rotate_x!(plan.workmat1, plan.workmat2, tan_mod_theta, plan.interp)
     end
 
     output .= (@view plan.workmat1[plan.padsize + 1 : plan.padsize + N,
@@ -312,9 +304,9 @@ function imrotate_adj!(
         tan_mod_theta = tan(mod_theta / 2)
         sin_mod_theta = - sin(mod_theta)
         padzero!(plan.workmat1, img, (plan.padsize, plan.padsize, plan.padsize, plan.padsize))
-        rotate_x_adj!(plan.workmat2, plan.workmat1, tan_mod_theta, plan.workvec, plan.interp)
-        rotate_y_adj!(plan.workmat1, plan.workmat2, sin_mod_theta, plan.workvec, plan.interp)
-        rotate_x_adj!(plan.workmat2, plan.workmat1, tan_mod_theta, plan.workvec, plan.interp)
+        rotate_x_adj!(plan.workmat2, plan.workmat1, tan_mod_theta, plan.interp)
+        rotate_y_adj!(plan.workmat1, plan.workmat2, sin_mod_theta, plan.interp)
+        rotate_x_adj!(plan.workmat2, plan.workmat1, tan_mod_theta, plan.interp)
         rot_f90_adj!(plan.workmat1, plan.workmat2, m) # must be two different arguments
     end
     output .= (@view plan.workmat1[plan.padsize + 1 : plan.padsize + N,
