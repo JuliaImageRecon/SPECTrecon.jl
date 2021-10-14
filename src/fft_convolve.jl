@@ -144,13 +144,13 @@ end
 
 
 """
-    fft_conv!(output, image3, ker, plans)
-In-place version of convolving a 3D `image3` with `ker`
+    fft_conv!(output, image3, ker3, plans)
+In-place version of convolving a 3D `image3` with a 3D kernel `ker3`
 """
 function fft_conv!(
     output::AbstractArray{<:RealU,3},
     image3::AbstractArray{<:RealU,3},
-    ker::AbstractMatrix{<:RealU},
+    ker3::AbstractArray{<:RealU,3},
     plans::Vector{<:PlanPSF},
     )
 
@@ -159,7 +159,7 @@ function fft_conv!(
     fun = y -> fft_conv!(
             (@view output[:, y, :]),
             (@view image3[:, y, :]),
-            ker,
+            (@view ker3[:, :, y]),
             plans[Threads.threadid()],
             )
 
@@ -171,13 +171,13 @@ end
 
 
 """
-    fft_conv_adj!(output, image3, ker, plans)
-In-place version of adjoint of convolving a 3D `image3` with `ker`
+    fft_conv_adj!(output, image3, ker3, plans)
+In-place version of adjoint of convolving a 3D `image3` with a 3D kernel `ker3`
 """
 function fft_conv_adj!(
     output::AbstractArray{<:RealU,3},
     image3::AbstractArray{<:RealU,3},
-    ker::AbstractMatrix{<:RealU},
+    ker3::AbstractArray{<:RealU,3},
     plans::Vector{<:PlanPSF},
 )
 
@@ -186,7 +186,7 @@ function fft_conv_adj!(
     fun = y -> fft_conv_adj!(
             (@view output[:, y, :]),
             (@view image3[:, y, :]),
-            ker,
+            (@view ker3[:, :, y]),
             plans[Threads.threadid()],
             )
 

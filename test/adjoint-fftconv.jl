@@ -23,11 +23,11 @@ end
     T = Float32
     plan = plan_psf(nx, nz, nx_psf; T)
     image3 = rand(T, nx, nx, nz)
-    ker = ones(T, nx_psf, nx_psf) / (nx_psf)^2
+    ker3 = ones(T, nx_psf, nx_psf, nx) / (nx_psf)^2
     result = similar(image3)
-    fft_conv!(result, image3, ker, plan)
+    fft_conv!(result, image3, ker3, plan)
     @test maximum(result) ≤ 1
-    fft_conv_adj!(result, image3, ker, plan)
+    fft_conv_adj!(result, image3, ker3, plan)
     @test maximum(result) ≤ 1.5 # boundary is the sum of replicate padding
 end
 
