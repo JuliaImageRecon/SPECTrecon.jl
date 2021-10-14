@@ -119,7 +119,7 @@ jim(result1, "Rotated image by π/6 (3-pass 1D)")
 jim(result1 - result2, "Difference images")
 
 
-### Adjoint
+# ### Adjoint
 
 # To ensure adjoint consistency between SPECT forward- and back-projection,
 # there is also an adjoint routine:
@@ -138,7 +138,7 @@ jim(adj1, "Adjoint image rotation (3-pass 1D)")
 # so one does not expect the output here to match the original image!
 
 
-### LinearMap
+# ### LinearMap
 
 # One can form a linear map corresponding to image rotation using `LinearMapAA`.
 # An operator like this may be useful
