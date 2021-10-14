@@ -95,3 +95,41 @@ function plan_psf(
     )
     return [PlanPSF(nx, nz, nx_psf; T) for id = 1:nthread]
 end
+
+
+"""
+    show(io::IO, ::MIME"text/plain", plan::PlanPSF)
+"""
+function Base.show(io::IO, ::MIME"text/plain", plan::PlanPSF{T}) where {T}
+    t = typeof(plan)
+    println(io, t)
+    for f in (:nx, :nz, :nx_psf, :padsize)
+        p = getproperty(plan, f)
+        t = typeof(p)
+        println(io, " ", f, "::", t, " ", p)
+    end
+    for f in (:workmat, :workvecx, :workvecz, :img_compl, :ker_compl, :fft_plan, :ifft_plan)
+        p = getproperty(plan, f)
+        println(io, " ", f, ":", " ", summary(p))
+    end
+    println(io, " (", sizeof(plan), " bytes)")
+end
+
+
+"""
+    show(io::IO, mime::MIME"text/plain", vp::Vector{<:PlanPSF})
+"""
+function Base.show(io::IO, mime::MIME"text/plain", vp::Vector{PlanPSF{T}}) where {T}
+    t = typeof(vp)
+    println(io, length(vp), "-element ", t, " with N=", vp[1].nx)
+#   show(io, mime, vp[1])
+end
+
+
+"""
+    sizeof(::PlanPSF)
+Show size in bytes of `PlanPSF` object.
+"""
+function Base.sizeof(ob::T) where {T <: PlanPSF}
+    sum(f -> sizeof(getfield(ob, f)), fieldnames(typeof(ob)))
+end
