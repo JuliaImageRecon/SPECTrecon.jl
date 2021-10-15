@@ -195,3 +195,31 @@ function fft_conv_adj!(
 
     return output
 end
+
+
+"""
+    fft_conv_adj2!(output, image2, ker3, plans)
+In-place version of adjoint of convolving a 2D `image2` with a 3D kernel `ker3`
+"""
+function fft_conv_adj2!(
+    output::AbstractArray{<:RealU,3},
+    image2::AbstractMatrix{<:RealU},
+    ker3::AbstractArray{<:RealU,3},
+    plans::Vector{<:PlanPSF},
+)
+
+    size(output, 1) == size(image2, 1) || throw("size 1")
+    size(output, 3) == size(image2, 2) || throw("size 2")
+
+    fun = y -> fft_conv_adj!(
+            (@view output[:, y, :]),
+            image2,
+            (@view ker3[:, :, y]),
+            plans[Threads.threadid()],
+            )
+
+    ntasks = length(plans)
+    Threads.foreach(fun, _setup(1:size(output, 2)); ntasks)
+
+    return output
+end

@@ -2,7 +2,7 @@
 # test adjoint consistency for FFT convolution methods on very small case
 
 using SPECTrecon: plan_psf
-using SPECTrecon: fft_conv!, fft_conv_adj!
+using SPECTrecon: fft_conv!, fft_conv_adj!, fft_conv_adj2!
 using SPECTrecon: fft_conv, fft_conv_adj
 using LinearMapsAA: LinearMapAA
 using Test: @test, @testset
@@ -28,6 +28,8 @@ end
     fft_conv!(result, image3, ker3, plan)
     @test maximum(result) ≤ 1
     fft_conv_adj!(result, image3, ker3, plan)
+    @test maximum(result) ≤ 1.5 # boundary is the sum of replicate padding
+    fft_conv_adj2!(result, image3[:, 3, :], ker3, plan)
     @test maximum(result) ≤ 1.5 # boundary is the sum of replicate padding
 end
 
