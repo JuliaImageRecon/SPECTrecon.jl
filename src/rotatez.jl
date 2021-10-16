@@ -274,8 +274,7 @@ end
 
 """
     imrotate_adj!(output, img, θ, plan)
-The adjoint of rotating an image by angle θ (must be within 0 to 2π)
-in counter-clockwise direction (opposite to `imrotate` in Julia)
+Adjoint of `imrotate!` for a 2D image
 using 3-pass 1d linear interpolations.
 """
 function imrotate_adj!(
@@ -372,9 +371,8 @@ end
 
 """
     imrotate_adj!(output, img, θ, plan)
-The adjoint of rotating an image by angle θ (must be within 0 to 2π)
-in counter-clockwise direction (opposite to `imrotate` in Julia)
-using 2d bilinear interpolations.
+Adjoint of `imrotate!` for a 2D image
+using 2D bilinear interpolation.
 """
 function imrotate_adj!(
     output::AbstractMatrix{<:RealU},
@@ -419,63 +417,138 @@ function imrotate_adj(img::AbstractMatrix{T}, θ::RealU; method::Symbol=:two) wh
 end
 
 
+
 # prepare for "foreach" threaded computation
 _setup = (z) -> Channel{Int}(length(z)) do ch
     foreach(i -> put!(ch, i), z)
 end
 
 
-"""
-    imrotate!(output, image3, θ, plans)
-In-place version of rotating a 3D `image3` by `θ`
-in counter-clockwise direction (opposite to `imrotate` in Julia)
-"""
-function imrotate!(
-    output::AbstractArray{<:RealU,3},
-    image3::AbstractArray{<:RealU,3},
-    θ::RealU,
-    plans::Vector{<:PlanRotate},
-)
-
-    size(output) == size(image3) || throw(DimensionMismatch())
-
-    fun = z -> imrotate!(
+function _task3(z, fun::Function, output, image3, θ, plans)
+    id = Threads.threadid()
+#   @show z, id, length(plans)
+#   if length(plans) == 1
+#       id = 1 # todo: kludge
+#   end
+    1 ≤ id ≤ length(plans) || throw("bug: id=$id nplan=$(length(plans))")
+    return fun(
         (@view output[:,:,z]),
         (@view image3[:,:,z]),
         θ,
-        plans[Threads.threadid()],
+        plans[id],
     )
+end
 
-    ntasks = length(plans)
-    Threads.foreach(fun, _setup(1:size(image3,3)); ntasks)
+# rotate image3 using foreach
+function _imrotate!(
+    fun::Function, # imrotate! or imrotate_adj!
+    output::AbstractArray{<:RealU,3},
+    image3::AbstractArray{<:RealU,3},
+    θ::RealU,
+    plans::Vector{<:PlanRotate}, # must be ≥ Threads.nthreads()
+    ntasks::Int = Threads.nthreads(), # ≥ 1
+)
+
+    size(output) == size(image3) || throw(DimensionMismatch())
+    size(image3,1) == plans[1].nx || throw("nx")
+    length(plans) == Threads.nthreads() || throw("#threads")
+
+    task = z -> _task3(z, fun, output, image3, θ, plans)
+    Threads.foreach(task, _setup(1:size(image3,3)); ntasks)
 
     return output
 end
 
 
 """
-    imrotate_adj!(output, image3, θ, plan)
-In-place version of the adjoint of rotating a 3D `image3` by `θ`
+    imrotate!(output, image3, θ, plans, ntasks=nthreads)
+In-place version of rotating a 3D `image3` by `θ`
 in counter-clockwise direction (opposite to `imrotate` in Julia)
+using `foreach` with `ntasks`.
+"""
+function imrotate!(
+    output::AbstractArray{<:RealU,3},
+    image3::AbstractArray{<:RealU,3},
+    θ::RealU,
+    plans::Vector{<:PlanRotate},
+    ntasks::Int = Threads.nthreads(),
+)
+    return _imrotate!(imrotate!, output, image3, θ, plans, ntasks)
+end
+
+
+"""
+    imrotate_adj!(output, image3, θ, plans, ntasks=nthreads)
+Adjoint of `imrotate!` using `foreach`.
 """
 function imrotate_adj!(
     output::AbstractArray{<:RealU,3},
     image3::AbstractArray{<:RealU,3},
     θ::RealU,
     plans::Vector{<:PlanRotate},
+    ntasks::Int = Threads.nthreads(),
+)
+    return _imrotate!(imrotate_adj!, output, image3, θ, plans, ntasks)
+end
+
+
+
+# rotate image3 using `Threads.@threads`
+function _imrotate!(
+    fun::Function, # imrotate! or imrotate_adj!
+    output::AbstractArray{<:RealU,3},
+    image3::AbstractArray{<:RealU,3},
+    θ::RealU,
+    plans::Vector{<:PlanRotate}, # must be ≥ Threads.nthreads()
+    ::Symbol, # :thread
 )
 
     size(output) == size(image3) || throw(DimensionMismatch())
+    size(image3,1) == plans[1].nx || throw("nx")
+    length(plans) == Threads.nthreads() || throw("#threads")
 
-    fun = z -> imrotate_adj!(
-        (@view output[:,:,z]),
-        (@view image3[:,:,z]),
-        θ,
-        plans[Threads.threadid()],
-    )
-
-    ntasks = length(plans)
-    Threads.foreach(fun, _setup(1:size(image3,3)); ntasks)
+    Threads.@threads for z = 1:size(image3,3) # 1:nz
+        id = Threads.threadid() # thread id
+        fun(
+            (@view output[:, :, z]),
+            (@view image3[:, :, z]),
+            θ,
+            plans[id],
+        )
+    end
 
     return output
+end
+
+
+"""
+    imrotate!(output, image3, θ, plans, :thread)
+Mutating version of rotating a 3D `image3` by `θ`
+in counter-clockwise direction (opposite of `imrotate` in Julia)
+writing result into `output`,
+using `Threads.@threads`.
+"""
+function imrotate!(
+    output::AbstractArray{<:RealU,3},
+    image3::AbstractArray{<:RealU,3},
+    θ::RealU,
+    plans::Vector{<:PlanRotate},
+    ::Symbol, # :thread
+)
+    return _imrotate!(imrotate!, output, image3, θ, plans, :thread)
+end
+
+
+"""
+    imrotate_adj!(output, image3, θ, plans, :thread)
+Adjoint of `imrotate!` using `@threads`.
+"""
+function imrotate_adj!(
+    output::AbstractArray{<:RealU,3},
+    image3::AbstractArray{<:RealU,3},
+    θ::RealU,
+    plans::Vector{<:PlanRotate},
+    ::Symbol, # :thread
+)
+    return _imrotate!(imrotate_adj!, output, image3, θ, plans, :thread)
 end
