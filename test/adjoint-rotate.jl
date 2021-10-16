@@ -10,23 +10,31 @@ using Test: @test, @testset
 
 @testset "rotate" begin
     plan = plan_rotate(10)
-    show(stdout, "text/plain", plan)
-    show(stdout, "text/plain", plan[1])
+    show(isinteractive() ? stdout : devnull, "text/plain", plan)
+    show(isinteractive() ? stdout : devnull, "text/plain", plan[1])
     @test sizeof(plan) isa Int
+    @test sizeof(plan[1]) isa Int
 end
 
 
 @testset "rotate3" begin
     for method in (:one, :two)
         nx = 20
+        θ = π/6
         T = Float32
         plan = plan_rotate(nx; T, method)
         image3 = rand(T, nx, nx, 4)
-        result = similar(image3)
-        imrotate!(result, image3, π/6, plan)
-        @test maximum(result) ≤ 1.01
-        imrotate_adj!(result, image3, π/6, plan)
-        @test maximum(result) ≤ 1.5
+        result1 = similar(image3)
+        result2 = similar(result1)
+        imrotate!(result1, image3, θ, plan)
+        @test maximum(result1) ≤ 1.01
+        imrotate!(result2, image3, θ, plan, :thread)
+        @test result1 == result2
+
+        imrotate_adj!(result1, image3, θ, plan)
+        @test maximum(result1) ≤ 1.5
+        imrotate_adj!(result2, image3, θ, plan, :thread)
+        @test result1 == result2
     end
 end
 
