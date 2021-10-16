@@ -78,7 +78,7 @@ end
 
 
 """
-    plan_rotate(nx::Int; nthread::Int, T::DataType, method::Symbol)
+    plan_rotate(nx::Int; T::DataType, method::Symbol)
 Make `Vector` of `PlanRotate` structs
 for storing work arrays and factors for 2D square image rotation.
 
@@ -88,22 +88,13 @@ for storing work arrays and factors for 2D square image rotation.
 - `T` : datatype of work arrays, defaults to `Float32`
 - `method::Symbol` : default is `:two` for 2D interpolation;
   use `:one` for 3-pass rotation with 1D interpolation
-- `nthread::Int` # of threads, defaults to `Threads.nthreads()`
-  warning: must use that default currently!
 """
 function plan_rotate(
     nx::Int ;
-    nthread::Int = Threads.nthreads(),
     T::DataType = Float32,
     method::Symbol = :two,
 )
-    nthread < 1 && throw("nthread $nthread")
-    if nthread > Threads.nthreads()
-        nthreads = Threads.nthreads()
-        @warn("allocate nthread = Threads.nthreads() = $nthreads, not $nthread")
-        nthread = nthreads
-    end
-    return [PlanRotate(nx; T, method) for id = 1:nthread]
+    return [PlanRotate(nx; T, method) for id = 1:Threads.nthreads()]
 end
 
 

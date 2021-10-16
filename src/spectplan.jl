@@ -106,7 +106,7 @@ struct SPECTplan{T}
 
         exp_mumapr = [Matrix{T}(undef, nx, nz) for id = 1:nthread]
 
-        planrot = plan_rotate(nx; nthread = nthread, T = T, method = interpmeth)
+        planrot = plan_rotate(nx; T, method = interpmeth)
 
         planpsf = plan_psf(nx, nz, nx_psf; nthread = nthread, T = T)
 

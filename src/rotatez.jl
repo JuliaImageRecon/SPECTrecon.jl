@@ -363,7 +363,7 @@ or 3-pass 1D interpolation (for `:one`)
 """
 function imrotate(img::AbstractMatrix{T}, θ::RealU; method::Symbol=:two) where {T <: RealU}
     output = similar(img)
-    plan = plan_rotate(size(img, 1); T, nthread = 1, method)[1]
+    plan = plan_rotate(size(img, 1); T, method)[1]
     imrotate!(output, img, θ, plan)
     return output
 end
@@ -411,7 +411,7 @@ using either 2d linear interpolations or 3-pass 1D interpolation.
 """
 function imrotate_adj(img::AbstractMatrix{T}, θ::RealU; method::Symbol=:two) where {T <: RealU}
     output = similar(img)
-    plan = plan_rotate(size(img, 1); T, nthread = 1, method)[1]
+    plan = plan_rotate(size(img, 1); T, method)[1]
     imrotate_adj!(output, img, θ, plan)
     return output
 end

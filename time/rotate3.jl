@@ -12,8 +12,7 @@ image3 = randn(T, nx,nx,nz)
 out1 = similar(image3)
 out2 = similar(image3)
 
-#plans = plan_rotate(nx; T, nthread = 99) # warns
-plans = plan_rotate(nx; T) # default nthread = Threads.nthreads())
+plans = plan_rotate(nx; T) # [Threads.nthreads()]
 
 θ = π/6
 imrotate!(out1, image3, θ, plans, 17) # foreach
