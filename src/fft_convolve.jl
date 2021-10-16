@@ -137,12 +137,6 @@ function fft_conv_adj(img::AbstractMatrix{<:RealU},
 end
 
 
-# prepare for "foreach" threaded computation
-_setup = (z) -> Channel{Int}(length(z)) do ch
-    foreach(i -> put!(ch, i), z)
-end
-
-
 """
     fft_conv!(output, image3, ker3, plans)
 In-place version of convolving a 3D `image3` with a 3D kernel `ker3`
@@ -164,7 +158,7 @@ function fft_conv!(
             )
 
     ntasks = length(plans)
-    Threads.foreach(fun, _setup(1:size(image3, 2)); ntasks)
+    Threads.foreach(fun, foreach_setup(1:size(image3, 2)); ntasks)
 
     return output
 end
@@ -191,7 +185,7 @@ function fft_conv_adj!(
             )
 
     ntasks = length(plans)
-    Threads.foreach(fun, _setup(1:size(image3, 2)); ntasks)
+    Threads.foreach(fun, foreach_setup(1:size(image3, 2)); ntasks)
 
     return output
 end
@@ -219,7 +213,7 @@ function fft_conv_adj2!(
             )
 
     ntasks = length(plans)
-    Threads.foreach(fun, _setup(1:size(output, 2)); ntasks)
+    Threads.foreach(fun, foreach_setup(1:size(output, 2)); ntasks)
 
     return output
 end

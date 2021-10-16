@@ -417,20 +417,9 @@ function imrotate_adj(img::AbstractMatrix{T}, θ::RealU; method::Symbol=:two) wh
 end
 
 
-
-# prepare for "foreach" threaded computation
-_setup = (z) -> Channel{Int}(length(z)) do ch
-    foreach(i -> put!(ch, i), z)
-end
-
-
 function _task3(z, fun::Function, output, image3, θ, plans)
     id = Threads.threadid()
-#   @show z, id, length(plans)
-#   if length(plans) == 1
-#       id = 1 # todo: kludge
-#   end
-    1 ≤ id ≤ length(plans) || throw("bug: id=$id nplan=$(length(plans))")
+#   1 ≤ id ≤ length(plans) || throw("bug: id=$id nplan=$(length(plans))")
     return fun(
         (@view output[:,:,z]),
         (@view image3[:,:,z]),
@@ -454,7 +443,7 @@ function _imrotate!(
     length(plans) == Threads.nthreads() || throw("#threads")
 
     task = z -> _task3(z, fun, output, image3, θ, plans)
-    Threads.foreach(task, _setup(1:size(image3,3)); ntasks)
+    Threads.foreach(task, foreach_setup(1:size(image3,3)); ntasks)
 
     return output
 end
