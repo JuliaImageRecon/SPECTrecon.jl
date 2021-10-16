@@ -97,6 +97,12 @@ function plan_rotate(
     T::DataType = Float32,
     method::Symbol = :two,
 )
+    nthread < 1 && throw("nthread $nthread")
+    if nthread > Threads.nthreads()
+        nthreads = Threads.nthreads()
+        @warn("allocate nthread = Threads.nthreads() = $nthreads, not $nthread")
+        nthread = nthreads
+    end
     return [PlanRotate(nx; T, method) for id = 1:nthread]
 end
 
