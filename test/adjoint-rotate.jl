@@ -9,10 +9,14 @@ using Test: @test, @testset
 
 
 @testset "rotate" begin
-    plan = plan_rotate(10)
+    nx = 10
+    plan = plan_rotate(nx)
     show(stdout, "text/plain", plan)
     show(stdout, "text/plain", plan[1])
     @test sizeof(plan) isa Int
+
+    out = @inferred imrotate(ones(Int,nx,nx), π/4)
+    @test eltype(out) == Float32
 end
 
 
