@@ -5,23 +5,23 @@ import AbstractFFTs
 import FFTW
 
 """
-    PlanPSF(nx::Int, nz::Int, nx_psf::Int; T::DataType)
-Make struct for storing work arrays and factors for 2D convolution for one thread
+    PlanPSF{T,Tf,Ti}(nx::Int, nz::Int, nx_psf::Int; T::DataType)
+Struct for storing work arrays and factors for 2D convolution for one thread.
 Currently PSF must be square, i.e., `nx_psf` = `nz_psf`
-- `T` datatype of work arrays
-- `nx` must be Int
-- `nz` must be Int
-- `nx_psf` must be Int
-- `padsize{padup, paddown, padleft, padright}` Tuple of padsize
+- `T` datatype of work arrays (subtype of `AbstractFloat`)
+- `nx::Int` (`ny` implicitly the same)
+- `nz::Int` image size is `[nx,nx,nz]`
+- `nx_psf::Int`
+- `padsize::Tuple` : `(padup, paddown, padleft, padright)`
 - `workmat [nx+padup+paddown, nz+padleft+padright]` 2D padded image for FFT convolution
 - `workvecx [nx+padup+paddown,]`: 1D work vector
 - `workvecz [nz+padleft+padright,]`: 1D work vector
-- `img_compl [nx+padup+paddown, nz+padleft+padright]`: 2D [complex] padded image for fft
-- `ker_compl [nx+padup+paddown, nz+padleft+padright]`: 2D [complex] padded image for fft
-- `fft_plan` plan for doing fft, see plan_fft!
-- `ifft_plan` plan for doing ifft, see plan_ifft!
+- `img_compl [nx+padup+paddown, nz+padleft+padright]`: 2D [complex] padded image for FFT
+- `ker_compl [nx+padup+paddown, nz+padleft+padright]`: 2D [complex] padded image for FFT
+- `fft_plan::Tf` plan for doing FFT; see `plan_fft!`
+- `ifft_plan::Ti` plan for doing IFFT; see `plan_ifft!`
 """
-struct PlanPSF{T}
+struct PlanPSF{T, Tf, Ti}
     nx::Int
     nz::Int
     nx_psf::Int
@@ -31,8 +31,8 @@ struct PlanPSF{T}
     workvecz::Vector{T}
     img_compl::Matrix{Complex{T}}
     ker_compl::Matrix{Complex{T}}
-    fft_plan::Union{AbstractFFTs.ScaledPlan, FFTW.cFFTWPlan}
-    ifft_plan::Union{AbstractFFTs.ScaledPlan, FFTW.cFFTWPlan}
+    fft_plan::Tf # Union{AbstractFFTs.ScaledPlan, FFTW.cFFTWPlan}
+    ifft_plan::Ti # Union{AbstractFFTs.ScaledPlan, FFTW.cFFTWPlan}
 
     function PlanPSF(
         nx::Int,
@@ -41,6 +41,7 @@ struct PlanPSF{T}
         T::DataType = Float32,
     )
 
+        T <: AbstractFloat || throw("invalid T=$T")
         padup = _padup(nx, nx_psf)
         paddown = _paddown(nx, nx_psf)
         padleft = _padleft(nz, nx_psf) # nx_psf = nz_psf!
@@ -58,26 +59,31 @@ struct PlanPSF{T}
 
         fft_plan = plan_fft!(ker_compl)
         ifft_plan = plan_ifft!(ker_compl)
+        Tf = typeof(fft_plan)
+        Ti = typeof(ifft_plan)
 
-        new{T}(nx,
-               nz,
-               nx_psf,
-               padsize,
-               workmat,
-               workvecx,
-               workvecz,
-               img_compl,
-               ker_compl,
-               fft_plan,
-               ifft_plan,
-               )
+        new{T, Tf, Ti}(
+            nx,
+            nz,
+            nx_psf,
+            padsize,
+            workmat,
+            workvecx,
+            workvecz,
+            img_compl,
+            ker_compl,
+            fft_plan,
+            ifft_plan,
+        )
     end
 end
 
 
 """
     plan_psf(nx::Int, nz::Int, nx_psf::Int; nthread::Int, T::DataType)
-Make Vector of structs for storing work arrays and factors for 2D convolution
+Make Vector of structs for storing work arrays and factors
+for 2D convolution with SPECT depth-dependent PSF model,
+threaded across planes parallel to detector.
 Input
 - `nx::Int`
 - `nz::Int`
@@ -92,6 +98,6 @@ function plan_psf(
     nx_psf::Int;
     nthread::Int = Threads.nthreads(),
     T::DataType = Float32,
-    )
+)
     return [PlanPSF(nx, nz, nx_psf; T) for id = 1:nthread]
 end
