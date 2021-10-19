@@ -8,6 +8,15 @@ using LinearMapsAA: LinearMapAA
 using Test: @test, @testset, @inferred
 
 
+@testset "plan_psf" begin
+    plan = plan_psf(10, 10, 5)
+    show(isinteractive() ? stdout : devnull, "text/plain", plan)
+    show(isinteractive() ? stdout : devnull, "text/plain", plan[1])
+    @test sizeof(plan) isa Int
+    @test sizeof(plan[1]) isa Int
+end
+
+
 @testset "fftconv" begin
     img = randn(Float32, 12, 8)
     ker = rand(Float64, 7, 7)
@@ -15,14 +24,6 @@ using Test: @test, @testset, @inferred
     ker /= sum(ker)
     out = @inferred fft_conv(img, ker)
     @test eltype(out) == Float64
-end
-
-
-@testset "fftconv" begin
-    plan = plan_psf(10, 10, 5)
-    show(stdout, "text/plain", plan)
-    show(stdout, "text/plain", plan[1])
-    @test sizeof(plan) isa Int
 end
 
 

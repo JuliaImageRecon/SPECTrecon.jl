@@ -125,7 +125,7 @@ end
 """
     show(io::IO, mime::MIME"text/plain", vp::Vector{<:PlanPSF})
 """
-function Base.show(io::IO, mime::MIME"text/plain", vp::Vector{PlanPSF{T}}) where {T}
+function Base.show(io::IO, mime::MIME"text/plain", vp::Vector{<: PlanPSF})
     t = typeof(vp)
     println(io, length(vp), "-element ", t, " with N=", vp[1].nx)
 #   show(io, mime, vp[1])
