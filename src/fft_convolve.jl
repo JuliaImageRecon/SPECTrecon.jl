@@ -52,8 +52,12 @@ end
     fft_conv(img, ker)
 Convolve `img` with `ker` using FFT
 """
-function fft_conv(img::AbstractMatrix{I}, ker::AbstractMatrix{K}) where {I <: Number, K <: Number}
-    T = promote_type(I, K, Float32)
+function fft_conv(
+    img::AbstractMatrix{I},
+    ker::AbstractMatrix{K},
+    T = promote_type(I, K, Float32),
+) where {I <: Number, K <: Number}
+
     nx, nz = size(img)
     nx_psf = size(ker, 1)
     plan = plan_psf(nx, nz, nx_psf; T, nthread = 1)[1]
@@ -120,12 +124,97 @@ end
     fft_conv_adj(img, ker)
 Adjoint of convolving `img` with `ker` using FFT
 """
-function fft_conv_adj(img::AbstractMatrix{I}, ker::AbstractMatrix{K}) where {I <: Number, K <: Number}
-    T = promote_type(I, K, Float32)
+function fft_conv_adj(
+    img::AbstractMatrix{I},
+    ker::AbstractMatrix{K},
+    T = promote_type(I, K, Float32),
+) where {I <: Number, K <: Number}
     nx, nz = size(img)
     nx_psf = size(ker, 1)
     plan = plan_psf(nx, nz, nx_psf; T, nthread = 1)[1]
     output = similar(Matrix{T}, size(img))
     fft_conv_adj!(output, img, ker, plan)
+    return output
+end
+
+
+"""
+    fft_conv!(output, image3, ker3, plans)
+In-place version of convolving a 3D `image3` with a 3D kernel `ker3`
+"""
+function fft_conv!(
+    output::AbstractArray{<:RealU,3},
+    image3::AbstractArray{<:RealU,3},
+    ker3::AbstractArray{<:RealU,3},
+    plans::Vector{<:PlanPSF},
+    )
+
+    size(output) == size(image3) || throw(DimensionMismatch())
+
+    fun = y -> fft_conv!(
+            (@view output[:, y, :]),
+            (@view image3[:, y, :]),
+            (@view ker3[:, :, y]),
+            plans[Threads.threadid()],
+            )
+
+    ntasks = length(plans)
+    Threads.foreach(fun, foreach_setup(1:size(image3, 2)); ntasks)
+
+    return output
+end
+
+
+"""
+    fft_conv_adj!(output, image3, ker3, plans)
+In-place version of adjoint of convolving a 3D `image3` with a 3D kernel `ker3`
+"""
+function fft_conv_adj!(
+    output::AbstractArray{<:RealU,3},
+    image3::AbstractArray{<:RealU,3},
+    ker3::AbstractArray{<:RealU,3},
+    plans::Vector{<:PlanPSF},
+)
+
+    size(output) == size(image3) || throw(DimensionMismatch())
+
+    fun = y -> fft_conv_adj!(
+            (@view output[:, y, :]),
+            (@view image3[:, y, :]),
+            (@view ker3[:, :, y]),
+            plans[Threads.threadid()],
+            )
+
+    ntasks = length(plans)
+    Threads.foreach(fun, foreach_setup(1:size(image3, 2)); ntasks)
+
+    return output
+end
+
+
+"""
+    fft_conv_adj2!(output, image2, ker3, plans)
+In-place version of adjoint of convolving a 2D `image2` with a 3D kernel `ker3`
+"""
+function fft_conv_adj2!(
+    output::AbstractArray{<:RealU,3},
+    image2::AbstractMatrix{<:RealU},
+    ker3::AbstractArray{<:RealU,3},
+    plans::Vector{<:PlanPSF},
+)
+
+    size(output, 1) == size(image2, 1) || throw("size 1")
+    size(output, 3) == size(image2, 2) || throw("size 2")
+
+    fun = y -> fft_conv_adj!(
+            (@view output[:, y, :]),
+            image2,
+            (@view ker3[:, :, y]),
+            plans[Threads.threadid()],
+            )
+
+    ntasks = length(plans)
+    Threads.foreach(fun, foreach_setup(1:size(output, 2)); ntasks)
+
     return output
 end

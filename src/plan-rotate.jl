@@ -34,7 +34,6 @@ Struct for storing work arrays and factors for 2D square image rotation for one 
 - `padsize::Int` : pad each side of image by this much
 - `workmat1 [nx + 2 * padsize, nx + 2 * padsize]` padded work matrix
 - `workmat2 [nx + 2 * padsize, nx + 2 * padsize]` padded work matrix
-- `workvec [nx + 2 * padsize, ]` padded work vector
 - `interp::SparseInterpolator{T, 2, 1}`
 """
 struct PlanRotate{T, R}
@@ -43,7 +42,6 @@ struct PlanRotate{T, R}
     padsize::Int
     workmat1::Matrix{T}
     workmat2::Matrix{T}
-    workvec::Vector{T}
     interp::SparseInterpolator{T, 2, 1}
 
     function PlanRotate(
@@ -64,16 +62,15 @@ struct PlanRotate{T, R}
         # used for 1D interpolation only:
         # todo: look for non-allocating 1D interpolator?
 #       workvec = Vector{T}(undef, nx + 2padsize) # todo: why won't work?
-        workvec = zeros(T, nx + 2 * padsize) # cannot initialize as undef, otherwise interp cannot be properly initialized
+        # workvec = zeros(T, nx + 2 * padsize) # cannot initialize as undef, otherwise interp cannot be properly initialized
 
-        interp = SparseInterpolator(LinearSpline(T), workvec, length(workvec))
+        interp = SparseInterpolator(LinearSpline(T), zeros(T, size(workmat1, 1)), size(workmat1, 1))
 
         new{T, RotateMode{method}}(
             nx,
             padsize,
             workmat1,
             workmat2,
-            workvec,
             interp,
         )
     end
@@ -81,24 +78,26 @@ end
 
 
 """
-    plan_rotate(nx::Int; nthread::Int, T::DataType, method::Symbol)
+    plan_rotate(nx::Int; T::DataType, method::Symbol)
 Make `Vector` of `PlanRotate` structs
-for storing work arrays and factors for 2D square image rotation.
+for storing work arrays and factors
+for threaded rotation of a stack of 2D square images.
 
 # Input
-- `nx::Int` must equal to `ny`
+- `nx::Int` must equal to `ny` (square images only)
+
 # Option
 - `T` : datatype of work arrays, defaults to `Float32`
 - `method::Symbol` : default is `:two` for 2D interpolation;
   use `:one` for 3-pass rotation with 1D interpolation
-- `nthread::Int` # of threads, defaults to `Threads.nthreads()`
-  warning: must use that default currently!
+- `nthread::Int` : default to `Threads.nthreads()`
+  The other useful option is `1` when rotating just one image.
 """
 function plan_rotate(
     nx::Int ;
-    nthread::Int = Threads.nthreads(),
     T::DataType = Float32,
     method::Symbol = :two,
+    nthread::Int = Threads.nthreads(),
 )
     return [PlanRotate(nx; T, method) for id = 1:nthread]
 end
@@ -115,7 +114,7 @@ function Base.show(io::IO, ::MIME"text/plain", plan::PlanRotate{T,R}) where {T, 
         t = typeof(p)
         println(io, " ", f, "::", t, " ", p)
     end
-    for f in (:interp, :workmat1, :workmat2, :workvec)
+    for f in (:interp, :workmat1, :workmat2)
         p = getproperty(plan, f)
         println(io, " ", f, ":", " ", summary(p))
     end

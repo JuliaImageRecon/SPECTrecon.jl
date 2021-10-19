@@ -6,6 +6,7 @@ module SPECTrecon
 
     const RealU = Number # Union{Real, Unitful.Length}
 
+    include("foreach.jl")
     include("helper.jl")
     include("plan-rotate.jl")
     include("rotatez.jl")
