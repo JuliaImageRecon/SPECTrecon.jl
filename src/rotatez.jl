@@ -1,6 +1,7 @@
 # rotatez.jl
 
 export imrotate!, imrotate_adj!
+export imrotate, imrotate_adj
 
 using LinearInterpolators: LinearSpline
 using LinearInterpolators: SparseInterpolator, AffineTransform2D, rotate
@@ -333,8 +334,8 @@ function imrotate!(
     output::AbstractMatrix{<:RealU},
     img::AbstractMatrix{<:RealU},
     θ::RealU,
-    plan::PlanRotate{<:Number,RotateMode{:two}},
-)
+    plan::PlanRotate{T,RotateMode{:two}},
+) where {T}
 
     @boundscheck size(output) == size(img) || throw("size")
     @boundscheck size(img, 1) == size(img, 2) || throw("row != col")
@@ -346,7 +347,6 @@ function imrotate!(
 
     N = size(img, 1) # M = N!
 
-    T = eltype(img)
     ker = LinearSpline(T)
     rows = size(plan.workmat2)
     cols = size(plan.workmat1)
@@ -370,8 +370,13 @@ in counter-clockwise direction (opposite to `imrotate` in Julia)
 using either 2d linear interpolation (for `:two`)
 or 3-pass 1D interpolation (for `:one`)
 """
-function imrotate(img::AbstractMatrix{T}, θ::RealU; method::Symbol=:two) where {T <: RealU}
-    output = similar(img)
+function imrotate(
+    img::AbstractMatrix{I},
+    θ::RealU;
+    method::Symbol=:two,
+    T::DataType = promote_type(I, Float32),
+) where {I <: Number}
+    output = similar(Matrix{T}, size(img))
     plan = plan_rotate(size(img, 1); T, nthread = 1, method)[1]
     imrotate!(output, img, θ, plan)
     return output
@@ -388,15 +393,14 @@ function imrotate_adj!(
     output::AbstractMatrix{<:RealU},
     img::AbstractMatrix{<:RealU},
     θ::RealU,
-    plan::PlanRotate{<:Number,RotateMode{:two}},
-)
+    plan::PlanRotate{T,RotateMode{:two}},
+) where {T}
 
     @boundscheck size(output) == size(img) || throw("size")
     @boundscheck size(img, 1) == size(img, 2) || throw("row != col")
 
     N = size(img, 1) # M = N!
 
-    T = eltype(img)
     ker = LinearSpline(T)
     rows = size(plan.workmat2)
     cols = size(plan.workmat1)
@@ -419,8 +423,13 @@ The adjoint of rotating an image by angle θ (must be within 0 to 2π)
 in counter-clockwise direction (opposite to `imrotate` in Julia)
 using either 2d linear interpolations or 3-pass 1D interpolation.
 """
-function imrotate_adj(img::AbstractMatrix{T}, θ::RealU; method::Symbol=:two) where {T <: RealU}
-    output = similar(img)
+function imrotate_adj(
+    img::AbstractMatrix{I},
+    θ::RealU;
+    method::Symbol=:two,
+    T::DataType = promote_type(I, Float32),
+) where {I <: Number}
+    output = similar(Matrix{T}, size(img))
     plan = plan_rotate(size(img, 1); T, nthread = 1, method)[1]
     imrotate_adj!(output, img, θ, plan)
     return output
