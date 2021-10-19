@@ -1,4 +1,5 @@
-# rotatez.jl
+# rotate2.jl
+# time 2D image rotation
 
 using SPECTrecon: plan_rotate
 using SPECTrecon: imrotate!, imrotate_adj!
