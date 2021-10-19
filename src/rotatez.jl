@@ -229,7 +229,7 @@ end
 
 """
     imrotate!(output, img, θ, plan)
-Rotate an image by angle θ (must be within 0 to 2π)
+Rotate a 2D image `img` by angle `θ ∈ [0,2π]`
 in counter-clockwise direction (opposite to `imrotate` in Julia)
 using 3-pass 1d linear interpolations.
 """
@@ -316,7 +316,7 @@ end
 
 """
     imrotate!(output, img, θ, plan)
-Rotate an image by angle θ (must be within 0 to 2π)
+Rotate a 2D image `img` by angle `θ ∈ [0,2π]`
 in counter-clockwise direction (opposite to `imrotate` in Julia)
 using 2d bilinear interpolation.
 """
@@ -356,14 +356,14 @@ end
 
 """
     imrotate(img, θ; method::Symbol=:two)
-Rotate an image by angle θ (must be within 0 to 2π)
+Rotate a 2D image `img` by angle `θ ∈ [0,2π]`
 in counter-clockwise direction (opposite to `imrotate` in Julia)
 using either 2d linear interpolation (for `:two`)
 or 3-pass 1D interpolation (for `:one`)
 """
 function imrotate(img::AbstractMatrix{T}, θ::RealU; method::Symbol=:two) where {T <: RealU}
     output = similar(img)
-    plan = plan_rotate(size(img, 1); T, method)[1]
+    plan = plan_rotate(size(img, 1); T, method, nthread=1)[1]
     imrotate!(output, img, θ, plan)
     return output
 end
@@ -405,13 +405,13 @@ end
 
 """
     imrotate_adj(img, θ; method::Symbol=:two)
-The adjoint of rotating an image by angle θ (must be within 0 to 2π)
+Adjoint of rotating a 2D image `img` by angle `θ ∈ [0,2π]`
 in counter-clockwise direction (opposite to `imrotate` in Julia)
 using either 2d linear interpolations or 3-pass 1D interpolation.
 """
 function imrotate_adj(img::AbstractMatrix{T}, θ::RealU; method::Symbol=:two) where {T <: RealU}
     output = similar(img)
-    plan = plan_rotate(size(img, 1); T, method)[1]
+    plan = plan_rotate(size(img, 1); T, method, nthread=1)[1]
     imrotate_adj!(output, img, θ, plan)
     return output
 end
