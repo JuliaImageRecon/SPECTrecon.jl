@@ -49,12 +49,12 @@ end
 
 
 """
-    fft_conv(img, ker)
+    fft_conv(img, ker; T)
 Convolve `img` with `ker` using FFT
 """
 function fft_conv(
     img::AbstractMatrix{I},
-    ker::AbstractMatrix{K},
+    ker::AbstractMatrix{K};
     T = promote_type(I, K, Float32),
 ) where {I <: Number, K <: Number}
 
@@ -121,14 +121,15 @@ end
 
 
 """
-    fft_conv_adj(img, ker)
+    fft_conv_adj(img, ker; T)
 Adjoint of convolving `img` with `ker` using FFT
 """
 function fft_conv_adj(
     img::AbstractMatrix{I},
-    ker::AbstractMatrix{K},
+    ker::AbstractMatrix{K};
     T = promote_type(I, K, Float32),
 ) where {I <: Number, K <: Number}
+
     nx, nz = size(img)
     nx_psf = size(ker, 1)
     plan = plan_psf(nx, nz, nx_psf; T, nthread = 1)[1]
@@ -147,7 +148,7 @@ function fft_conv!(
     image3::AbstractArray{<:RealU,3},
     ker3::AbstractArray{<:RealU,3},
     plans::Vector{<:PlanPSF},
-    )
+)
 
     size(output) == size(image3) || throw(DimensionMismatch())
 
