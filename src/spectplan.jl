@@ -76,8 +76,7 @@ struct SPECTplan{T}
         nz_psf = size(psfs, 2)
         nview = size(psfs, 4)
         (isodd(nx_psf) && isodd(nz_psf)) || throw("non-odd size psfs")
-        all(mapslices(x -> x == transpose(x), psfs, dims = [1, 2])) || throw("asym. psf tran.")
-        all(mapslices(x -> x == reverse(x), psfs, dims = [1, 2])) || throw("asym. psf rever.")
+        all(mapslices(x -> x == reverse(x, dims=:), psfs, dims = [1, 2])) || throw("asym. psf")
 
         # check interpidx
         (interpmeth === :one || interpmeth === :two) || throw("bad interpmeth")
