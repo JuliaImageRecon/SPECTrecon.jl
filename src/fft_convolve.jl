@@ -52,11 +52,12 @@ end
     fft_conv(img, ker)
 Convolve `img` with `ker` using FFT
 """
-function fft_conv(img, ker)
+function fft_conv(img::AbstractMatrix{I}, ker::AbstractMatrix{K}) where {I <: Number, K <: Number}
+    T = promote_type(I, K, Float32)
     nx, nz = size(img)
     nx_psf = size(ker, 1)
-    plan = plan_psf(nx, nz, nx_psf; T = eltype(img), nthread = 1)[1]
-    output = similar(img)
+    plan = plan_psf(nx, nz, nx_psf; T, nthread = 1)[1]
+    output = similar(Matrix{T}, size(img))
     fft_conv!(output, img, ker, plan)
     return output
 end
@@ -64,14 +65,14 @@ end
 
 """
     fft_conv_adj!(output, img, ker, plan)
-Adjoint of convolving `img` with `ker` using FFT, and store the result in `output`
+Adjoint of convolving `img` with `ker` using FFT, storing the result in `output`.
 """
 function fft_conv_adj!(
     output::AbstractMatrix{<:RealU},
     img::AbstractMatrix{<:RealU},
     ker::AbstractMatrix{<:RealU},
-    plan::PlanPSF,
-    )
+    plan::PlanPSF{T},
+) where {T}
 
     @boundscheck size(output) == size(img) || throw("size output")
     @boundscheck size(img) == (plan.nx, plan.nz) || throw("size img")
@@ -84,8 +85,6 @@ function fft_conv_adj!(
     imfilterz!(plan)
     (M, N) = size(img)
     # adjoint of replicate padding
-    T = eltype(plan.workvecz)
-
     plan.workvecz .= zero(T)
     for i = 1:plan.padsize[1]
         plus2di!(plan.workvecz, plan.workmat, i)
@@ -121,11 +120,12 @@ end
     fft_conv_adj(img, ker)
 Adjoint of convolving `img` with `ker` using FFT
 """
-function fft_conv_adj(img, ker)
+function fft_conv_adj(img::AbstractMatrix{I}, ker::AbstractMatrix{K}) where {I <: Number, K <: Number}
+    T = promote_type(I, K, Float32)
     nx, nz = size(img)
     nx_psf = size(ker, 1)
-    plan = plan_psf(nx, nz, nx_psf; T = eltype(img), nthread = 1)[1]
-    output = similar(img)
+    plan = plan_psf(nx, nz, nx_psf; T, nthread = 1)[1]
+    output = similar(Matrix{T}, size(img))
     fft_conv_adj!(output, img, ker, plan)
     return output
 end
