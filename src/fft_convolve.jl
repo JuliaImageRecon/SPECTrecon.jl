@@ -55,7 +55,7 @@ Convolve `img` with `ker` using FFT
 function fft_conv(
     img::AbstractMatrix{I},
     ker::AbstractMatrix{K};
-    T = promote_type(I, K, Float32),
+    T::DataType = promote_type(I, K, Float32),
 ) where {I <: Number, K <: Number}
 
     nx, nz = size(img)
@@ -127,7 +127,7 @@ Adjoint of convolving `img` with `ker` using FFT
 function fft_conv_adj(
     img::AbstractMatrix{I},
     ker::AbstractMatrix{K};
-    T = promote_type(I, K, Float32),
+    T::DataType = promote_type(I, K, Float32),
 ) where {I <: Number, K <: Number}
 
     nx, nz = size(img)
