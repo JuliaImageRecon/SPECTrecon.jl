@@ -1,18 +1,31 @@
-# adjoint-fftconv.jl
-# test adjoint consistency for FFT convolution methods on very small case
+# fftconv.jl
+# test FFT-based convolution and
+# adjoint consistency for FFT convolution methods on very small case
 
 using SPECTrecon: plan_psf
 using SPECTrecon: fft_conv!, fft_conv_adj!, fft_conv_adj2!
 using SPECTrecon: fft_conv, fft_conv_adj
 using LinearMapsAA: LinearMapAA
-using Test: @test, @testset
+using Test: @test, @testset, @test_throws, @inferred
+
+
+@testset "plan_psf" begin
+    plan = plan_psf(10, 10, 5)
+    show(isinteractive() ? stdout : devnull, "text/plain", plan)
+    show(isinteractive() ? stdout : devnull, "text/plain", plan[1])
+    @test sizeof(plan) isa Int
+    @test sizeof(plan[1]) isa Int
+end
 
 
 @testset "fftconv" begin
-    plan = plan_psf(10, 10, 5)
-    show(stdout, "text/plain", plan)
-    show(stdout, "text/plain", plan[1])
-    @test sizeof(plan) isa Int
+    img = randn(Float32, 12, 8)
+    ker = rand(Float64, 7, 7)
+    ker_sym = ker .+ reverse(ker, dims=:)
+    ker_sym /= sum(ker_sym)
+    out = @inferred fft_conv(img, ker_sym)
+    @test eltype(out) == Float64
+    @test_throws String fft_conv(img, ker)
 end
 
 
@@ -35,16 +48,13 @@ end
 
 
 @testset "adjoint-fftconv" begin
-    M = 40
-    N = 24
+    M = 20
+    N = 14
     T = Float32
-    testnum = 20
-    # test with different kernels
-    for i = 1:testnum
+    for i = 1:4 # test with different kernels
         img = randn(T, M, N)
-        ker = rand(T, 7, 7)
-        ker = ker .+ reverse(ker)
-        ker = ker .+ ker'
+        ker = rand(T, 5, 5)
+        ker = ker .+ reverse(ker, dims=:)
         ker /= sum(ker)
 
         idim = (M, N)
@@ -53,6 +63,6 @@ end
         back = img -> fft_conv_adj(img, ker)
 
         A = LinearMapAA(forw, back, (prod(odim), prod(idim)); T, odim, idim)
-        @test Matrix(A') ≈ Matrix(A)' # todo
+        @test Matrix(A') ≈ Matrix(A)'
     end
 end

@@ -9,7 +9,8 @@ using Test: @test, @testset
 
 
 @testset "rotate" begin
-    plan = plan_rotate(10)
+    nx = 10
+    plan = plan_rotate(nx)
     show(isinteractive() ? stdout : devnull, "text/plain", plan)
     show(isinteractive() ? stdout : devnull, "text/plain", plan[1])
     @test sizeof(plan) isa Int

@@ -61,10 +61,8 @@ isinteractive() ? jim(:prompt, true) : prompt(:draw);
 # The `plan` is a `Vector` of `PlanRotate` objects:
 # one for each thread.
 # (Parallelism is across slices for a 3D image volume.)
-# The number of threads defaults to `Threads.nthreads()`,
-# but one can select any number
-# and selecting more threads than number of cores
-# empirically can reduce computation time.
+# The number of threads defaults to `Threads.nthreads()`.
+
 
 # ### Example
 
@@ -78,11 +76,10 @@ jim(image, "Original image")
 
 # Now plan the rotation
 # by specifying
-# * the image size (must be square)
-# * the `DataType` used for the work arrays
-# * the (maximum) number of threads.
+# * the image size `nx` (it must be square, so `ny=nx` implicitly)
+# * the `DataType` used for the work arrays.
 
-plan2 = plan_rotate(size(image, 1); T, nthread = Threads.nthreads())
+plan2 = plan_rotate(size(image, 1); T)
 
 # Here are the internals for the plan for the first thread:
 
@@ -102,7 +99,7 @@ jim(result2, "Rotated image by π/6 (2D bilinear)")
 # included mainly for checking consistency
 # with the historical ASPIRE approach used in Matlab version of MIRT.
 
-plan1 = plan_rotate(size(image, 1); T, nthread = Threads.nthreads(), method=:one)
+plan1 = plan_rotate(size(image, 1); T, method=:one)
 
 # Here are the plan internals for the first thread:
 
@@ -119,7 +116,7 @@ jim(result1, "Rotated image by π/6 (3-pass 1D)")
 jim(result1 - result2, "Difference images")
 
 
-### Adjoint
+# ### Adjoint
 
 # To ensure adjoint consistency between SPECT forward- and back-projection,
 # there is also an adjoint routine:
@@ -138,7 +135,7 @@ jim(adj1, "Adjoint image rotation (3-pass 1D)")
 # so one does not expect the output here to match the original image!
 
 
-### LinearMap
+# ### LinearMap
 
 # One can form a linear map corresponding to image rotation using `LinearMapAA`.
 # An operator like this may be useful
