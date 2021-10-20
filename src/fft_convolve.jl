@@ -5,8 +5,9 @@ export fft_conv, fft_conv_adj
 
 """
     imfilterz!(plan)
-FFT-based convolution between `plan.img_compl` and kernel `plan.ker_compl` (not centered)
-putting result in `plan.workmat`.
+FFT-based convolution of `plan.img_compl`
+and kernel `plan.ker_compl` (not centered),
+storing result in `plan.workmat`.
 """
 function imfilterz!(plan::PlanPSF)
     mul!(plan.img_compl, plan.fft_plan, plan.img_compl)
@@ -21,7 +22,8 @@ end
 
 """
     fft_conv!(output, img, ker, plan)
-Convolve `img` with `ker` using FFT, and store the result in `output`
+Convolve 2D image `img` with 2D (symmetric!) kernel `ker` using FFT,
+storing the result in `output`.
 """
 function fft_conv!(
     output::AbstractMatrix{<:RealU},
@@ -42,15 +44,17 @@ function fft_conv!(
     imfilterz!(plan)
 
     (M, N) = size(img)
-    copyto!(output, (@view plan.workmat[plan.padsize[1]+1:plan.padsize[1]+M,
-                                        plan.padsize[3]+1:plan.padsize[3]+N]))
+    copyto!(output,
+         (@view plan.workmat[plan.padsize[1]+1:plan.padsize[1]+M,
+                             plan.padsize[3]+1:plan.padsize[3]+N]),
+    )
     return output
 end
 
 
 """
     fft_conv(img, ker; T)
-Convolve `img` with `ker` using FFT
+Convolve 2D image `img` with 2D (symmetric!) kernel `ker` using FFT.
 """
 function fft_conv(
     img::AbstractMatrix{I},
@@ -58,6 +62,7 @@ function fft_conv(
     T::DataType = promote_type(I, K, Float32),
 ) where {I <: Number, K <: Number}
 
+    ker ≈ reverse(ker, dims=:) || throw("asymmetric kernel")
     nx, nz = size(img)
     nx_psf = size(ker, 1)
     plan = plan_psf(nx, nz, nx_psf; T, nthread = 1)[1]
@@ -69,7 +74,7 @@ end
 
 """
     fft_conv_adj!(output, img, ker, plan)
-Adjoint of convolving `img` with `ker` using FFT, storing the result in `output`.
+Adjoint of `fft_conv!`.
 """
 function fft_conv_adj!(
     output::AbstractMatrix{<:RealU},
@@ -96,7 +101,7 @@ function fft_conv_adj!(
     plus1di!(plan.workmat, plan.workvecz, 1+plan.padsize[1])
 
     plan.workvecz .= zero(T)
-    for i = plan.padsize[1]+M+1:size(plan.workmat, 1)
+    for i = (plan.padsize[1]+M+1):size(plan.workmat, 1)
         plus2di!(plan.workvecz, plan.workmat, i)
     end
     plus1di!(plan.workmat, plan.workvecz, M+plan.padsize[1])
@@ -108,13 +113,15 @@ function fft_conv_adj!(
     plus1dj!(plan.workmat, plan.workvecx, 1+plan.padsize[3])
 
     plan.workvecx .= zero(T)
-    for j = plan.padsize[3]+N+1:size(plan.workmat, 2)
+    for j = (plan.padsize[3]+N+1):size(plan.workmat, 2)
         plus2dj!(plan.workvecx, plan.workmat, j)
     end
     plus1dj!(plan.workmat, plan.workvecx, N+plan.padsize[3])
 
-    copyto!(output, (@view plan.workmat[plan.padsize[1]+1:plan.padsize[1]+M,
-                                        plan.padsize[3]+1:plan.padsize[3]+N]))
+    copyto!(output,
+        (@view plan.workmat[(plan.padsize[1]+1):(plan.padsize[1]+M),
+                            (plan.padsize[3]+1):(plan.padsize[3]+N)]),
+    )
 
     return output
 end
@@ -122,7 +129,7 @@ end
 
 """
     fft_conv_adj(img, ker; T)
-Adjoint of convolving `img` with `ker` using FFT
+Adjoint of `fft_conv`.
 """
 function fft_conv_adj(
     img::AbstractMatrix{I},
@@ -130,6 +137,7 @@ function fft_conv_adj(
     T::DataType = promote_type(I, K, Float32),
 ) where {I <: Number, K <: Number}
 
+    ker ≈ reverse(ker, dims=:) || throw("asymmetric kernel")
     nx, nz = size(img)
     nx_psf = size(ker, 1)
     plan = plan_psf(nx, nz, nx_psf; T, nthread = 1)[1]
@@ -141,7 +149,10 @@ end
 
 """
     fft_conv!(output, image3, ker3, plans)
-In-place version of convolving a 3D `image3` with a 3D kernel `ker3`
+In-place version of convolving a 3D `image3`
+with a set of 2D symmetric kernels
+stored in 3D array `ker3`
+using `foreach`.
 """
 function fft_conv!(
     output::AbstractArray{<:RealU,3},
@@ -157,7 +168,7 @@ function fft_conv!(
             (@view image3[:, y, :]),
             (@view ker3[:, :, y]),
             plans[Threads.threadid()],
-            )
+        )
 
     ntasks = length(plans)
     Threads.foreach(fun, foreach_setup(1:size(image3, 2)); ntasks)
@@ -168,7 +179,7 @@ end
 
 """
     fft_conv_adj!(output, image3, ker3, plans)
-In-place version of adjoint of convolving a 3D `image3` with a 3D kernel `ker3`
+Adjoint of `fft_conv`.
 """
 function fft_conv_adj!(
     output::AbstractArray{<:RealU,3},
@@ -184,7 +195,7 @@ function fft_conv_adj!(
             (@view image3[:, y, :]),
             (@view ker3[:, :, y]),
             plans[Threads.threadid()],
-            )
+        )
 
     ntasks = length(plans)
     Threads.foreach(fun, foreach_setup(1:size(image3, 2)); ntasks)
@@ -195,7 +206,8 @@ end
 
 """
     fft_conv_adj2!(output, image2, ker3, plans)
-In-place version of adjoint of convolving a 2D `image2` with a 3D kernel `ker3`
+In-place version of adjoint of convolving a 2D `image2`
+with each 2D kernel in the 3D array `ker3`.
 """
 function fft_conv_adj2!(
     output::AbstractArray{<:RealU,3},
@@ -212,7 +224,7 @@ function fft_conv_adj2!(
             image2,
             (@view ker3[:, :, y]),
             plans[Threads.threadid()],
-            )
+        )
 
     ntasks = length(plans)
     Threads.foreach(fun, foreach_setup(1:size(output, 2)); ntasks)

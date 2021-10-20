@@ -1,11 +1,12 @@
-# adjoint-fftconv.jl
-# test adjoint consistency for FFT convolution methods on very small case
+# fftconv.jl
+# test FFT-based convolution and
+# adjoint consistency for FFT convolution methods on very small case
 
 using SPECTrecon: plan_psf
 using SPECTrecon: fft_conv!, fft_conv_adj!, fft_conv_adj2!
 using SPECTrecon: fft_conv, fft_conv_adj
 using LinearMapsAA: LinearMapAA
-using Test: @test, @testset, @inferred
+using Test: @test, @testset, @test_throws, @inferred
 
 
 @testset "plan_psf" begin
@@ -20,10 +21,11 @@ end
 @testset "fftconv" begin
     img = randn(Float32, 12, 8)
     ker = rand(Float64, 7, 7)
-    ker = ker .+ reverse(ker, dims=:)
-    ker /= sum(ker)
-    out = @inferred fft_conv(img, ker)
+    ker_sym = ker .+ reverse(ker, dims=:)
+    ker_sym /= sum(ker_sym)
+    out = @inferred fft_conv(img, ker_sym)
     @test eltype(out) == Float64
+    @test_throws String fft_conv(img, ker)
 end
 
 
@@ -61,6 +63,6 @@ end
         back = img -> fft_conv_adj(img, ker)
 
         A = LinearMapAA(forw, back, (prod(odim), prod(idim)); T, odim, idim)
-        @test Matrix(A') ≈ Matrix(A)' # todo
+        @test Matrix(A') ≈ Matrix(A)'
     end
 end
