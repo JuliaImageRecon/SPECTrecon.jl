@@ -67,7 +67,7 @@ function fake_psf(nx::Int, nx_psf::Int; factor::Real=0.9)
 
     for iy in 1:nx # depth-dependent blur
         r = (-(nx_psf-1)÷2):((nx_psf-1)÷2)
-        r2 = abs2.((r / nx_psf) * iy.^0.9)
+        r2 = abs2.((r / nx_psf) * iy.^factor)
         tmp = @. exp(-(r2 + r2') / 2)
         psf[:,:,iy] = tmp / maximum(tmp)
     end
