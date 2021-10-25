@@ -29,7 +29,6 @@ Currently code assumes the following:
 * `psf` is symmetric
 * multiprocessing using # of threads specified by `Threads.nthreads()`
 """
-
 struct SPECTplan{T}
     T::DataType # default type for work arrays etc.
     imgsize::NTuple{3, Int}
@@ -50,15 +49,19 @@ struct SPECTplan{T}
     planpsf::Vector{PlanPSF}
     # other options for how to do the projection?
 
-    function SPECTplan(mumap::Array{<:RealU, 3},
-                       psfs::Array{<:RealU, 4},
-                       dy::RealU;
-                       T::DataType = promote_type(eltype(mumap), Float32),
-                       viewangle::StepRangeLen{<:RealU} = (0:size(psfs, 4) - 1) / size(psfs, 4) * T(2π), # set of view angles
-                       interpmeth::Symbol = :two, # :one is for 1d interpolation, :two is for 2d interpolation
-                       nthread::Int = Threads.nthreads(),
-                       mode::Symbol = :fast,
-                       )
+    """
+        SPECTplan(mumap, psfs, dy; T, viewangle, interpmeth, nthread, mode)
+    """
+    function SPECTplan(
+        mumap::Array{<:RealU, 3},
+        psfs::Array{<:RealU, 4},
+        dy::RealU;
+        T::DataType = promote_type(eltype(mumap), Float32),
+        viewangle::StepRangeLen{<:RealU} = (0:size(psfs, 4) - 1) / size(psfs, 4) * T(2π), # set of view angles
+        interpmeth::Symbol = :two, # :one is for 1d interpolation, :two is for 2d interpolation
+        nthread::Int = Threads.nthreads(),
+        mode::Symbol = :fast,
+    )
 
         # convert to the same type
         dy = convert(T, dy)
@@ -76,7 +79,8 @@ struct SPECTplan{T}
         nz_psf = size(psfs, 2)
         nview = size(psfs, 4)
         (isodd(nx_psf) && isodd(nz_psf)) || throw("non-odd size psfs")
-        all(mapslices(x -> x == reverse(x, dims=:), psfs, dims = [1, 2])) || throw("asym. psf")
+        all(mapslices(x -> x == reverse(x, dims=:), psfs, dims = [1, 2])) ||
+            throw("asym. psf")
 
         # check interpidx
         (interpmeth === :one || interpmeth === :two) || throw("bad interpmeth")

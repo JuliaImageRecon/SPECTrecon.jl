@@ -187,13 +187,15 @@ Option
 function project(
     image::AbstractArray{<:RealU, 3},
     mumap::AbstractArray{<:RealU, 3}, # [nx,ny,nz] 3D attenuation map
-    psfs::AbstractArray{<:RealU, 4},
+    psfs::AbstractArray{<:RealU, 4}, # [nx_psf,nx_psf,ny,nview]
     dy::RealU;
     interpmeth::Symbol = :two,
     mode::Symbol = :fast,
 #   nthread::Int = Threads.nthreads(), # todo: option for plan
     kwargs...,
 )
+    size(mumap) == size(image) || throw(DimensionMismatch("image/mumap size"))
+    size(image,2) == size(psfs,3) || throw(DimensionMismatch("image/psfs size"))
     plan = SPECTplan(mumap, psfs, dy; interpmeth, mode, kwargs...)
     return project(image, plan; kwargs...)
 end

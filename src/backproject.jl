@@ -181,7 +181,7 @@ This method initializes the `plan` as a convenience.
 Most users should use `backproject!` instead after initializing those, for better efficiency.
 """
 function backproject(
-    views::AbstractArray{<:RealU, 3},
+    views::AbstractArray{<:RealU, 3}, # [nx,nz,nview]
     mumap::AbstractArray{<:RealU, 3}, # [nx,ny,nz] attenuation map, must be 3D, possibly zeros()
     psfs::AbstractArray{<:RealU, 4},
     dy::RealU;
@@ -190,6 +190,9 @@ function backproject(
     kwargs...,
 )
 
+    size(mumap,1) == size(mumap,1) == size(views,1) ||
+        throw(DimensionMismatch("nx"))
+    size(mumap,3) == size(views,2) || throw(DimensionMismatch("nz"))
     plan = SPECTplan(mumap, psfs, dy; interpmeth, mode, kwargs...)
     return backproject(views, plan; kwargs...)
 end
