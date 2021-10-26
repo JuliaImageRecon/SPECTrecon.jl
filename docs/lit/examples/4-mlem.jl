@@ -92,13 +92,12 @@ A = LinearMapAA(forw!, back!, (prod(odim),prod(idim)); T, odim, idim)
 # Noisy data
 using Distributions: Poisson
 
-if !@isdefined(ynoisy)
+if !@isdefined(ynoisy) # generate (scaled) Poisson data
     ytrue = A * xtrue
-    target = 20 # aim for mean of 20 counts per ray
-    scale = target / average(ytrue)
+    target_mean = 20 # aim for mean of 20 counts per ray
+    scale = target_mean / average(ytrue)
     scatter_fraction = 0.1 # 10% uniform scatter for illustration
     scatter_mean = scatter_fraction * average(ytrue) # uniform for simplicity
-    # scaled Poisson data
     ynoisy = rand.(Poisson.(scale * (ytrue .+ scatter_mean))) / scale
 end
 jim(ynoisy, "$nview noisy projection views")
