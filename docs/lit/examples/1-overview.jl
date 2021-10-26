@@ -215,6 +215,10 @@ nothing
 # ### Projection view animation
 
 anim = @animate for i in 1:nview
-     jim(ytrue[:,:,i], "SPECT projection view $i of $nview")
+    ymax = maximum(ytrue)
+    jim(ytrue[:,:,i],
+        "SPECT projection view $i of $nview",
+        clim = (0, ymax),
+    )
 end
-gif(anim, "views.gif", fps = 6)
+gif(anim, "views.gif", fps = 8)
