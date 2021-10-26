@@ -44,23 +44,11 @@ jim(mid3(xtrue), "Middle slices of xtrue")
 
 
 # ### PSF
+
 # Create a synthetic depth-dependent PSF for a single view
-
-function fake_psf(nx::Int, nx_psf::Int; factor::Real=0.7)
-    psf = zeros(T, nx_psf, nx_psf, nx)
-
-    for iy in 1:nx # depth-dependent blur
-        r = (-(nx_psf-1)÷2):((nx_psf-1)÷2)
-        r2 = abs2.((r / nx_psf) * iy.^factor)
-        tmp = @. exp(-(r2 + r2') / 2)
-        psf[:,:,iy] = tmp / maximum(tmp)
-    end
-    return psf
-end
-
 nx_psf = 11
-psf1 = fake_psf(nx, nx_psf)
-#jim(psf1, "PSF for each of $nx planes")
+psf1 = psf_gauss( ; nx, nx_psf)
+jim(psf1, "PSF for each of $nx planes")
 
 
 # In general the PSF can vary from view to view

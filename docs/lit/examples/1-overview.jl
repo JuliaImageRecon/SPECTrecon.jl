@@ -60,7 +60,7 @@ isinteractive() ? jim(:prompt, true) : prompt(:draw);
 # [ImagePhantoms](https://github.com/JuliaImageRecon/ImagePhantoms.jl),
 # but instead we just use two simple cubes.
 
-nx,ny,nz = 128,128,100
+nx,ny,nz = 128,128,80
 T = Float32
 xtrue = zeros(T, nx,ny,nz)
 xtrue[(1nx÷4):(2nx÷3), 1ny÷5:(3ny÷5), 2nz÷6:(3nz÷6)] .= 1
@@ -78,22 +78,10 @@ jim(mid3(xtrue), "Middle slices of x")
 
 
 # ### PSF
+
 # Create a synthetic depth-dependent PSF for a single view
-
-function fake_psf(nx::Int, nx_psf::Int; factor::Real=0.7)
-    psf = zeros(T, nx_psf, nx_psf, nx)
-
-    for iy in 1:nx # depth-dependent blur
-        r = (-(nx_psf-1)÷2):((nx_psf-1)÷2)
-        r2 = abs2.((r / nx_psf) * iy.^factor)
-        tmp = @. exp(-(r2 + r2') / 2)
-        psf[:,:,iy] = tmp / maximum(tmp)
-    end
-    return psf
-end
-
 nx_psf = 11
-psf1 = fake_psf(nx, nx_psf)
+psf1 = psf_gauss( ; nx, nx_psf, fwhm_end = 6)
 jim(psf1, "PSF for each of $nx planes")
 
 
@@ -102,11 +90,11 @@ jim(psf1, "PSF for each of $nx planes")
 # For simplicity, here we illustrate the case
 # where the PSF is the same for every view.
 
-nview = 120
+nview = 60
 psfs = repeat(psf1, 1, 1, 1, nview)
 
 
-# Now plan the PSF modeling (see `3-psf.jl`)
+# Plan the PSF modeling (see `3-psf.jl`)
 
 plan = plan_psf(nx, nz, nx_psf)
 
@@ -132,15 +120,16 @@ jim(views[:,:,1:4:end], "Every 4th of $nview projection views")
 # that leads to a very blurry image
 # (again, with a simple memory inefficient usage).
 
-# First, back-project a single "ray"
+# First, back-project two "rays"
 # to illustrate the depth-dependent PSF.
 tmp = zeros(T, size(views))
 tmp[nx÷2, nz÷2, nview÷5] = 1
+tmp[nx÷2, nz÷2, 1] = 1
 tmp = backproject(tmp, mumap, psfs, dy)
-jim(mid3(tmp), "Back-projection of one ray")
+jim(mid3(tmp), "Back-projection of two rays")
 
 
-# Now back-projection all the views of the phantom
+# Now back-project all the views of the phantom
 
 back = backproject(views, mumap, psfs, dy)
 jim(mid3(back), "Back-projection of ytrue")
@@ -161,20 +150,19 @@ jim(mid3(back), "Back-projection of ytrue")
 
 #viewangle = (0:(nview-1)) * 2π # default
 plan = SPECTplan(mumap, psfs, dy; T)
-summary(plan) # todo: concise "show"
 
 # Mutating version of forward projection:
 
-views = Array{T}(undef, nx, nz, nview)
-project!(views, xtrue, plan)
-jim(views[:,:,1:4:end], "Every 4th of $nview projection views")
+tmp = Array{T}(undef, nx, nz, nview)
+project!(tmp, xtrue, plan)
+@assert tmp == views
 
 
 # Mutating version of back-projection:
 
-back = Array{T}(undef, nx, ny, nz)
-backproject!(back, views, plan)
-jim(mid3(back))
+tmp = Array{T}(undef, nx, ny, nz)
+backproject!(tmp, views, plan)
+@assert tmp == back
 
 
 # ### Using `LinearMapAA`
@@ -193,14 +181,17 @@ odim = (nx,nz,nview)
 A = LinearMapAA(forw!, back!, (prod(odim),prod(idim)); T, odim, idim)
 
 # Simple forward and back-projection:
-ytrue = A * xtrue
-back = A' * ytrue
+@assert A * xtrue == views
+@assert A' * views == back
 
 # Mutating version:
 using LinearAlgebra: mul!
-mul!(ytrue, A, xtrue)
-mul!(back, A', ytrue)
-nothing
+tmp = Array{T}(undef, nx, nz, nview)
+mul!(tmp, A, xtrue)
+@assert tmp == views
+tmp = Array{T}(undef, nx, ny, nz)
+mul!(tmp, A', views)
+@assert tmp == back
 
 
 # ### Units
@@ -215,8 +206,8 @@ nothing
 # ### Projection view animation
 
 anim = @animate for i in 1:nview
-    ymax = maximum(ytrue)
-    jim(ytrue[:,:,i],
+    ymax = maximum(views)
+    jim(views[:,:,i],
         "SPECT projection view $i of $nview",
         clim = (0, ymax),
     )
