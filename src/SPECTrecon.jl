@@ -11,6 +11,7 @@ module SPECTrecon
     include("plan-rotate.jl")
     include("rotatez.jl")
     include("plan-psf.jl")
+    include("psf-gauss.jl")
     include("fft_convolve.jl")
     include("spectplan.jl")
     include("project.jl")
