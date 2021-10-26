@@ -67,6 +67,9 @@ end
 
     dy = T(4.7952)
 
+    plan = SPECTplan(mumap, psfs, dy)
+    show(isinteractive() ? stdout : devnull, "text/plain", plan)
+
     for interpmeth in (:one, :two)
         for mode in (:fast, :mem)
             plan = SPECTplan(mumap, psfs, dy; interpmeth, mode)

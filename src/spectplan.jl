@@ -134,3 +134,31 @@ struct SPECTplan{T}
          # creates objects of the block's type (inner constructor methods).
     end
 end
+
+
+"""
+    show(io::IO, ::MIME"text/plain", plan::SPECTplan)
+"""
+function Base.show(io::IO, ::MIME"text/plain", plan::SPECTplan{T}) where {T}
+    t = typeof(plan)
+    println(io, t)
+    for f in (:imgsize, :nx_psf, :nview, :viewangle, :interpmeth, :mode, :dy, :nthread)
+        p = getproperty(plan, f)
+        t = typeof(p)
+        println(io, " ", f, "::", t, " ", p)
+    end
+    for f in (:mumap, )
+        p = getproperty(plan, f)
+        println(io, " ", f, ":", " ", summary(p))
+    end
+    println(io, " (", sizeof(plan), " bytes)")
+end
+
+
+"""
+    sizeof(::SPECTplan)
+Show size in bytes of `SPECTplan` object.
+"""
+function Base.sizeof(ob::T) where {T <: Union{SPECTplan}}
+    sum(f -> sizeof(getfield(ob, f)), fieldnames(typeof(ob)))
+end
