@@ -6,6 +6,7 @@ using Test: @test, @testset, detect_ambiguities
 include("helper.jl")
 include("rotatez.jl")
 include("fftconv.jl")
+include("psf-gauss.jl")
 include("adjoint-rotate.jl")
 include("adjoint-project.jl")
 
