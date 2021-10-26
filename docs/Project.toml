@@ -1,4 +1,5 @@
 [deps]
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 LinearMapsAA = "599c1a8e-b958-11e9-0d14-b1e6b2ecea07"
 Literate = "98b081ad-f1c9-55d3-8b20-4c87d4299306"
@@ -9,6 +10,7 @@ Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 UnitfulRecipes = "42071c24-d89e-48dd-8a24-8a12d9b8861f"
 
 [compat]
+Distributions = "0.25"
 Documenter = "0.27.7"
 LinearMapsAA = "0.7"
 Literate = "2.9.3"

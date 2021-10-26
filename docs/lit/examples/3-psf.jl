@@ -60,25 +60,11 @@ image[3nx÷4, 3nx÷4, 1nz÷4] = 1
 jim(image, "Original image")
 
 
-# Create a synthetic depth-dependent PSF for a single view
-
-function fake_psf(nx::Int, nx_psf::Int; factor::Real=0.9)
-    psf = zeros(Float32, nx_psf, nx_psf, nx)
-
-    for iy in 1:nx # depth-dependent blur
-        r = (-(nx_psf-1)÷2):((nx_psf-1)÷2)
-        r2 = abs2.((r / nx_psf) * iy.^0.9)
-        tmp = @. exp(-(r2 + r2') / 2)
-        psf[:,:,iy] = tmp / maximum(tmp)
-    end
-    return psf
-end
+# Create a synthetic gaussian depth-dependent PSF for a single view
 
 nx_psf = 11
 nview = 1 # for simplicity in this illustration
-psf = zeros(nx_psf, nx_psf, nx, nview)
-
-psf[:,:,:,1] = fake_psf(nx, nx_psf)
+psf = repeat(psf_gauss( ; nx, nx_psf), 1, 1, 1, nview)
 jim(psf, "PSF for each of $nx planes")
 
 
@@ -125,7 +111,7 @@ jim(adj, "Adjoint of PSF modeling")
 using LinearMapsAA: LinearMapAA
 
 nx, nz, nx_psf = 10, 7, 5 # small size for illustration
-psf3 = fake_psf(nx, nx_psf)
+psf3 = psf_gauss( ; nx, nx_psf)
 plan = plan_psf(nx, nz, nx_psf; T)
 idim = (nx,nx,nz)
 odim = (nx,nx,nz)
