@@ -58,6 +58,7 @@ jim(psf1, "PSF for each of $nx planes")
 
 nview = 60
 psfs = repeat(psf1, 1, 1, 1, nview)
+size(psfs)
 
 
 # ### SPECT system model using `LinearMapAA`
@@ -93,7 +94,7 @@ jim(ynoisy, "$nview noisy projection views")
 
 # ### ML-EM algorithm - basic version
 
-# This basic ML-EM version uses the linear map, but it is still allocating
+# This basic ML-EM version uses the linear map, but it is still allocating.
 
 function mlem(x0, ynoisy, background, A; niter::Int = 20)
     all(>(0), background) || throw("need background > 0")

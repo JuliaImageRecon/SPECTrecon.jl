@@ -2,7 +2,7 @@
 # # [SPECTrecon overview](@id 1-overview)
 #---------------------------------------------------------
 
-# This page explains the Julia package
+# This page gives an overview of the Julia package
 # [`SPECTrecon`](https://github.com/JeffFessler/SPECTrecon.jl).
 
 # ### Setup
@@ -11,6 +11,8 @@
 
 using SPECTrecon
 using MIRTjim: jim, prompt
+using LinearAlgebra: mul!
+using LinearMapsAA: LinearMapAA
 using Plots: scatter, plot!, default; default(markerstrokecolor=:auto)
 using Plots # @animate, gif
 
@@ -92,6 +94,7 @@ jim(psf1, "PSF for each of $nx planes")
 
 nview = 60
 psfs = repeat(psf1, 1, 1, 1, nview)
+size(psfs)
 
 
 # Plan the PSF modeling (see `3-psf.jl`)
@@ -108,6 +111,8 @@ plan = plan_psf(nx, nz, nx_psf)
 dy = 4 # transaxial pixel size in mm
 mumap = zeros(T, size(xtrue)) # μ-map just zero for illustration here
 views = project(xtrue, mumap, psfs, dy)
+size(views)
+
 
 # Display the calculated (i.e., simulated) projection views
 
@@ -129,7 +134,7 @@ tmp = backproject(tmp, mumap, psfs, dy)
 jim(mid3(tmp), "Back-projection of two rays")
 
 
-# Now back-project all the views of the phantom
+# Now back-project all the views of the phantom.
 
 back = backproject(views, mumap, psfs, dy)
 jim(mid3(back), "Back-projection of ytrue")
@@ -146,7 +151,7 @@ jim(mid3(back), "Back-projection of ytrue")
 # Here we illustrate the memory efficient versions
 # that are recommended for iterative SPECT reconstruction.
 
-# First construction the SPECT plan
+# First construction the SPECT plan.
 
 #viewangle = (0:(nview-1)) * 2π # default
 plan = SPECTplan(mumap, psfs, dy; T)
@@ -173,7 +178,6 @@ backproject!(tmp, views, plan)
 # are linear operations,
 # so we use `LinearMapAA` to define a "system matrix" for these operations.
 
-using LinearMapsAA: LinearMapAA
 forw! = (y,x) -> project!(y, x, plan)
 back! = (x,y) -> backproject!(x, y, plan)
 idim = (nx,ny,nz)
@@ -185,7 +189,6 @@ A = LinearMapAA(forw!, back!, (prod(odim),prod(idim)); T, odim, idim)
 @assert A' * views == back
 
 # Mutating version:
-using LinearAlgebra: mul!
 tmp = Array{T}(undef, nx, nz, nview)
 mul!(tmp, A, xtrue)
 @assert tmp == views
