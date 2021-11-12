@@ -10,7 +10,7 @@ using Test: @test, @testset, @test_throws, @inferred
 
 
 @testset "plan_psf" begin
-    plan = plan_psf(10, 10, 5)
+    plan = plan_psf( ; nx=10, px=5)
     show(isinteractive() ? stdout : devnull, "text/plain", plan)
     show(isinteractive() ? stdout : devnull, "text/plain", plan[1])
     @test sizeof(plan) isa Int
@@ -33,9 +33,9 @@ end
     nx = 12
     nz = 10
     px = 5
-    pz = 5 # todo
+    pz = 3
     T = Float32
-    plan = plan_psf(nx, nz, px; T)
+    plan = plan_psf( ; nx, nz, px, pz, T)
     image3 = rand(T, nx, nx, nz)
     ker3 = ones(T, px, pz, nx) / (px*pz)
     result = similar(image3)

@@ -5,13 +5,13 @@ import AbstractFFTs
 import FFTW
 
 """
-    PlanPSF{T,Tf,Ti}(nx::Int, nz::Int, px::Int; pz::Int, T::DataType)
+    PlanPSF{T,Tf,Ti}( ; nx::Int, nz::Int, px::Int, pz::Int, T::DataType)
 Struct for storing work arrays and factors for 2D convolution for one thread.
 Each PSF is `px × pz`
 - `T` datatype of work arrays (subtype of `AbstractFloat`)
-- `nx::Int` (`ny` implicitly the same)
-- `nz::Int` image size is `[nx,nx,nz]`
-- `px::Int`
+- `nx::Int = 128` (`ny` implicitly the same)
+- `nz::Int = nx` image size is `[nx,nx,nz]`
+- `px::Int = 1`
 - `pz::Int = px` (PSF size)
 - `padsize::Tuple` : `(padup, paddown, padleft, padright)`
 - `workmat [nx+padup+paddown, nz+padleft+padright]` 2D padded image for FFT convolution
@@ -36,10 +36,10 @@ struct PlanPSF{T, Tf, Ti}
     fft_plan::Tf # Union{AbstractFFTs.ScaledPlan, FFTW.cFFTWPlan}
     ifft_plan::Ti # Union{AbstractFFTs.ScaledPlan, FFTW.cFFTWPlan}
 
-    function PlanPSF(
-        nx::Int,
-        nz::Int,
-        px::Int;
+    function PlanPSF( ;
+        nx::Int = 128,
+        nz::Int = nx,
+        px::Int = 1,
         pz::Int = px,
         T::DataType = Float32,
     )
@@ -84,28 +84,27 @@ end
 
 
 """
-    plan_psf(nx::Int, nz::Int, px::Int; pz::Int, nthread::Int, T::DataType)
+    plan_psf( ; nx::Int, nz::Int, px::Int, pz::Int, nthread::Int, T::DataType)
 Make Vector of structs for storing work arrays and factors
 for 2D convolution with SPECT depth-dependent PSF model,
 threaded across planes parallel to detector.
-Input
-- `nx::Int`
-- `nz::Int`
-- `px::Int`
 Option
+- `nx::Int = 128`
+- `nz::Int = nx`
+- `px::Int = 1`
+- `pz::Int = px` PSF size is `px × pz`
 - `T` : datatype of work arrays, defaults to `Float32`
 - `nthread::Int` # of threads, defaults to `Threads.nthreads()`
-- `pz::Int = px` PSF size
 """
-function plan_psf(
-    nx::Int,
-    nz::Int,
-    px::Int;
+function plan_psf( ;
+    nx::Int = 128,
+    nz::Int = nx,
+    px::Int = 1,
     pz::Int = px,
     nthread::Int = Threads.nthreads(),
     T::DataType = Float32,
 )
-    return [PlanPSF(nx, nz, px; pz, T) for id = 1:nthread]
+    return [PlanPSF( ; nx, nz, px, pz, T) for id = 1:nthread]
 end
 
 

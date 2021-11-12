@@ -99,7 +99,7 @@ size(psfs)
 
 # Plan the PSF modeling (see `3-psf.jl`)
 
-plan = plan_psf(nx, nz, px)
+plan = plan_psf( ; nx, nz, px)
 
 
 # ### Basic SPECT forward projection

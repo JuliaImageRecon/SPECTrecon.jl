@@ -48,7 +48,6 @@ struct SPECTplan{T}
     nthread::Int # number of threads
     planrot::Vector{PlanRotate}
     planpsf::Vector{PlanPSF}
-    # other options for how to do the projection?
 
     """
         SPECTplan(mumap, psfs, dy; T, viewangle, interpmeth, nthread, mode)
@@ -110,28 +109,27 @@ struct SPECTplan{T}
 
         planrot = plan_rotate(nx; T, method = interpmeth)
 
-        planpsf = plan_psf(nx, nz, px; pz, nthread = nthread, T = T)
+        planpsf = plan_psf(; nx, nz, px, pz, nthread, T)
 
         new{T}(T, # default type for work arrays etc.
-               imgsize,
-               px,
-               pz,
-               imgr, # 3D rotated image, (nx, ny, nz)
-               add_img,
-               mumap, # [nx,ny,nz] attenuation map, must be 3D, possibly zeros()
-               mumapr, # 3D rotated mumap, (nx, ny, nz)
-               exp_mumapr,
-               psfs, # PSFs must be 4D, [px, pz, ny, nview], finally be centered psf
-               nview, # number of views
-               viewangle,
-               interpmeth,
-               mode,
-               dy,
-               nthread, # number of threads
-               planrot,
-               planpsf,
+            imgsize,
+            px,
+            pz,
+            imgr, # 3D rotated image, (nx, ny, nz)
+            add_img,
+            mumap, # [nx,ny,nz] attenuation map, must be 3D, possibly zeros()
+            mumapr, # 3D rotated mumap, (nx, ny, nz)
+            exp_mumapr,
+            psfs, # PSFs must be 4D, [px, pz, ny, nview], finally be centered psf
+            nview, # number of views
+            viewangle,
+            interpmeth,
+            mode,
+            dy,
+            nthread, # number of threads
+            planrot,
+            planpsf,
         )
-         # creates objects of the block's type (inner constructor methods).
     end
 end
 

@@ -17,11 +17,10 @@ using Test: @test, @testset
 
     mumap = rand(T, nx, ny, nz)
 
-    px = 3
-    pz = 3 # todo
+    px = 5
+    pz = 3
     psfs = rand(T, px, pz, ny, nview)
     psfs = psfs .+ mapslices(reverse, psfs, dims = [1, 2]) # symmetrize
-    psfs = psfs .+ mapslices(transpose, psfs, dims = [1, 2]) # symmetrize
     psfs = psfs ./ mapslices(sum, psfs, dims = [1, 2])
 
     dy = T(4.7952)
@@ -58,11 +57,10 @@ end
 
     mumap = rand(T, nx, ny, nz)
 
-    px = 7
-    pz = 7 # todo
+    px = 5
+    pz = 3
     psfs = rand(T, px, pz, ny, nview)
     psfs = psfs .+ mapslices(reverse, psfs, dims = [1, 2])
-    psfs = psfs .+ mapslices(transpose, psfs, dims = [1, 2]) # symmetrize
     psfs = psfs ./ mapslices(sum, psfs, dims = [1, 2])
 
     dy = T(4.7952)

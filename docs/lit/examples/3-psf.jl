@@ -74,7 +74,7 @@ jim(psf, "PSF for each of $nx planes")
 # * the PSF size: must be `px × pz × ny × nview`
 # * the `DataType` used for the work arrays.
 
-plan = plan_psf(nx, nz, px; T)
+plan = plan_psf( ; nx, nz, px, T)
 
 # Here are the internals for the plan for the first thread:
 
@@ -112,7 +112,7 @@ using LinearMapsAA: LinearMapAA
 
 nx, nz, px = 10, 7, 5 # small size for illustration
 psf3 = psf_gauss( ; ny, px)
-plan = plan_psf(nx, nz, px; T)
+plan = plan_psf( ; nx, nz, px, T)
 idim = (nx,nx,nz)
 odim = (nx,nx,nz)
 forw! = (y,x) -> fft_conv!(y, x, psf3, plan)
