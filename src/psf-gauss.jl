@@ -3,38 +3,53 @@
 export psf_gauss
 
 """
-    psf_gauss( ; nx, nx_psf, fwhm_start, fwhm_end, fwhm, T)
+    psf_gauss( ; ny, px, pz, fwhm_start, fwhm_end, fwhm, fwhm_x, fwhm_z, T)
 
 Create depth-dependent Gaussian PSFs
 having specified full-width half-maximum (FHWM) values.
 
 # Options
-- 'nx::Int = 128'
-- 'nx_psf::Int = 11' (should be odd)
+- 'ny::Int = 128'
+- 'px::Int = 11' (should be odd)
+- 'pz::Int = px' (should be odd)
 - 'fwhm_start::Real = 1'
 - 'fwhm_end::Real = 4'
-- 'fwhm::AbstractVector{<:Real} = LinRange(fwhm_start, fwhm_end, nx)'
+- 'fwhm::AbstractVector{<:Real} = LinRange(fwhm_start, fwhm_end, ny)'
+- 'fwhm_x::AbstractVector{<:Real} = fwhm,
+- 'fwhm_z::AbstractVector{<:Real} = fwhm_x'
 - 'T::DataType == Float32'
 
-Returned `psf` is `[nx_psf, nx_psf, nx]` where each PSF sums to 1.
+Returned `psf` is `[px, pz, ny]` where each PSF sums to 1.
 """
 function psf_gauss( ;
-    nx::Int = 128,
-    nx_psf::Int = 11,
+    ny::Int = 128,
+    px::Int = 11,
+    pz::Int = px,
     fwhm_start::Real = 1,
     fwhm_end::Real = 4,
-    fwhm::AbstractVector{<:Real} = LinRange(fwhm_start, fwhm_end, nx),
+    fwhm::AbstractVector{<:Real} = LinRange(fwhm_start, fwhm_end, ny),
+    fwhm_x::AbstractVector{<:Real} = fwhm,
+    fwhm_z::AbstractVector{<:Real} = fwhm_x,
     T::DataType = Float32,
 )
-    isodd(nx_psf) || @warn("even nx_psf = $nx_psf ?")
-    psf = zeros(T, nx_psf, nx_psf, nx)
+    isodd(px) || @warn("even px = $px ?")
+    isodd(pz) || @warn("even pz = $pz ?")
+    psf = zeros(T, px, pz, ny)
 
-    for iy in 1:nx # depth-dependent blur
-        r = (-(nx_psf-1)÷2):((nx_psf-1)÷2)
-        σ = fwhm[iy] / sqrt(log(256))
-        r2 = abs2.(r / σ)
-        tmp = @. exp(-π * (r2 + r2'))
-        psf[:,:,iy] = tmp / sum(tmp)
+    rx = (-(px-1)÷2):((px-1)÷2)
+    rz = (-(pz-1)÷2):((pz-1)÷2)
+    for iy in 1:ny # depth-dependent blur
+        psf[:,:,iy] = psf_gauss(rx, fwhm_x[iy]) * psf_gauss(rz, fwhm_z[iy])'
     end
     return psf
+end
+
+function psf_gauss(r::AbstractVector, fwhm::Real)
+   if fwhm == 0
+        any(==(0), r) || throw("must have some r=0 if fwhm=0")
+        return r .== 0 # Kronecker impulse
+   end
+   σ = fwhm / sqrt(log(256))
+   psf = @. exp(-π * abs2(r / σ))
+   return psf / sum(psf)
 end
