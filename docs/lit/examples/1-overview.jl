@@ -82,9 +82,9 @@ jim(mid3(xtrue), "Middle slices of x")
 # ### PSF
 
 # Create a synthetic depth-dependent PSF for a single view
-nx_psf = 11
-psf1 = psf_gauss( ; nx, nx_psf, fwhm_end = 6)
-jim(psf1, "PSF for each of $nx planes")
+px = 11
+psf1 = psf_gauss( ; ny, px, fwhm_end = 6)
+jim(psf1, "PSF for each of $ny planes")
 
 
 # In general the PSF can vary from view to view
@@ -99,7 +99,7 @@ size(psfs)
 
 # Plan the PSF modeling (see `3-psf.jl`)
 
-plan = plan_psf(nx, nz, nx_psf)
+plan = plan_psf(nx, nz, px)
 
 
 # ### Basic SPECT forward projection

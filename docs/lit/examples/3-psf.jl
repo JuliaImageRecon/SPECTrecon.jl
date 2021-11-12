@@ -62,19 +62,19 @@ jim(image, "Original image")
 
 # Create a synthetic gaussian depth-dependent PSF for a single view
 
-nx_psf = 11
+px = 11
 nview = 1 # for simplicity in this illustration
-psf = repeat(psf_gauss( ; nx, nx_psf), 1, 1, 1, nview)
+psf = repeat(psf_gauss( ; ny, px), 1, 1, 1, nview)
 jim(psf, "PSF for each of $nx planes")
 
 
 # Now plan the PSF modeling
 # by specifying
 # * the image size (must be square)
-# * the PSF size: must be `nx_psf × nx_psf × nx × nview`
+# * the PSF size: must be `px × pz × ny × nview`
 # * the `DataType` used for the work arrays.
 
-plan = plan_psf(nx, nz, nx_psf; T)
+plan = plan_psf(nx, nz, px; T)
 
 # Here are the internals for the plan for the first thread:
 
@@ -110,9 +110,9 @@ jim(adj, "Adjoint of PSF modeling")
 
 using LinearMapsAA: LinearMapAA
 
-nx, nz, nx_psf = 10, 7, 5 # small size for illustration
-psf3 = psf_gauss( ; nx, nx_psf)
-plan = plan_psf(nx, nz, nx_psf; T)
+nx, nz, px = 10, 7, 5 # small size for illustration
+psf3 = psf_gauss( ; ny, px)
+plan = plan_psf(nx, nz, px; T)
 idim = (nx,nx,nz)
 odim = (nx,nx,nz)
 forw! = (y,x) -> fft_conv!(y, x, psf3, plan)
