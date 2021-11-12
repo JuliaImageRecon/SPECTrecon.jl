@@ -49,7 +49,7 @@ function psf_gauss(r::AbstractVector, fwhm::Real)
         any(==(0), r) || throw("must have some r=0 if fwhm=0")
         return r .== 0 # Kronecker impulse
    end
-   σ = fwhm / sqrt(log(256))
-   psf = @. exp(-π * abs2(r / σ))
+   σ = fwhm / sqrt(log(256)) # FWHM to Gaussian σ
+   psf = @. exp(-0.5 * abs2(r / σ))
    return psf / sum(psf)
 end
