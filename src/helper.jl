@@ -114,8 +114,19 @@ Base.@propagate_inbounds function fftshift2!(
     dst::AbstractMatrix,
     src::AbstractMatrix,
 )
-    @boundscheck (iseven(size(src, 1)) && iseven(size(src, 2))) || throw("odd")
     @boundscheck size(src) == size(dst) || throw("size")
+
+    if size(src,2) == 1
+        @boundscheck iseven(size(src, 1)) || throw("odd $(size(src))")
+        m = size(src,1) ÷ 2
+        for i = 1:m
+            @inbounds dst[i, 1] = src[m+i, 1]
+            @inbounds dst[i+m, 1] = src[i, 1]
+        end
+        return dst
+    end
+
+    @boundscheck (iseven(size(src, 1)) && iseven(size(src, 2))) || throw("odd")
     m, n = div.(size(src), 2)
     for j = 1:n, i = 1:m
         @inbounds dst[i, j] = src[m+i, n+j]
