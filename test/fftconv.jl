@@ -32,11 +32,12 @@ end
 @testset "fftconv3" begin
     nx = 12
     nz = 10
-    nx_psf = 5
+    px = 5
+    pz = 5 # todo
     T = Float32
-    plan = plan_psf(nx, nz, nx_psf; T)
+    plan = plan_psf(nx, nz, px; T)
     image3 = rand(T, nx, nx, nz)
-    ker3 = ones(T, nx_psf, nx_psf, nx) / (nx_psf)^2
+    ker3 = ones(T, px, pz, nx) / (px*pz)
     result = similar(image3)
     fft_conv!(result, image3, ker3, plan)
     @test maximum(result) ≤ 1

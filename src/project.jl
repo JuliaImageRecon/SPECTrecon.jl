@@ -187,7 +187,7 @@ Option
 function project(
     image::AbstractArray{<:RealU, 3},
     mumap::AbstractArray{<:RealU, 3}, # [nx,ny,nz] 3D attenuation map
-    psfs::AbstractArray{<:RealU, 4}, # [nx_psf,nx_psf,ny,nview]
+    psfs::AbstractArray{<:RealU, 4}, # [px,pz,ny,nview]
     dy::RealU;
     interpmeth::Symbol = :two,
     mode::Symbol = :fast,

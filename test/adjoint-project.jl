@@ -17,9 +17,9 @@ using Test: @test, @testset
 
     mumap = rand(T, nx, ny, nz)
 
-    nx_psf = 3
-    nz_psf = 3
-    psfs = rand(T, nx_psf, nz_psf, ny, nview)
+    px = 3
+    pz = 3 # todo
+    psfs = rand(T, px, pz, ny, nview)
     psfs = psfs .+ mapslices(reverse, psfs, dims = [1, 2]) # symmetrize
     psfs = psfs .+ mapslices(transpose, psfs, dims = [1, 2]) # symmetrize
     psfs = psfs ./ mapslices(sum, psfs, dims = [1, 2])
@@ -58,9 +58,9 @@ end
 
     mumap = rand(T, nx, ny, nz)
 
-    nx_psf = 7
-    nz_psf = 7
-    psfs = rand(T, nx_psf, nz_psf, ny, nview)
+    px = 7
+    pz = 7 # todo
+    psfs = rand(T, px, pz, ny, nview)
     psfs = psfs .+ mapslices(reverse, psfs, dims = [1, 2])
     psfs = psfs .+ mapslices(transpose, psfs, dims = [1, 2]) # symmetrize
     psfs = psfs ./ mapslices(sum, psfs, dims = [1, 2])

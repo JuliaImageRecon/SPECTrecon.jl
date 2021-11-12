@@ -5,13 +5,14 @@ import AbstractFFTs
 import FFTW
 
 """
-    PlanPSF{T,Tf,Ti}(nx::Int, nz::Int, nx_psf::Int; T::DataType)
+    PlanPSF{T,Tf,Ti}(nx::Int, nz::Int, px::Int; pz::Int, T::DataType)
 Struct for storing work arrays and factors for 2D convolution for one thread.
-Currently PSF must be square, i.e., `nx_psf` = `nz_psf`
+Each PSF is `px × pz`
 - `T` datatype of work arrays (subtype of `AbstractFloat`)
 - `nx::Int` (`ny` implicitly the same)
 - `nz::Int` image size is `[nx,nx,nz]`
-- `nx_psf::Int`
+- `px::Int`
+- `pz::Int = px` (PSF size)
 - `padsize::Tuple` : `(padup, paddown, padleft, padright)`
 - `workmat [nx+padup+paddown, nz+padleft+padright]` 2D padded image for FFT convolution
 - `workvecx [nx+padup+paddown,]`: 1D work vector
@@ -24,7 +25,8 @@ Currently PSF must be square, i.e., `nx_psf` = `nz_psf`
 struct PlanPSF{T, Tf, Ti}
     nx::Int
     nz::Int
-    nx_psf::Int
+    px::Int
+    pz::Int
     padsize::NTuple{4, Int}
     workmat::Matrix{T}
     workvecx::Vector{T}
@@ -37,15 +39,16 @@ struct PlanPSF{T, Tf, Ti}
     function PlanPSF(
         nx::Int,
         nz::Int,
-        nx_psf::Int;
+        px::Int;
+        pz::Int = px,
         T::DataType = Float32,
     )
 
         T <: AbstractFloat || throw("invalid T=$T")
-        padup = _padup(nx, nx_psf)
-        paddown = _paddown(nx, nx_psf)
-        padleft = _padleft(nz, nx_psf) # nx_psf = nz_psf!
-        padright = _padright(nz, nx_psf) # nx_psf = nz_psf!
+        padup = _padup(nx, px)
+        paddown = _paddown(nx, px)
+        padleft = _padleft(nz, pz)
+        padright = _padright(nz, pz)
         padsize = (padup, paddown, padleft, padright)
 
         workmat = Matrix{T}(undef, nx+padup+paddown, nz+padleft+padright)
@@ -65,7 +68,8 @@ struct PlanPSF{T, Tf, Ti}
         new{T, Tf, Ti}(
             nx,
             nz,
-            nx_psf,
+            px,
+            pz,
             padsize,
             workmat,
             workvecx,
@@ -80,26 +84,28 @@ end
 
 
 """
-    plan_psf(nx::Int, nz::Int, nx_psf::Int; nthread::Int, T::DataType)
+    plan_psf(nx::Int, nz::Int, px::Int; pz::Int, nthread::Int, T::DataType)
 Make Vector of structs for storing work arrays and factors
 for 2D convolution with SPECT depth-dependent PSF model,
 threaded across planes parallel to detector.
 Input
 - `nx::Int`
 - `nz::Int`
-- `nx_psf::Int`
+- `px::Int`
 Option
 - `T` : datatype of work arrays, defaults to `Float32`
 - `nthread::Int` # of threads, defaults to `Threads.nthreads()`
+- `pz::Int = px` PSF size
 """
 function plan_psf(
     nx::Int,
     nz::Int,
-    nx_psf::Int;
+    px::Int;
+    pz::Int = px,
     nthread::Int = Threads.nthreads(),
     T::DataType = Float32,
 )
-    return [PlanPSF(nx, nz, nx_psf; T) for id = 1:nthread]
+    return [PlanPSF(nx, nz, px; pz, T) for id = 1:nthread]
 end
 
 
@@ -109,7 +115,7 @@ end
 function Base.show(io::IO, ::MIME"text/plain", plan::PlanPSF{T}) where {T}
     t = typeof(plan)
     println(io, t)
-    for f in (:nx, :nz, :nx_psf, :padsize)
+    for f in (:nx, :nz, :px, :pz, :padsize)
         p = getproperty(plan, f)
         t = typeof(p)
         println(io, " ", f, "::", t, " ", p)

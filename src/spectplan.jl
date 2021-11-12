@@ -7,13 +7,13 @@ export SPECTplan
 Struct for storing key factors for a SPECT system model
 - `T` datatype of work arrays
 - `imgsize` size of image
-- `nx_psf` first dimension of psf
+- `px,pz` psf dimension
 - `imgr [nx, ny, nz]` 3D rotated version of image
 - `add_img [nx, ny, nz]` 3D image for adding views and backprojection
 - `mumap [nx,ny,nz]` attenuation map, must be 3D, possibly zeros()
 - `mumapr [nx, ny, nz]` 3D rotated mumap
 - `exp_mumapr [nx, nz]` 2D exponential rotated mumap
-- `psfs [nx_psf,nz_psf,ny,nview]` point spread function, must be 4D, with `nx_psf` and `nz_psf` odd, and symmetric for each slice
+- `psfs [px,pz,ny,nview]` point spread function, must be 4D, with `px and `pz` odd, and symmetric for each slice
 - `nview` number of views, must be integer
 - `viewangle` set of view angles, must be from 0 to 2π
 - `interpmeth` interpolation method, :one means 1d, :two means 2d
@@ -32,13 +32,14 @@ Currently code assumes the following:
 struct SPECTplan{T}
     T::DataType # default type for work arrays etc.
     imgsize::NTuple{3, Int}
-    nx_psf::Int
+    px::Int
+    pz::Int
     imgr::Union{Array{T, 3}, Vector{Array{T, 3}}} # 3D rotated image, (nx, ny, nz)
     add_img::Union{Array{T, 3}, Vector{Array{T, 3}}}
     mumap::Array{T, 3} # [nx,ny,nz] attenuation map, must be 3D, possibly zeros()
     mumapr::Union{Array{T, 3}, Vector{Array{T, 3}}} # 3D rotated mumap, (nx, ny, nz)
     exp_mumapr::Vector{Matrix{T}} # 2D exponential rotated mumap, (nx, ny)
-    psfs::Array{T, 4} # PSFs must be 4D, [nx_psf, nz_psf, ny, nview], finally be centered psf
+    psfs::Array{T, 4} # PSFs must be 4D, [px, pz, ny, nview], finally be centered psf
     nview::Int # number of views
     viewangle::StepRangeLen{T}
     interpmeth::Symbol
@@ -75,10 +76,8 @@ struct SPECTplan{T}
 
         imgsize = (nx, ny, nz)
         # check psf
-        nx_psf = size(psfs, 1)
-        nz_psf = size(psfs, 2)
-        nview = size(psfs, 4)
-        (isodd(nx_psf) && isodd(nz_psf)) || throw("non-odd size psfs")
+        px, pz, _, nview = size(psfs)
+        (isodd(px) && isodd(pz)) || throw("non-odd size psfs")
         all(mapslices(x -> x == reverse(x, dims=:), psfs, dims = [1, 2])) ||
             throw("asym. psf")
 
@@ -111,17 +110,18 @@ struct SPECTplan{T}
 
         planrot = plan_rotate(nx; T, method = interpmeth)
 
-        planpsf = plan_psf(nx, nz, nx_psf; nthread = nthread, T = T)
+        planpsf = plan_psf(nx, nz, px; pz, nthread = nthread, T = T)
 
         new{T}(T, # default type for work arrays etc.
                imgsize,
-               nx_psf,
+               px,
+               pz,
                imgr, # 3D rotated image, (nx, ny, nz)
                add_img,
                mumap, # [nx,ny,nz] attenuation map, must be 3D, possibly zeros()
                mumapr, # 3D rotated mumap, (nx, ny, nz)
                exp_mumapr,
-               psfs, # PSFs must be 4D, [nx_psf, nz_psf, ny, nview], finally be centered psf
+               psfs, # PSFs must be 4D, [px, pz, ny, nview], finally be centered psf
                nview, # number of views
                viewangle,
                interpmeth,
@@ -130,7 +130,7 @@ struct SPECTplan{T}
                nthread, # number of threads
                planrot,
                planpsf,
-               )
+        )
          # creates objects of the block's type (inner constructor methods).
     end
 end
@@ -142,7 +142,7 @@ end
 function Base.show(io::IO, ::MIME"text/plain", plan::SPECTplan{T}) where {T}
     t = typeof(plan)
     println(io, t)
-    for f in (:imgsize, :nx_psf, :nview, :viewangle, :interpmeth, :mode, :dy, :nthread)
+    for f in (:imgsize, :px, :pz, :nview, :viewangle, :interpmeth, :mode, :dy, :nthread)
         p = getproperty(plan, f)
         t = typeof(p)
         println(io, " ", f, "::", t, " ", p)

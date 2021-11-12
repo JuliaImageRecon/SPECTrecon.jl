@@ -8,10 +8,10 @@ using FFTW
 
 
 Power2 = x -> 2^(ceil(Int, log2(x)))
-_padup(nx, nx_psf) = ceil(Int, (Power2(nx + nx_psf - 1) - nx) / 2)
-_paddown(nx, nx_psf) = floor(Int, (Power2(nx + nx_psf - 1) - nx) / 2)
-_padleft(nz, nz_psf) = ceil(Int, (Power2(nz + nz_psf - 1) - nz) / 2)
-_padright(nz, nz_psf) = floor(Int, (Power2(nz + nz_psf - 1) - nz) / 2)
+_padup(nx, px)    =  ceil(Int, (Power2(nx + px - 1) - nx) / 2)
+_paddown(nx, px)  = floor(Int, (Power2(nx + px - 1) - nx) / 2)
+_padleft(nz, pz)  =  ceil(Int, (Power2(nz + pz - 1) - nz) / 2)
+_padright(nz, pz) = floor(Int, (Power2(nz + pz - 1) - nz) / 2)
 
 
 """
