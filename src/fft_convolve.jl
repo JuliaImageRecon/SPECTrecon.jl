@@ -35,20 +35,17 @@ function fft_conv!(
     @boundscheck size(img) == (plan.nx, plan.nz) || throw("size img")
     @boundscheck size(ker) == (plan.px, plan.pz) ||
         throw("size ker $(size(ker)) $(plan.px) $(plan.pz)")
-#   @boundscheck size(ker, 1) == size(ker, 2) || throw("size ker") # todo
 
-    # filter the image with a kernel, using replicate padding and fft convolution
+    # filter image with a kernel, using replicate padding and fft convolution
     padrepl!(plan.img_compl, img, plan.padsize)
 
-    pad2sizezero!(plan.ker_compl, ker, size(plan.ker_compl)) # pad the kernel with zeros
+    pad2sizezero!(plan.ker_compl, ker, size(plan.ker_compl)) # zero pad kernel
 
     imfilterz!(plan)
 
     (M, N) = size(img)
-    copyto!(output, # todo: why only 2 of 4 padsize values used here?
-         (@view plan.workmat[plan.padsize[1]+1:plan.padsize[1]+M,
-                             plan.padsize[3]+1:plan.padsize[3]+N]),
-    )
+    copyto!(output, (@view plan.workmat[plan.padsize[1] .+ (1:M),
+                                        plan.padsize[3] .+ (1:N)]))
     return output
 end
 
