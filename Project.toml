@@ -1,7 +1,7 @@
 name = "SPECTrecon"
 uuid = "ab1be465-a7f0-4423-9048-0ee774b70ed9"
 authors = ["Zongyu Li and Jeff Fessler and group"]
-version = "0.0.2"
+version = "0.0.3"
 
 [deps]
 AbstractFFTs = "621f4979-c628-5d54-868e-fcf4e3e8185c"
