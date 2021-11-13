@@ -33,21 +33,19 @@ function fft_conv!(
 )
     @boundscheck size(output) == size(img) || throw("size output")
     @boundscheck size(img) == (plan.nx, plan.nz) || throw("size img")
-    @boundscheck size(ker, 1) == plan.nx_psf || throw("size nx_psf")
-    @boundscheck size(ker, 1) == size(ker, 2) || throw("size ker")
+    @boundscheck size(ker) == (plan.px, plan.pz) ||
+        throw("size ker $(size(ker)) $(plan.px) $(plan.pz)")
 
-    # filter the image with a kernel, using replicate padding and fft convolution
+    # filter image with a kernel, using replicate padding and fft convolution
     padrepl!(plan.img_compl, img, plan.padsize)
 
-    pad2sizezero!(plan.ker_compl, ker, size(plan.ker_compl)) # pad the kernel with zeros
+    pad2sizezero!(plan.ker_compl, ker, size(plan.ker_compl)) # zero pad kernel
 
     imfilterz!(plan)
 
     (M, N) = size(img)
-    copyto!(output,
-         (@view plan.workmat[plan.padsize[1]+1:plan.padsize[1]+M,
-                             plan.padsize[3]+1:plan.padsize[3]+N]),
-    )
+    copyto!(output, (@view plan.workmat[plan.padsize[1] .+ (1:M),
+                                        plan.padsize[3] .+ (1:N)]))
     return output
 end
 
@@ -64,8 +62,8 @@ function fft_conv(
 
     ker ≈ reverse(ker, dims=:) || throw("asymmetric kernel")
     nx, nz = size(img)
-    nx_psf = size(ker, 1)
-    plan = plan_psf(nx, nz, nx_psf; T, nthread = 1)[1]
+    px, pz = size(ker)
+    plan = plan_psf( ; nx, nz, px, pz, T, nthread = 1)[1]
     output = similar(Matrix{T}, size(img))
     fft_conv!(output, img, ker, plan)
     return output
@@ -85,8 +83,8 @@ function fft_conv_adj!(
 
     @boundscheck size(output) == size(img) || throw("size output")
     @boundscheck size(img) == (plan.nx, plan.nz) || throw("size img")
-    @boundscheck size(ker, 1) == plan.nx_psf || throw("size nx_psf")
-    @boundscheck size(ker, 1) == size(ker, 2) || throw("size ker")
+    @boundscheck size(ker) == (plan.px, plan.pz) ||
+        throw("size ker $(size(ker)) $(plan.px) $(plan.pz)")
 
     padzero!(plan.img_compl, img, plan.padsize) # pad the image with zeros
     pad2sizezero!(plan.ker_compl, ker, size(plan.ker_compl)) # pad the kernel with zeros
@@ -139,8 +137,8 @@ function fft_conv_adj(
 
     ker ≈ reverse(ker, dims=:) || throw("asymmetric kernel")
     nx, nz = size(img)
-    nx_psf = size(ker, 1)
-    plan = plan_psf(nx, nz, nx_psf; T, nthread = 1)[1]
+    px, pz = size(ker)
+    plan = plan_psf( ; nx, nz, px, pz, T, nthread = 1)[1]
     output = similar(Matrix{T}, size(img))
     fft_conv_adj!(output, img, ker, plan)
     return output
@@ -149,7 +147,7 @@ end
 
 """
     fft_conv!(output, image3, ker3, plans)
-In-place version of convolving a 3D `image3`
+Mutating version of convolving a 3D `image3`
 with a set of 2D symmetric kernels
 stored in 3D array `ker3`
 using `foreach`.
@@ -206,7 +204,7 @@ end
 
 """
     fft_conv_adj2!(output, image2, ker3, plans)
-In-place version of adjoint of convolving a 2D `image2`
+Mutating version of adjoint of convolving a 2D `image2`
 with each 2D kernel in the 3D array `ker3`.
 """
 function fft_conv_adj2!(

@@ -18,17 +18,19 @@ function project!(
     Threads.@threads for z = 1:plan.imgsize[3] # 1:nz
         thid = Threads.threadid() # thread id
         # rotate image in plan.imgr
-        imrotate!((@view plan.imgr[:, :, z]),
-                  (@view image[:, :, z]),
-                  plan.viewangle[viewidx],
-                  plan.planrot[thid],
-                  )
+        imrotate!(
+            (@view plan.imgr[:, :, z]),
+            (@view image[:, :, z]),
+            plan.viewangle[viewidx],
+            plan.planrot[thid],
+        )
         # rotate mumap and store in plan.mumapr
-        imrotate!((@view plan.mumapr[:, :, z]),
-                  (@view plan.mumap[:, :, z]),
-                  plan.viewangle[viewidx],
-                  plan.planrot[thid],
-                  )
+        imrotate!(
+            (@view plan.mumapr[:, :, z]),
+            (@view plan.mumap[:, :, z]),
+            plan.viewangle[viewidx],
+            plan.planrot[thid],
+        )
     end
 
     Threads.@threads for y = 1:plan.imgsize[2] # 1:ny
@@ -47,11 +49,12 @@ function project!(
         # apply depth-dependent attenuation
         mul3dj!(plan.imgr, plan.exp_mumapr[thid], y)
 
-        fft_conv!((@view plan.add_img[:, y, :]),
-                  (@view plan.imgr[:, y, :]),
-                  (@view plan.psfs[:, :, y, viewidx]),
-                  plan.planpsf[thid],
-                  )
+        fft_conv!(
+            (@view plan.add_img[:, y, :]),
+            (@view plan.imgr[:, y, :]),
+            (@view plan.psfs[:, :, y, viewidx]),
+            plan.planpsf[thid],
+        )
     end
 
     copy3dj!(view, plan.add_img, 1) # initialize accumulator
@@ -81,17 +84,19 @@ function project!(
 
     for z = 1:plan.imgsize[3] # 1:nz
         # rotate image in plan.imgr
-        imrotate!((@view plan.imgr[thid][:, :, z]),
-                  (@view image[:, :, z]),
-                  plan.viewangle[viewidx],
-                  plan.planrot[thid],
-                  )
+        imrotate!(
+            (@view plan.imgr[thid][:, :, z]),
+            (@view image[:, :, z]),
+            plan.viewangle[viewidx],
+            plan.planrot[thid],
+        )
         # rotate mumap and store in plan.mumapr
-        imrotate!((@view plan.mumapr[thid][:, :, z]),
-                  (@view plan.mumap[:, :, z]),
-                  plan.viewangle[viewidx],
-                  plan.planrot[thid],
-                  )
+        imrotate!(
+            (@view plan.mumapr[thid][:, :, z]),
+            (@view plan.mumap[:, :, z]),
+            plan.viewangle[viewidx],
+            plan.planrot[thid],
+        )
     end
 
     for y = 1:plan.imgsize[2] # 1:ny
@@ -109,11 +114,12 @@ function project!(
         # apply depth-dependent attenuation
         mul3dj!(plan.imgr[thid], plan.exp_mumapr[thid], y)
 
-        fft_conv!((@view plan.add_img[thid][:, y, :]),
-                  (@view plan.imgr[thid][:, y, :]),
-                  (@view plan.psfs[:, :, y, viewidx]),
-                  plan.planpsf[thid],
-                  )
+        fft_conv!(
+            (@view plan.add_img[thid][:, y, :]),
+            (@view plan.imgr[thid][:, y, :]),
+            (@view plan.psfs[:, :, y, viewidx]),
+            plan.planpsf[thid],
+        )
 
     end
 
@@ -177,17 +183,17 @@ Convenience method for SPECT forward projector that does all allocation
 including initializing `plan`.
 
 In
-* `image` : 3D array `[nx,ny,nz]`
-* `mumap` : `[nx,ny,nz]` 3D attenuation map, possibly zeros()
+* `image` : 3D array `(nx,ny,nz)`
+* `mumap` : `(nx,ny,nz)` 3D attenuation map, possibly zeros()
 * `psfs` : 4D PSF array
 * `dy::RealU` : pixel size
 Option
-* `interpmeth` : :one or :two
+* `interpmeth` : `:one` or `:two`
 """
 function project(
     image::AbstractArray{<:RealU, 3},
-    mumap::AbstractArray{<:RealU, 3}, # [nx,ny,nz] 3D attenuation map
-    psfs::AbstractArray{<:RealU, 4}, # [nx_psf,nx_psf,ny,nview]
+    mumap::AbstractArray{<:RealU, 3}, # (nx,ny,nz) 3D attenuation map
+    psfs::AbstractArray{<:RealU, 4}, # (px,pz,ny,nview)
     dy::RealU;
     interpmeth::Symbol = :two,
     mode::Symbol = :fast,

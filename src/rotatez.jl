@@ -10,7 +10,8 @@ using LinearInterpolators: TwoDimensionalTransformInterpolator
 
 """
     linearinterp!(A, s, e, len)
-Assign key values in `SparseInterpolator` (linear) `A` that are calculated from `s`, `e` and `len`.
+Assign key values in `SparseInterpolator` (linear) `A`
+that are calculated from `s`, `e` and `len`.
 `s` means start (x[1])
 `e` means end (x[end])
 `len` means length (length(x))
@@ -66,7 +67,7 @@ function rotate_x!(
         s = (idx[i] - c_y) * tan_θ + 1
         e = (idx[i] - c_y) * tan_θ + len
         linearinterp!(interp, s, e, len)
-        mul!((@view output[:, i]), interp, (@view img[:, i])) # need mul! to avoid allocating
+        mul!((@view output[:, i]), interp, (@view img[:, i]))
     end
     return output
 end
@@ -90,7 +91,7 @@ function rotate_x_adj!(
         s = (idx[i] - c_y) * tan_θ + 1
         e = (idx[i] - c_y) * tan_θ + len
         linearinterp!(interp, s, e, len)
-        mul!((@view output[:, i]), interp', (@view img[:, i])) # need mul! to avoid allocating
+        mul!((@view output[:, i]), interp', (@view img[:, i]))
     end
     return output
 end
@@ -253,21 +254,23 @@ function imrotate!(
     N = size(img, 1) # M = N!
 
     if θ ≈ m * (π/2)
-        padzero!(plan.workmat2, img, (plan.padsize, plan.padsize, plan.padsize, plan.padsize))
+        padzero!(plan.workmat2, img,
+            (plan.padsize, plan.padsize, plan.padsize, plan.padsize))
         rot_f90!(plan.workmat1, plan.workmat2, m)
     else
         mod_theta = θ - m * (π/2) # make sure it is between -45 and 45 degree
         tan_mod_theta = tan(mod_theta / 2)
         sin_mod_theta = - sin(mod_theta)
-        padzero!(plan.workmat1, img, (plan.padsize, plan.padsize, plan.padsize, plan.padsize))
+        padzero!(plan.workmat1, img,
+            (plan.padsize, plan.padsize, plan.padsize, plan.padsize))
         rot_f90!(plan.workmat2, plan.workmat1, m)
         rotate_x!(plan.workmat1, plan.workmat2, tan_mod_theta, plan.interp)
         rotate_y!(plan.workmat2, plan.workmat1, sin_mod_theta, plan.interp)
         rotate_x!(plan.workmat1, plan.workmat2, tan_mod_theta, plan.interp)
     end
 
-    output .= (@view plan.workmat1[plan.padsize + 1 : plan.padsize + N,
-                                   plan.padsize + 1 : plan.padsize + N])
+    output .= (@view plan.workmat1[plan.padsize .+ (1:N),
+                                   plan.padsize .+ (1:N)])
 
     return output
 end
@@ -297,20 +300,22 @@ function imrotate_adj!(
     N = size(img, 1) # M = N!
 
     if θ ≈ m * (π/2)
-        padzero!(plan.workmat2, img, (plan.padsize, plan.padsize, plan.padsize, plan.padsize))
+        padzero!(plan.workmat2, img,
+            (plan.padsize, plan.padsize, plan.padsize, plan.padsize))
         rot_f90_adj!(plan.workmat1, plan.workmat2, m)
     else
         mod_theta = θ - m * (π/2) # make sure it is between -45 and 45 degree
         tan_mod_theta = tan(mod_theta / 2)
         sin_mod_theta = - sin(mod_theta)
-        padzero!(plan.workmat1, img, (plan.padsize, plan.padsize, plan.padsize, plan.padsize))
+        padzero!(plan.workmat1, img,
+            (plan.padsize, plan.padsize, plan.padsize, plan.padsize))
         rotate_x_adj!(plan.workmat2, plan.workmat1, tan_mod_theta, plan.interp)
         rotate_y_adj!(plan.workmat1, plan.workmat2, sin_mod_theta, plan.interp)
         rotate_x_adj!(plan.workmat2, plan.workmat1, tan_mod_theta, plan.interp)
         rot_f90_adj!(plan.workmat1, plan.workmat2, m) # must be two different arguments
     end
-    output .= (@view plan.workmat1[plan.padsize + 1 : plan.padsize + N,
-                                   plan.padsize + 1 : plan.padsize + N])
+    output .= (@view plan.workmat1[plan.padsize .+ (1:N),
+                                   plan.padsize .+ (1:N)])
     return output
 end
 
@@ -345,11 +350,12 @@ function imrotate!(
     R = c + rotate(2π - θ, AffineTransform2D{T}() - c)
     A = TwoDimensionalTransformInterpolator(rows, cols, ker, R)
 
-    padzero!(plan.workmat1, img, (plan.padsize, plan.padsize, plan.padsize, plan.padsize))
+    padzero!(plan.workmat1, img,
+        (plan.padsize, plan.padsize, plan.padsize, plan.padsize))
     mul!(plan.workmat2, A, plan.workmat1)
 
-    output .= (@view plan.workmat2[plan.padsize + 1 : plan.padsize + N,
-                                   plan.padsize + 1 : plan.padsize + N])
+    output .= (@view plan.workmat2[plan.padsize .+ (1:N),
+                                   plan.padsize .+ (1:N)])
     return output
 end
 
@@ -398,11 +404,12 @@ function imrotate_adj!(
     R = c + rotate(2π - θ, AffineTransform2D{T}() - c)
     A = TwoDimensionalTransformInterpolator(rows, cols, ker, R)
 
-    padzero!(plan.workmat1, img, (plan.padsize, plan.padsize, plan.padsize, plan.padsize))
+    padzero!(plan.workmat1, img,
+        (plan.padsize, plan.padsize, plan.padsize, plan.padsize))
     mul!(plan.workmat2, A', plan.workmat1) # todo: internals of A' ?
 
-    output .= (@view plan.workmat2[plan.padsize + 1 : plan.padsize + N,
-                                   plan.padsize + 1 : plan.padsize + N])
+    output .= (@view plan.workmat2[plan.padsize .+ (1:N),
+                                   plan.padsize .+ (1:N)])
     return output
 end
 

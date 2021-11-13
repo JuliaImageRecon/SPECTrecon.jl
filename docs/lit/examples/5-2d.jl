@@ -1,9 +1,11 @@
 #---------------------------------------------------------
-# # [SPECTrecon overview](@id 1-overview)
+# # [SPECTrecon 2D use](@id 5-2d)
 #---------------------------------------------------------
 
-# This page gives an overview of the Julia package
+# This page describes how to perform 2D SPECT forward and back-projection
+# using the Julia package
 # [`SPECTrecon`](https://github.com/JeffFessler/SPECTrecon.jl).
+
 
 # ### Setup
 
@@ -11,80 +13,55 @@
 
 using SPECTrecon
 using MIRTjim: jim, prompt
+using ImagePhantoms: shepp_logan, SheppLoganEmis
 using LinearAlgebra: mul!
 using LinearMapsAA: LinearMapAA
-using Plots: scatter, plot!, default; default(markerstrokecolor=:auto)
-using Plots # @animate, gif
+using Plots: plot, default; default(markerstrokecolor=:auto)
 
 # The following line is helpful when running this example.jl file as a script;
 # this way it will prompt user to hit a key after each figure is displayed.
 
 isinteractive() ? jim(:prompt, true) : prompt(:draw);
 
+
 # ### Overview
 
-# To perform SPECT image reconstruction,
-# one must have a model for the imaging system
-# encapsulated in a forward projector and back projector.
+# Real SPECT systems are inherently 3D imaging systems,
+# but for the purpose of prototyping algorithms
+# it can be useful to work with 2D simulations.
 
-# Mathematically, we write the forward projection process in SPECT
-# as "y = A * x" where A is a "system matrix"
-# that models the physics of the imaging system
-# (including depth-dependent collimator/detector response
-# and attenuation)
-# and "x" is the current guess of the emission image.
-
-# However, in code we usually cannot literally store "A"
-# as dense matrix because it is too large.
-# A typical size in SPECT is that
-# the image `x` is
-# `nx × ny × nz = 128 × 128 × 100`
-# and the array of projection views `y` is
-# `nx × nz × nview = 128 × 100 × 120`.
-# So the system matrix `A` has `1536000 × 1638400` elements
-# which is far to many to store,
-# even accounting for some sparsity.
-
-# Instead, we write functions called forward projectors
-# that calculate `A * x` "on the fly".
-
-# Similarly, the operation `A' * y`
-# is called "back projection",
-# where `A'` denotes the transpose or "adjoint" of `A`.
+# Currently, "2D" here means a 3D array with `nz=1`,
+# i.e., a single slice.
+# The key to working with a single slice
+# is that the package allows the PSFs
+# to have rectangular support `px × pz`
+# where `pz = 1`, i.e., no blur along the axial (z) direction.
 
 
 # ### Example
 
-# To illustrate forward and back projection,
-# it is easiest to start with a simulation example
-# using a digital phantom.
-# The fancy way would be to use a 3D phantom from
-# [ImagePhantoms](https://github.com/JuliaImageRecon/ImagePhantoms.jl),
-# but instead we just use two simple cubes.
+# Start with a simple 2D digital phantom.
 
-nx,ny,nz = 128,128,80
 T = Float32
-xtrue = zeros(T, nx,ny,nz)
-xtrue[(1nx÷4):(2nx÷3), 1ny÷5:(3ny÷5), 2nz÷6:(3nz÷6)] .= 1
-xtrue[(2nx÷5):(3nx÷5), 1ny÷5:(2ny÷5), 4nz÷6:(5nz÷6)] .= 2
-
-average(x) = sum(x) / length(x)
-function mid3(x::AbstractArray{T,3}) where {T}
-    (nx,ny,nz) = size(x)
-    xy = x[:,:,ceil(Int, nz÷2)]
-    xz = x[:,ceil(Int,end/2),:]
-    zy = x[ceil(Int, nx÷2),:,:]'
-    return [xy xz; zy fill(average(x), nz, nz)]
-end
-jim(mid3(xtrue), "Middle slices of x")
+nx,ny,nz = 128,128,1
+xtrue = T.(shepp_logan(nx, SheppLoganEmis()))
+xtrue = reshape(xtrue, nx, ny, 1) # 3D array with nz=1
+jim(xtrue, "xtrue: SheppLoganEmis with size $(size(xtrue))")
 
 
 # ### PSF
 
 # Create a synthetic depth-dependent PSF for a single view
-px = 11
-psf1 = psf_gauss( ; ny, px, fwhm_end = 6)
-jim(psf1, "PSF for each of $ny planes")
+px,pz = 11,1 # pz=1 is crucial for 2D work
+psf1 = psf_gauss( ; ny, px, pz, fwhm_start = 1, fwhm_end = 4) # (px,pz,ny)
+tmp = reshape(psf1, px, ny) / maximum(psf1) # (px,ny)
+hx = (px-1)÷2
+plot(-hx:hx, tmp[:,[1:9:end-10;end]], markershape=:o, label="",
+    title = "Depth-dependent PSF profiles",
+    xtick = [-hx, -2, 0, 2, hx], # (-1:1) .* ((px-1)÷2),
+    ytick = [0; round.(tmp[hx+1,end] * [0.5,1], digits=2); 0.5; 1],
+)
+prompt()
 
 
 # In general the PSF can vary from view to view
@@ -92,14 +69,9 @@ jim(psf1, "PSF for each of $ny planes")
 # For simplicity, here we illustrate the case
 # where the PSF is the same for every view.
 
-nview = 60
+nview = 80
 psfs = repeat(psf1, 1, 1, 1, nview)
 size(psfs)
-
-
-# Plan the PSF modeling (see `3-psf.jl`)
-
-plan = plan_psf( ; nx, nz, px)
 
 
 # ### Basic SPECT forward projection
@@ -110,13 +82,14 @@ plan = plan_psf( ; nx, nz, px)
 
 dy = 4 # transaxial pixel size in mm
 mumap = zeros(T, size(xtrue)) # μ-map just zero for illustration here
-views = project(xtrue, mumap, psfs, dy)
-size(views)
+views = project(xtrue, mumap, psfs, dy) # [nx,1,nview]
+sino = reshape(views, nx, nview)
+size(sino)
 
 
 # Display the calculated (i.e., simulated) projection views
 
-jim(views[:,:,1:4:end], "Every 4th of $nview projection views")
+jim(sino, "Sinogram")
 
 
 # ### Basic SPECT back projection
@@ -127,17 +100,18 @@ jim(views[:,:,1:4:end], "Every 4th of $nview projection views")
 
 # First, back-project two "rays"
 # to illustrate the depth-dependent PSF.
-tmp = zeros(T, size(views))
-tmp[nx÷2, nz÷2, nview÷5] = 1
-tmp[nx÷2, nz÷2, 1] = 1
-tmp = backproject(tmp, mumap, psfs, dy)
-jim(mid3(tmp), "Back-projection of two rays")
+sino1 = zeros(T, nx, nview)
+sino1[nx÷2, nview÷5] = 1
+sino1[nx÷2, 1] = 1
+sino1 = reshape(sino1, nx, nz, nview)
+back1 = backproject(sino1, mumap, psfs, dy)
+jim(back1, "Back-projection of two rays")
 
 
 # Now back-project all the views of the phantom.
 
 back = backproject(views, mumap, psfs, dy)
-jim(mid3(back), "Back-projection of ytrue")
+jim(back, "Back-projection of ytrue")
 
 
 # ### Memory efficiency
@@ -170,7 +144,7 @@ backproject!(tmp, views, plan)
 @assert tmp == back
 
 
-# ### Using `LinearMapAA`
+# ### Using `LinearMapsAA`
 
 # Calling `project!` and `backproject!` repeatedly
 # leads to application-specific code.
@@ -197,22 +171,11 @@ mul!(tmp, A', views)
 @assert tmp == back
 
 
-# ### Units
+# ### Gram matrix impulse response
 
-# The pixel dimensions `deltas` can (and should!) be values with units.
+points = zeros(T, nx, ny, nz)
+points[nx÷2,ny÷2,1] = 1
+points[3nx÷4,ny÷4,1] = 1
 
-# Here is an example ... (todo)
-#using UnitfulRecipes
-#using Unitful: mm
-
-
-# ### Projection view animation
-
-anim = @animate for i in 1:nview
-    ymax = maximum(views)
-    jim(views[:,:,i],
-        "SPECT projection view $i of $nview",
-        clim = (0, ymax),
-    )
-end
-gif(anim, "views.gif", fps = 8)
+impulse = A' * (A * points)
+jim(impulse, "Impulse response of A'A")

@@ -10,7 +10,7 @@ using Test: @test, @testset, @test_throws, @inferred
 
 
 @testset "plan_psf" begin
-    plan = plan_psf(10, 10, 5)
+    plan = plan_psf( ; nx=10, px=5)
     show(isinteractive() ? stdout : devnull, "text/plain", plan)
     show(isinteractive() ? stdout : devnull, "text/plain", plan[1])
     @test sizeof(plan) isa Int
@@ -32,11 +32,12 @@ end
 @testset "fftconv3" begin
     nx = 12
     nz = 10
-    nx_psf = 5
+    px = 5
+    pz = 3
     T = Float32
-    plan = plan_psf(nx, nz, nx_psf; T)
+    plan = plan_psf( ; nx, nz, px, pz, T)
     image3 = rand(T, nx, nx, nz)
-    ker3 = ones(T, nx_psf, nx_psf, nx) / (nx_psf)^2
+    ker3 = ones(T, px, pz, nx) / (px*pz)
     result = similar(image3)
     fft_conv!(result, image3, ker3, plan)
     @test maximum(result) ≤ 1

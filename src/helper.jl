@@ -8,10 +8,10 @@ using FFTW
 
 
 Power2 = x -> 2^(ceil(Int, log2(x)))
-_padup(nx, nx_psf) = ceil(Int, (Power2(nx + nx_psf - 1) - nx) / 2)
-_paddown(nx, nx_psf) = floor(Int, (Power2(nx + nx_psf - 1) - nx) / 2)
-_padleft(nz, nz_psf) = ceil(Int, (Power2(nz + nz_psf - 1) - nz) / 2)
-_padright(nz, nz_psf) = floor(Int, (Power2(nz + nz_psf - 1) - nz) / 2)
+_padup(nx, px)    =  ceil(Int, (Power2(nx + px - 1) - nx) / 2)
+_paddown(nx, px)  = floor(Int, (Power2(nx + px - 1) - nx) / 2)
+_padleft(nz, pz)  =  ceil(Int, (Power2(nz + pz - 1) - nz) / 2)
+_padright(nz, pz) = floor(Int, (Power2(nz + pz - 1) - nz) / 2)
 
 
 """
@@ -114,8 +114,19 @@ Base.@propagate_inbounds function fftshift2!(
     dst::AbstractMatrix,
     src::AbstractMatrix,
 )
-    @boundscheck (iseven(size(src, 1)) && iseven(size(src, 2))) || throw("odd")
     @boundscheck size(src) == size(dst) || throw("size")
+
+    if size(src,2) == 1
+        @boundscheck iseven(size(src, 1)) || throw("odd $(size(src))")
+        m = size(src,1) ÷ 2
+        for i = 1:m
+            @inbounds dst[i, 1] = src[m+i, 1]
+            @inbounds dst[i+m, 1] = src[i, 1]
+        end
+        return dst
+    end
+
+    @boundscheck (iseven(size(src, 1)) && iseven(size(src, 2))) || throw("odd")
     m, n = div.(size(src), 2)
     for j = 1:n, i = 1:m
         @inbounds dst[i, j] = src[m+i, n+j]
