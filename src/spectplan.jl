@@ -29,34 +29,34 @@ Currently code assumes the following:
 * `psf` is symmetric
 * multiprocessing using # of threads specified by `Threads.nthreads()`
 """
-struct SPECTplan{T}
+struct SPECTplan{T,A2,A3,A4,U}
     T::DataType # default type for work arrays etc.
     imgsize::NTuple{3, Int}
     px::Int
     pz::Int
-    imgr::Union{Array{T, 3}, Vector{Array{T, 3}}} # 3D rotated image, (nx, ny, nz)
-    add_img::Union{Array{T, 3}, Vector{Array{T, 3}}}
-    mumap::Array{T, 3} # [nx,ny,nz] attenuation map, must be 3D, possibly zeros()
-    mumapr::Union{Array{T, 3}, Vector{Array{T, 3}}} # 3D rotated mumap, (nx, ny, nz)
-    exp_mumapr::Vector{Matrix{T}} # 2D exponential rotated mumap, (nx, ny)
-    psfs::Array{T, 4} # PSFs must be 4D, [px, pz, ny, nview], finally be centered psf
+    imgr::U # 3D rotated image, (nx, ny, nz)
+    add_img::U
+    mumap::A3 # [nx,ny,nz] attenuation map, must be 3D, possibly zeros()
+    mumapr::U # 3D rotated mumap, (nx, ny, nz)
+    exp_mumapr::Vector{A2} # 2D exponential rotated mumap, (nx, ny)
+    psfs::A4 # PSFs must be 4D, [px, pz, ny, nview], finally be centered psf
     nview::Int # number of views
     viewangle::StepRangeLen{T}
     interpmeth::Symbol
     mode::Symbol
     dy::T
     nthread::Int # number of threads
-    planrot::Vector{PlanRotate}
+    planrot::Vector{PlanRotate} # todo: concrete?
     planpsf::Vector{PlanPSF}
 
     """
         SPECTplan(mumap, psfs, dy; T, viewangle, interpmeth, nthread, mode)
     """
     function SPECTplan(
-        mumap::Array{<:RealU, 3},
-        psfs::Array{<:RealU, 4},
+        mumap::AbstractArray{<:RealU,3},
+        psfs::AbstractArray{<:RealU,4},
         dy::RealU;
-        T::DataType = promote_type(eltype(mumap), Float32),
+        T::DataType = promote_type(eltype(mumap), eltype(psfs), Float32),
         viewangle::StepRangeLen{<:RealU} = (0:size(psfs, 4) - 1) / size(psfs, 4) * T(2π), # set of view angles
         interpmeth::Symbol = :two, # :one is for 1d interpolation, :two is for 2d interpolation
         nthread::Int = Threads.nthreads(),
@@ -111,7 +111,11 @@ struct SPECTplan{T}
 
         planpsf = plan_psf(; nx, nz, px, pz, nthread, T)
 
-        new{T}(T, # default type for work arrays etc.
+		U = typeof(mumapr)
+		A2 = typeof(mumap[:,:,1])
+		A3 = typeof(mumap)
+		A4 = typeof(psfs)
+        new{T, A2, A3, A4, U}(T, # default type for work arrays etc.
             imgsize,
             px,
             pz,
