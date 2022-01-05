@@ -29,7 +29,7 @@ Currently code assumes the following:
 * `psf` is symmetric
 * multiprocessing using # of threads specified by `Threads.nthreads()`
 """
-struct SPECTplan{T,A2,A3,A4,U}
+struct SPECTplan{T,A2,A3,A4,U,R}
     T::DataType # default type for work arrays etc.
     imgsize::NTuple{3, Int}
     px::Int
@@ -46,8 +46,8 @@ struct SPECTplan{T,A2,A3,A4,U}
     mode::Symbol
     dy::T
     nthread::Int # number of threads
-    planrot::Vector{PlanRotate} # todo: concrete?
-    planpsf::Vector{PlanPSF}
+    planrot::Vector{PlanRotate{T, R, A2}}
+    planpsf::Vector{PlanPSF} # todo: concrete?
 
     """
         SPECTplan(mumap, psfs, dy; T, viewangle, interpmeth, nthread, mode)
@@ -105,17 +105,19 @@ struct SPECTplan{T,A2,A3,A4,U}
             mumapr = Array{T, 3}(undef, nx, ny, nz)
         end
 
+        U = typeof(mumapr)
+        A2 = typeof(mumap[:,:,1])
+        A3 = typeof(mumap)
+        A4 = typeof(psfs)
+
         exp_mumapr = [Matrix{T}(undef, nx, nz) for id = 1:nthread]
 
-        planrot = plan_rotate(nx; T, method = interpmeth)
+        planrot = plan_rotate(nx; T, method = interpmeth, arraytype=A2)
 
         planpsf = plan_psf(; nx, nz, px, pz, nthread, T)
 
-		U = typeof(mumapr)
-		A2 = typeof(mumap[:,:,1])
-		A3 = typeof(mumap)
-		A4 = typeof(psfs)
-        new{T, A2, A3, A4, U}(T, # default type for work arrays etc.
+        new{T, A2, A3, A4, U, RotateMode{interpmeth}}(
+            T, # default type for work arrays etc.
             imgsize,
             px,
             pz,
