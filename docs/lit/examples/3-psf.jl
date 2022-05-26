@@ -64,7 +64,7 @@ jim(image, "Original image")
 
 px = 11
 nview = 1 # for simplicity in this illustration
-psf = repeat(psf_gauss( ; ny, px), 1, 1, 1, nview)
+psf = repeat(psf_gauss( ; ny=nx, px), 1, 1, 1, nview)
 jim(psf, "PSF for each of $nx planes")
 
 
@@ -111,7 +111,7 @@ jim(adj, "Adjoint of PSF modeling")
 using LinearMapsAA: LinearMapAA
 
 nx, nz, px = 10, 7, 5 # small size for illustration
-psf3 = psf_gauss( ; ny, px)
+psf3 = psf_gauss( ; ny=nx, px)
 plan = plan_psf( ; nx, nz, px, T)
 idim = (nx,nx,nz)
 odim = (nx,nx,nz)
