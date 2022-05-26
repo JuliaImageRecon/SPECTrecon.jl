@@ -37,6 +37,4 @@ The forward projection method works as follows.
 The back-projection method is the exact adjoint
 of the forward projector.
 
-See the
-[Examples](@ref 1-overview)
-tab to the left for usage details.
+See the "Examples" for details.
