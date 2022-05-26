@@ -20,7 +20,7 @@ using ZygoteRules
 using Flux
 using LinearMapsAA: LinearMapAA
 using Distributions: Poisson
-
+using BSON: @load, @save
 # The following line is helpful when running this example.jl file as a script;
 # this way it will prompt user to hit a key after each figure is displayed.
 
@@ -225,11 +225,9 @@ end
 ## end
 
 # Uncomment to save your trained model
-## using BSON: @save
 ## @save "../data/trained-cnn-example-6-dl.bson" cnn
 
 # load the pretrained model
-using BSON: @load
 @load "../data/trained-cnn-example-6-dl.bson" cnn
 
 xiter1 = bregem(projectb, backprojectb, ynoisy, scatters,
