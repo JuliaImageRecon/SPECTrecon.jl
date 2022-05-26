@@ -11,14 +11,15 @@
 
 # Packages needed here.
 
-using LinearAlgebra
+using LinearAlgebra: norm, mul!
 using SPECTrecon
 using MIRTjim: jim, prompt
 using Plots: scatter, plot!, default; default(markerstrokecolor=:auto)
 using Zygote
 using ZygoteRules
 using Flux
-
+using LinearMapsAA: LinearMapAA
+using Distributions: Poisson
 
 # The following line is helpful when running this example.jl file as a script;
 # this way it will prompt user to hit a key after each figure is displayed.
@@ -77,8 +78,6 @@ dy = 8 # transaxial pixel size in mm
 mumap = zeros(T, size(xtrue)) # zero μ-map just for illustration here
 plan = SPECTplan(mumap, psfs, dy; T)
 
-using LinearMapsAA: LinearMapAA
-using LinearAlgebra: mul!
 forw! = (y,x) -> project!(y, x, plan)
 back! = (x,y) -> backproject!(x, y, plan)
 idim = (nx,ny,nz)
@@ -86,7 +85,6 @@ odim = (nx,nz,nview)
 A = LinearMapAA(forw!, back!, (prod(odim),prod(idim)); T, odim, idim)
 
 # Generate noisy data
-using Distributions: Poisson
 
 if !@isdefined(ynoisy) # generate (scaled) Poisson data
     ytrue = A * xtrue
@@ -128,7 +126,7 @@ end
 
 # Define evaluation metric
 nrmse(x) = round(100 * norm(mid3(x) - mid3(xtrue)) / norm(mid3(xtrue)); digits=1)
-jim(mid3(xhat1), "NRMSE="*string(nrmse(xhat1))*"%")
+jim(mid3(xhat1), "NRMSE=$(nrmse(xhat1))%")
 
 
 # ### Implement a CNN denoiser
@@ -172,15 +170,17 @@ Backpropagatable regularized EM reconstruction with CNN regularization
 -`β`: regularization parameter
 -`niter`: number of iteration for inner EM
 """
-function bregem(projectb::Function,
-                backprojectb::Function,
-                y::AbstractArray,
-                r::AbstractArray,
-                Asum::AbstractArray,
-                x::AbstractArray,
-                cnn::Chain,
-                β::Real;
-                niter::Int = 1)
+function bregem(
+    projectb::Function,
+    backprojectb::Function,
+    y::AbstractArray,
+    r::AbstractArray,
+    Asum::AbstractArray,
+    x::AbstractArray,
+    cnn::Chain,
+    β::Real;
+    niter::Int = 1,
+)
 
     u = cnn(unsqueeze45(x))[:,:,:,1,1]
     Asumu = Asum - β * u
@@ -237,8 +237,11 @@ xiter1 = bregem(projectb, backprojectb, ynoisy, scatters,
 xiter2 = bregem(projectb, backprojectb, ynoisy, scatters,
 				Asum, xiter1, cnn, β; niter = 1)
 
-jim(jim(mid3(xtrue), "xtrue", clim = (0,2)),
-	jim(mid3(xhat1), "EM recon, NRMSE = "*string(nrmse(xhat1))*"%", clim = (0,2)),
-	jim(mid3(xiter1), "Iter 1, NRMSE = "*string(nrmse(xiter1))*"%", clim = (0,2)),
-	jim(mid3(xiter2), "Iter 2, NRMSE = "*string(nrmse(xiter2))*"%", clim = (0,2)),
-	xlims = (1, 114))
+clim = (0,2)
+jim(
+    jim(mid3(xtrue), "xtrue"; clim),
+    jim(mid3(xhat1), "EM recon, NRMSE = $(nrmse(xhat1))%"; clim),
+    jim(mid3(xiter1), "Iter 1, NRMSE = $(nrmse(xiter1))%"; clim),
+    jim(mid3(xiter2), "Iter 2, NRMSE = $(nrmse(xiter2))%"; clim),
+    xlims = (1, 114),
+)
