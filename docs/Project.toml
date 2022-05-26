@@ -1,7 +1,9 @@
 [deps]
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+Flux = "587475ba-b771-5e3f-ad9e-33799f191a9c"
 ImagePhantoms = "71a99df6-f52c-4da1-bd2a-69d6f37f3252"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 LinearMapsAA = "599c1a8e-b958-11e9-0d14-b1e6b2ecea07"
 Literate = "98b081ad-f1c9-55d3-8b20-4c87d4299306"
 MIRTjim = "170b2178-6dee-4cb0-8729-b3e8b57834cc"
@@ -9,6 +11,8 @@ Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 SPECTrecon = "ab1be465-a7f0-4423-9048-0ee774b70ed9"
 Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 UnitfulRecipes = "42071c24-d89e-48dd-8a24-8a12d9b8861f"
+Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
+ZygoteRules = "700de1a5-db45-46bc-99cf-38207098b444"
 
 [compat]
 Distributions = "0.25"
