@@ -204,7 +204,7 @@ function loss(xrecon, xtrue)
 				    Asum, xrecon, cnn, β; niter = 1)
     xiter2 = bregem(projectb, backprojectb, ynoisy, scatters,
 				    Asum, xiter1, cnn, β; niter = 1)
-    return sum((xiter2 .- xtrue).^2)
+    return sum(abs2, xiter2 - xtrue)
 end
 
 # Initial loss
@@ -212,21 +212,21 @@ end
 
 # ### Train the CNN
 # Uncomment the following code to train!
-#using Printf
-#nepoch = 200
-#for e = 1:nepoch
-#@printf("epoch = %d, loss = %.2f\n", e, loss(xhat1, xtrue))
-#ps = Flux.params(cnn)
-#gs = gradient(ps) do
-#loss(xhat1, xtrue) # we start with the 30 iteration EM reconstruction
-#end
-#opt = ADAMW(0.002)
-#Flux.Optimise.update!(opt, ps, gs)
-#end
+## using Printf
+## nepoch = 200
+## for e = 1:nepoch
+##     @printf("epoch = %d, loss = %.2f\n", e, loss(xhat1, xtrue))
+##	   ps = Flux.params(cnn)
+##     gs = gradient(ps) do
+##         loss(xhat1, xtrue) # we start with the 30 iteration EM reconstruction
+##     end
+##     opt = ADAMW(0.002)
+##     Flux.Optimise.update!(opt, ps, gs)
+## end
 
 # Uncomment to save your trained model
-#using BSON: @save
-#@save "../data/trained-cnn-example-6-dl.bson" cnn
+## using BSON: @save
+## @save "../data/trained-cnn-example-6-dl.bson" cnn
 
 # load the pretrained model
 using BSON: @load
