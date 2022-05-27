@@ -2,9 +2,24 @@
 # # [SPECTrecon deep learning use](@id 6-dl)
 #---------------------------------------------------------
 
-# This page describes how to end-to-end train unrolled deep learning algorithms
-# using the Julia package
-# [`SPECTrecon`](https://github.com/JeffFessler/SPECTrecon.jl).
+#=
+This page describes how to end-to-end train unrolled deep learning algorithms
+using the Julia package
+[`SPECTrecon`](https://github.com/JeffFessler/SPECTrecon.jl).
+
+This page was generated from a single Julia file:
+[6-dl.jl](@__REPO_ROOT_URL__/6-dl.jl).
+=#
+
+#md # In any such Julia documentation,
+#md # you can access the source code
+#md # using the "Edit on GitHub" link in the top right.
+
+#md # The corresponding notebook can be viewed in
+#md # [nbviewer](http://nbviewer.jupyter.org/) here:
+#md # [`6-dl.ipynb`](@__NBVIEWER_ROOT_URL__/6-dl.ipynb),
+#md # and opened in [binder](https://mybinder.org/) here:
+#md # [`6-dl.ipynb`](@__BINDER_ROOT_URL__/6-dl.ipynb).
 
 
 # ### Setup
@@ -23,6 +38,7 @@ using NNlib # seems to be needed for BSON load; why?
 using LinearMapsAA: LinearMapAA
 using Distributions: Poisson
 using BSON: @load, @save
+using InteractiveUtils: versioninfo
 
 # The following line is helpful when running this example.jl file as a script;
 # this way it will prompt user to hit a key after each figure is displayed.
