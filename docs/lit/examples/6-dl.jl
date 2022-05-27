@@ -265,8 +265,10 @@ end
 # Uncomment to save your trained model.
 ## @save "../data/trained-cnn-example-6-dl.bson" cnn
 
+@info pwd()
+
 # Load the pretrained model.
-@load "../data/trained-cnn-example-6-dl.bson" cnn
+@load "../../data/trained-cnn-example-6-dl.bson" cnn
 
 xiter1 = bregem(projectb, backprojectb, ynoisy, scatters,
                 Asum, xhat1, cnn, β; niter = 1)
