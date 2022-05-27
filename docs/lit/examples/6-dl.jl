@@ -264,3 +264,15 @@ jim(
     jim(mid3(xiter1), "Iter 1, NRMSE = $(nrmse(xiter1))%"; clim),
     jim(mid3(xiter2), "Iter 2, NRMSE = $(nrmse(xiter2))%"; clim),
 )
+
+
+# ### Reproducibility
+
+# This page was generated with the following version of Julia:
+
+io = IOBuffer(); versioninfo(io); split(String(take!(io)), '\n')
+
+
+# And with the following package versions
+
+import Pkg; Pkg.status()
