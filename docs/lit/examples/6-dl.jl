@@ -158,13 +158,14 @@ jim(mid3(xhat1), "MLEM NRMSE=$(nrmse(xhat1))%") # display ML-EM reconstructed im
 
 # ### Implement a 3D CNN denoiser
 
-cnn = Chain(Conv((3,3,3), 1 => 4, relu; stride = 1, pad = SamePad(), bias = true),
-            Conv((3,3,3), 4 => 4, relu; stride = 1, pad = SamePad(), bias = true),
-            Conv((3,3,3), 4 => 1; stride = 1, pad = SamePad(), bias = true))
-# show how many parameters the CNN has
+cnn = Chain(
+    Conv((3,3,3), 1 => 4, relu; stride = 1, pad = SamePad(), bias = true),
+    Conv((3,3,3), 4 => 4, relu; stride = 1, pad = SamePad(), bias = true),
+    Conv((3,3,3), 4 => 1; stride = 1, pad = SamePad(), bias = true),
+)
+# Show how many parameters the CNN has
 paramCount = sum([sum(length, params(layer)) for layer in cnn])
 
-prompt()
 
 
 #=
@@ -265,11 +266,18 @@ end
 # Uncomment to save your trained model.
 ## @save "../data/trained-cnn-example-6-dl.bson" cnn
 
-@info pwd()
+# Locate the pre-trained model.
+function finddata() # find path to "data/"
+   p = splitpath(pwd())
+   i = findfirst(p .== "SPECTrecon")
+   return joinpath(p[1:i]..., "data")
+end
+file = joinpath(finddata(), "trained-cnn-example-6-dl.bson")
 
-# Load the pretrained model.
-@load "../../data/trained-cnn-example-6-dl.bson" cnn
+# Load the pre-trained model.
+@load file cnn
 
+# Perform recon with pre-trained model.
 xiter1 = bregem(projectb, backprojectb, ynoisy, scatters,
                 Asum, xhat1, cnn, β; niter = 1)
 xiter2 = bregem(projectb, backprojectb, ynoisy, scatters,
