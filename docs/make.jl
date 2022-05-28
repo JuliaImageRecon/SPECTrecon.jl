@@ -26,6 +26,8 @@ binder_root_url =
 repo = eval(:($reps))
 DocMeta.setdocmeta!(repo, :DocTestSetup, :(using $reps); recursive=true)
 
+#ENV["JULIA_DEBUG"] = "Literate"
+
 for (root, _, files) in walkdir(lit), file in files
     splitext(file)[2] == ".jl" || continue # process .jl files only
     ipath = joinpath(root, file)
