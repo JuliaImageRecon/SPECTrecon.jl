@@ -37,6 +37,7 @@ using Flux # apparently needed for BSON @load
 using LinearMapsAA: LinearMapAA
 using Distributions: Poisson
 using BSON: @load, @save
+import BSON # load
 using InteractiveUtils: versioninfo
 
 # The following line is helpful when running this example.jl file as a script;
@@ -130,7 +131,9 @@ function mlem!(x, ynoisy, background, A; niter::Int = 20)
     back = similar(x)
     time0 = time()
     for iter = 1:niter
-        @show iter, extrema(x), time() - time0
+        if isinteractive()
+            @show iter, extrema(x), time() - time0
+        end
         mul!(ybar, A, x)
         @. yratio = ynoisy / (ybar + background) # coalesce broadcast!
         mul!(back, A', yratio) # back = A' * (ynoisy / ybar)
@@ -263,18 +266,18 @@ end
 ## end
 
 # Uncomment to save your trained model.
-## @save "../data/trained-cnn-example-6-dl.bson" cnn
+## file = "../data/trained-cnn-example-6-dl.bson" # adjust path/name as needed
+## @save file cnn
 
-# Locate the pre-trained model.
-function finddata() # find path to "data/"
-   p = splitpath(pwd())
-   i = findfirst(p .== "SPECTrecon")
-   return joinpath(p[1:i]..., "data")
-end
-file = joinpath(finddata(), "trained-cnn-example-6-dl.bson")
+# Load the pre-trained model (uncomment if you save your own model).
+## @load file cnn
 
-# Load the pre-trained model.
-@load file cnn
+# For the web version, load pre-trained model from this url:
+url = "https://github.com/JeffFessler/SPECTrecon.jl/blob/main/data/trained-cnn-example-6-dl.bson?raw=true"
+tmp = tempname()
+download(url, tmp)
+cnn = BSON.load(tmp)[:cnn]
+
 
 # Perform recon with pre-trained model.
 xiter1 = bregem(projectb, backprojectb, ynoisy, scatters,
