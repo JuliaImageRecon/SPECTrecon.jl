@@ -40,6 +40,7 @@ using Distributions: Poisson
 using BSON: @load, @save
 import BSON # load
 using InteractiveUtils: versioninfo
+using Downloads: download
 
 # The following line is helpful when running this example.jl file as a script;
 # this way it will prompt user to hit a key after each figure is displayed.
@@ -302,7 +303,7 @@ jim(
     jim(mid3(xhat1), "EM recon, NRMSE = $(nrmse(xhat1))%"; clim),
     jim(mid3(xiter1), "Iter 1, NRMSE = $(nrmse(xiter1))%"; clim),
     jim(mid3(xiter2), "Iter 2, NRMSE = $(nrmse(xiter2))%"; clim),
-)
+    )
 
 #=
 For the web-based Documenter/Literate version,

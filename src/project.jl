@@ -148,13 +148,13 @@ function project!(
 
     # loop over each view index
     if plan.mode === :fast
-        Threads.@threads for i in index
+        Threads.@threads for (i, viewidx) in collect(enumerate(index))
             thid = Threads.threadid()
-            project!((@view views[:,:,i]), image, plan, thid, i)
+            project!((@view views[:,:,i]), image, plan, thid, viewidx)
         end
     else
-        for i in index
-            project!((@view views[:,:,i]), image, plan, i)
+        for (i, viewidx) in collect(enumerate(index))
+            project!((@view views[:,:,i]), image, plan, viewidx)
         end
     end
 

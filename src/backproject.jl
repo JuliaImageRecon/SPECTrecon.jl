@@ -139,17 +139,17 @@ function backproject!(
     image .= zero(plan.T) # must be initialized as zero
     if plan.mode === :fast
         [plan.add_img[i] .= zero(plan.T) for i = 1:plan.nthread]
-        Threads.@threads for i in index
+        Threads.@threads for (i, viewidx) in collect(enumerate(index))
             thid = Threads.threadid()
-            backproject!(plan.add_img[thid], (@view views[:, :, i]), plan, thid, i)
+            backproject!(plan.add_img[thid], (@view views[:, :, i]), plan, thid, viewidx)
         end
 
         for i = 1:plan.nthread
             broadcast!(+, image, image, plan.add_img[i])
         end
     else
-        for i in index
-            backproject!(plan.add_img, (@view views[:, :, i]), plan, i)
+        for (i, viewidx) in collect(enumerate(index))
+            backproject!(plan.add_img, (@view views[:, :, i]), plan, viewidx)
             broadcast!(+, image, image, plan.add_img)
         end
     end
