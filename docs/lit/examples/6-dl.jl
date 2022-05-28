@@ -52,8 +52,8 @@ isinteractive() ? jim(:prompt, true) : prompt(:draw);
 
 Regularized expectation-maximization (reg-EM)
 is a commonly used algorithm for performing SPECT image reconstruction.
-This page considers regularizers of the form β/2 * ||x - u||^2,
-where u is an auxiliary variable that often refers to the image denoised by a CNN.
+This page considers regularizers of the form ``β/2 * ||x - u||^2``,
+where ``u`` is an auxiliary variable that often refers to the image denoised by a CNN.
 
 ### Data generation
 
@@ -190,7 +190,8 @@ backprojectb(y) = A' * y
 
 
 # ### Backpropagatable regularized EM algorithm
-# First define a function for unsqueezing the data todo: explain more
+# First define a function for unsqueezing the data
+# because Flux CNN model expects a 5-dim tensor
 function unsqueeze45(x)
     return unsqueeze(unsqueeze(x, 4), 5)
 end
