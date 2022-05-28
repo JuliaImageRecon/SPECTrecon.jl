@@ -100,7 +100,7 @@ function mlem(x0, ynoisy, background, A; niter::Int = 20)
     all(>(0), background) || throw("need background > 0")
     x = copy(x0)
     asum = A' * ones(eltype(ynoisy), size(ynoisy))
-	time0 = time()
+    time0 = time()
     for iter = 1:niter
         @show iter, extrema(x), time() - time0
         ybar = A * x .+ background # forward model
@@ -119,7 +119,7 @@ function mlem!(x, ynoisy, background, A; niter::Int = 20)
     ybar = similar(ynoisy)
     yratio = similar(ynoisy)
     back = similar(x)
-	time0 = time()
+    time0 = time()
     for iter = 1:niter
         @show iter, extrema(x), time() - time0
         mul!(ybar, A, x)
