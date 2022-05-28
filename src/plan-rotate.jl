@@ -36,18 +36,19 @@ Struct for storing work arrays and factors for 2D square image rotation for one 
 - `workmat2 [nx + 2 * padsize, nx + 2 * padsize]` padded work matrix
 - `interp::SparseInterpolator{T, 2, 1}`
 """
-struct PlanRotate{T, R}
+struct PlanRotate{T, R, A2}
     nx::Int
 #   method::Symbol
     padsize::Int
-    workmat1::Matrix{T}
-    workmat2::Matrix{T}
+    workmat1::A2
+    workmat2::A2
     interp::SparseInterpolator{T, 2, 1}
 
     function PlanRotate(
         nx::Int ;
         T::DataType = Float32,
         method::Symbol = :two, # :one is for 1d interpolation, :two is for 2d interpolation
+        arraytype::DataType = Matrix{T},
     )
 
         (method == :one || method == :two) || @warn("method $method") # check interp method
@@ -66,7 +67,7 @@ struct PlanRotate{T, R}
 
         interp = SparseInterpolator(LinearSpline(T), zeros(T, size(workmat1, 1)), size(workmat1, 1))
 
-        new{T, RotateMode{method}}(
+        new{T, RotateMode{method}, arraytype}(
             nx,
             padsize,
             workmat1,
@@ -98,8 +99,9 @@ function plan_rotate(
     T::DataType = Float32,
     method::Symbol = :two,
     nthread::Int = Threads.nthreads(),
+    arraytype::DataType = Matrix{T},
 )
-    return [PlanRotate(nx; T, method) for id = 1:nthread]
+    return [PlanRotate(nx; T, method, arraytype) for id = 1:nthread]
 end
 
 
