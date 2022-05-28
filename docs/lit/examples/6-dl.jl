@@ -33,8 +33,7 @@ using Plots: default; default(markerstrokecolor=:auto)
 using Zygote
 using ZygoteRules: @adjoint
 using Flux: Chain, Conv, SamePad, relu, params, unsqueeze
-using Flux # seems to be needed for BSON load; why?
-using NNlib # seems to be needed for BSON load; why?
+using Flux # apparently needed for BSON @load
 using LinearMapsAA: LinearMapAA
 using Distributions: Poisson
 using BSON: @load, @save
