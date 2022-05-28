@@ -34,6 +34,7 @@ using Zygote
 using ZygoteRules: @adjoint
 using Flux: Chain, Conv, SamePad, relu, params, unsqueeze
 using Flux # apparently needed for BSON @load
+using NNlib
 using LinearMapsAA: LinearMapAA
 using Distributions: Poisson
 using BSON: @load, @save
@@ -155,7 +156,8 @@ end;
 
 # Define evaluation metric
 nrmse(x) = round(100 * norm(mid3(x) - mid3(xtrue)) / norm(mid3(xtrue)); digits=1)
-jim(mid3(xhat1), "MLEM NRMSE=$(nrmse(xhat1))%") # display ML-EM reconstructed image
+prompt()
+## jim(mid3(xhat1), "MLEM NRMSE=$(nrmse(xhat1))%") # display ML-EM reconstructed image
 
 
 # ### Implement a 3D CNN denoiser
@@ -214,7 +216,7 @@ function bregem(
     r::AbstractArray,
     Asum::AbstractArray,
     x::AbstractArray,
-    cnn::Chain,
+    cnn::Union{Chain,Function},
     β::Real;
     niter::Int = 1,
 )
@@ -250,7 +252,6 @@ end
 # Initial loss
 @show loss(xhat1, xtrue)
 
-
 # ### Train the CNN
 # Uncomment the following code to train!
 ## using Printf
@@ -272,12 +273,21 @@ end
 # Load the pre-trained model (uncomment if you save your own model).
 ## @load file cnn
 
-# For the web version, load pre-trained model from this url:
-url = "https://github.com/JeffFessler/SPECTrecon.jl/blob/main/data/trained-cnn-example-6-dl.bson?raw=true"
-tmp = tempname()
-download(url, tmp)
-cnn = BSON.load(tmp)[:cnn]
+#=
+The code below here works fine when run via `include` from the REPL,
+but it fails with the error `UndefVarError: NNlib not defined`
+on the `BSON.load` step when run via Literate/Documenter.
+So for now it is just fenced off with `isinteractive()`.
+=#
 
+if isinteractive()
+    url = "https://github.com/JeffFessler/SPECTrecon.jl/blob/main/data/trained-cnn-example-6-dl.bson?raw=true"
+    tmp = tempname()
+    download(url, tmp)
+    cnn = BSON.load(tmp)[:cnn]
+else
+    cnn = x -> x # fake "do-nothing CNN" for Literate/Documenter version
+end
 
 # Perform recon with pre-trained model.
 xiter1 = bregem(projectb, backprojectb, ynoisy, scatters,
@@ -292,6 +302,19 @@ jim(
     jim(mid3(xiter1), "Iter 1, NRMSE = $(nrmse(xiter1))%"; clim),
     jim(mid3(xiter2), "Iter 2, NRMSE = $(nrmse(xiter2))%"; clim),
 )
+
+#=
+For the web-based Documenter/Literate version,
+the three NRMSE values will be the same
+because of the "do-nothing" CNN above.
+But if you download this file and run it locally,
+then you will see that the CNN reduces the NRMSE.
+
+A more thorough investigation
+would compare the CNN approach
+to a suitably optimized regularized approach;
+see [http://doi.org/10.1109/EMBC46164.2021.9630985](http://doi.org/10.1109/EMBC46164.2021.9630985).
+=#
 
 
 # ### Reproducibility
