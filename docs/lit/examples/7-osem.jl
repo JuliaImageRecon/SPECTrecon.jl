@@ -49,7 +49,7 @@ jim(mid3(xtrue), "Middle slices of xtrue")
 # Create a synthetic depth-dependent PSF for a single view
 px = 11
 psf1 = psf_gauss( ; ny, px)
-jim(psf1, "PSF for each of $ny planes")
+jim(psf1, "PSF for each of $ny planes"; ratio=1)
 
 
 # In general the PSF can vary from view to view
