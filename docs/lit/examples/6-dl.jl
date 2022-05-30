@@ -285,7 +285,7 @@ So for now it is just fenced off with `isinteractive()`.
 if isinteractive()
     url = "https://github.com/JeffFessler/SPECTrecon.jl/blob/main/data/trained-cnn-example-6-dl.bson?raw=true"
     tmp = tempname()
-    download(url, tmp)
+    Downloads.download(url, tmp)
     cnn = BSON.load(tmp)[:cnn]
 else
     cnn = x -> x # fake "do-nothing CNN" for Literate/Documenter version
