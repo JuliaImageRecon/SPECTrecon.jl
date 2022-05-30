@@ -115,15 +115,15 @@ function osem(x0, ynoisy, background, Ab; niter::Int = 16)
 	nblocks = length(Ab)
 	asum = Vector{Array{eltype(ynoisy), 3}}(undef, nblocks)
 	for nb = 1:nblocks
-		asum[nb] = Ab[nb]' * ones(eltype(ynoisy), nx, nz, nview÷nblocks)
+	    asum[nb] = Ab[nb]' * ones(eltype(ynoisy), nx, nz, nview÷nblocks)
 	end
 	time0 = time()
     for iter = 1:niter
-		for nb = 1:nblocks
-			@show iter, nb, extrema(x), time() - time0
-			ybar = Ab[nb] * x .+ (@view background[:,:,nb:nblocks:nview]) # forward model
-			x .*= (Ab[nb]' * ((@view ynoisy[:,:,nb:nblocks:nview]) ./ ybar)) ./ asum[nb] # multiplicative update
-		end
+	for nb = 1:nblocks
+	    @show iter, nb, extrema(x), time() - time0
+	    ybar = Ab[nb] * x .+ (@view background[:,:,nb:nblocks:nview]) # forward model
+	    x .*= (Ab[nb]' * ((@view ynoisy[:,:,nb:nblocks:nview]) ./ ybar)) ./ asum[nb] # multiplicative update
+	end
     end
     return x
 end
@@ -137,21 +137,21 @@ function osem!(x, ynoisy, background, Ab; niter::Int = 16)
 	nblocks = length(Ab)
 	asum = Vector{Array{eltype(ynoisy), 3}}(undef, nblocks)
 	for nb = 1:nblocks
-		asum[nb] = Ab[nb]' * ones(eltype(ynoisy), nx, nz, nview÷nblocks)
+	    asum[nb] = Ab[nb]' * ones(eltype(ynoisy), nx, nz, nview÷nblocks)
 	end
     ybar = Array{eltype(ynoisy)}(undef, nx, nz, nview÷nblocks)
     yratio = similar(ybar)
     back = similar(x)
 	time0 = time()
     for iter = 1:niter
-		for nb = 1:nblocks
-			@show iter, nb, extrema(x), time() - time0
-			mul!(ybar, Ab[nb], x)
-	        @. yratio = (@view ynoisy[:,:,nb:nblocks:nview]) /
-						(ybar + (@view background[:,:,nb:nblocks:nview]))
-	        mul!(back, Ab[nb]', yratio) # back = A' * (ynoisy / ybar)
-	        @. x *= back / asum[nb] # multiplicative update
-		end
+        for nb = 1:nblocks
+	    @show iter, nb, extrema(x), time() - time0
+	    mul!(ybar, Ab[nb], x)
+	    @. yratio = (@view ynoisy[:,:,nb:nblocks:nview]) /
+			(ybar + (@view background[:,:,nb:nblocks:nview]))
+	    mul!(back, Ab[nb]', yratio) # back = A' * (ynoisy / ybar)
+	    @. x *= back / asum[nb] # multiplicative update
+	end
     end
     return x
 end
@@ -201,4 +201,4 @@ if !@isdefined(xhat3)
 end
 
 jim(jim(mid3(xhat2), "OS-EM at $niter iterations"),
-	jim(mid3(xhat3), "ML-EM at $niter_mlem iterations"))
+    jim(mid3(xhat3), "ML-EM at $niter_mlem iterations"))
