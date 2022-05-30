@@ -303,7 +303,7 @@ jim(
     jim(mid3(xhat1), "EM recon, NRMSE = $(nrmse(xhat1))%"; clim),
     jim(mid3(xiter1), "Iter 1, NRMSE = $(nrmse(xiter1))%"; clim),
     jim(mid3(xiter2), "Iter 2, NRMSE = $(nrmse(xiter2))%"; clim),
-    )
+)
 
 #=
 For the web-based Documenter/Literate version,
