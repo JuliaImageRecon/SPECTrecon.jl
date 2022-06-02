@@ -89,6 +89,7 @@ jim(ynoisy, "$nview noisy projection views")
 
 # Generating a vector of linear maps that shares the plan for memory efficiency
 function Ablock(plan::SPECTplan, nblocks::Int)
+    nx, ny, nz = size(plan.mumap)
     nview = plan.nview
     @assert rem(nview, nblocks) == 0 || throw("nview must be divisible by nblocks!")
     Ab = Vector{LinearMapAO}(undef, nblocks)
