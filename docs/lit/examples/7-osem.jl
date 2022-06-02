@@ -117,6 +117,7 @@ function osem(x0, ynoisy, background, Ab; niter::Int = 16)
 	asum = Vector{Array{eltype(ynoisy), 3}}(undef, nblocks)
 	for nb = 1:nblocks
 	    asum[nb] = Ab[nb]' * ones(eltype(ynoisy), nx, nz, nview÷nblocks)
+	    (asum[nb])[(asum[nb] .== 0)] .= Inf # avoid divide by zero
 	end
 	time0 = time()
     for iter = 1:niter
