@@ -16,5 +16,6 @@ module SPECTrecon
     include("spectplan.jl")
     include("project.jl")
     include("backproject.jl")
+    include("ml-os-em.jl")
 
 end # module

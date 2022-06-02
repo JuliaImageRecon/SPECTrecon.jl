@@ -100,6 +100,7 @@ function mlem(x0, ynoisy, background, A; niter::Int = 20)
     all(>(0), background) || throw("need background > 0")
     x = copy(x0)
     asum = A' * ones(eltype(ynoisy), size(ynoisy))
+    asum[(asum .== 0)] .= Inf # avoid divide by zero
     time0 = time()
     for iter = 1:niter
         @show iter, extrema(x), time() - time0
@@ -116,6 +117,7 @@ end
 function mlem!(x, ynoisy, background, A; niter::Int = 20)
     all(>(0), background) || throw("need background > 0")
     asum = A' * ones(eltype(ynoisy), size(ynoisy)) # this allocates
+    asum[(asum .== 0)] .= Inf # avoid divide by zero
     ybar = similar(ynoisy)
     yratio = similar(ynoisy)
     back = similar(x)
