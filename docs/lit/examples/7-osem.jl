@@ -82,8 +82,8 @@ if !@isdefined(ynoisy) # generate (scaled) Poisson data
     scale = target_mean / average(ytrue)
     scatter_fraction = 0.1 # 10% uniform scatter for illustration
     scatter_mean = scatter_fraction * average(ytrue) # uniform for simplicity
-	background = scatter_mean * ones(T,nx,nz,nview)
-    ynoisy = rand.(Poisson.(scale * (ytrue .+ scatter_mean))) / scale
+    background = scatter_mean * ones(T,nx,nz,nview)
+    ynoisy = rand.(Poisson.(scale * (ytrue + background))) / scale
 end
 jim(ynoisy, "$nview noisy projection views")
 

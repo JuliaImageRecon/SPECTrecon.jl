@@ -35,8 +35,9 @@ using Test: @test, @testset
     scale = target_mean / average(ytrue)
     scatter_fraction = 0.1 # 10% uniform scatter for illustration
     scatter_mean = scatter_fraction * average(ytrue) # uniform for simplicity
-    ynoisy = rand.(Poisson.(scale * (ytrue .+ scatter_mean))) / scale
-    background = scatter_mean * ones(T, nx, nz, nview) # uniform scatter estimation
+    background = scatter_mean * ones(T, nx, nz, nview) # uniform scatter
+    ynoisy = rand.(Poisson.(scale * (ytrue + background))) / scale
+
     x0 = ones(T, nx, ny, nz) # initial uniform image
     nblocks = 4
     niter = 10
