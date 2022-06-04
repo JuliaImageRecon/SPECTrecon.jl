@@ -138,4 +138,4 @@ OS-EM algorithm for SPECT reconstruction.
 - `Ab`: Vector of system matrix
 - `niter`: Number of iterations
 """
-osem(x0::AbstractArray, args..., kwargs...) = osem!(similar(x0), x0, args...; kwargs...)
+osem(x0::AbstractArray, args...; kwargs...) = osem!(similar(x0), x0, args...; kwargs...)
