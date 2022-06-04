@@ -24,6 +24,9 @@ The examples include an illustration
 of how to integrate deep learning
 into SPECT reconstruction.
 
+For a GPU-focused version, see
+[CuSPECTrecon.jl](https://github.com/JuliaImageRecon/CuSPECTrecon.jl).
+
 Designed for use with the
 [Michigan Image Reconstruction Toolbox (MIRT)](https://github.com/JeffFessler/MIRT.jl)
 or similar frameworks.
