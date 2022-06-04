@@ -56,7 +56,7 @@ ML-EM algorithm for emission tomography image reconstruction.
 - `A`: System matrix
 - `niter`: Number of iterations
 """
-mlem(x0::AbstractArray, args...; kwargs...) = mlem!(similar(x0), args...; kwargs...)
+mlem(x0::AbstractArray, args...; kwargs...) = mlem!(similar(x0), x0, args...; kwargs...)
 
 
 """
