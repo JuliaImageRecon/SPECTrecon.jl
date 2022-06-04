@@ -40,6 +40,7 @@ using Distributions: Poisson
 using BSON: @load, @save
 import BSON # load
 using InteractiveUtils: versioninfo
+using Downloads: download
 
 # The following line is helpful when running this example.jl file as a script;
 # this way it will prompt user to hit a key after each figure is displayed.
@@ -118,40 +119,20 @@ if !@isdefined(ynoisy) # generate (scaled) Poisson data
     scale = target_mean / average(ytrue)
     scatter_fraction = 0.1 # 10% uniform scatter for illustration
     scatter_mean = scatter_fraction * average(ytrue) # uniform for simplicity
-    ynoisy = rand.(Poisson.(scale * (ytrue .+ scatter_mean))) / scale
+    background = scatter_mean * ones(T,nx,nz,nview)
+    ynoisy = rand.(Poisson.(scale * (ytrue + background))) / scale
 end
 jim(ynoisy, "$nview noisy projection views"; ncol=10)
 
 
 # ### ML-EM algorithm
-function mlem!(x, ynoisy, background, A; niter::Int = 20)
-    all(>(0), background) || throw("need background > 0")
-    asum = A' * ones(eltype(ynoisy), size(ynoisy)) # this allocates
-    ybar = similar(ynoisy)
-    yratio = similar(ynoisy)
-    back = similar(x)
-    time0 = time()
-    for iter = 1:niter
-        if isinteractive()
-            @show iter, extrema(x), time() - time0
-        end
-        mul!(ybar, A, x)
-        @. yratio = ynoisy / (ybar + background) # coalesce broadcast!
-        mul!(back, A', yratio) # back = A' * (ynoisy / ybar)
-        @. x *= back / asum # multiplicative update
-    end
-    return x
-end
-
-
-# Apply MLEM algorithm to simulated data
 x0 = ones(T, nx, ny, nz) # initial uniform image
 
 niter = 30
 
 if !@isdefined(xhat1)
     xhat1 = copy(x0)
-    mlem!(xhat1, ynoisy, scatter_mean, A; niter)
+    mlem!(xhat1, x0, ynoisy, background, A; niter)
 end;
 
 # Define evaluation metric
@@ -240,11 +221,10 @@ end
 
 β = 1
 Asum = A' * ones(T, nx, nz, nview)
-scatters = scatter_mean * ones(T, nx, nz, nview)
 function loss(xrecon, xtrue)
-    xiter1 = bregem(projectb, backprojectb, ynoisy, scatters,
+    xiter1 = bregem(projectb, backprojectb, ynoisy, background,
                     Asum, xrecon, cnn, β; niter = 1)
-    xiter2 = bregem(projectb, backprojectb, ynoisy, scatters,
+    xiter2 = bregem(projectb, backprojectb, ynoisy, background,
                     Asum, xiter1, cnn, β; niter = 1)
     return sum(abs2, xiter2 - xtrue)
 end
@@ -284,16 +264,16 @@ So for now it is just fenced off with `isinteractive()`.
 if isinteractive()
     url = "https://github.com/JeffFessler/SPECTrecon.jl/blob/main/data/trained-cnn-example-6-dl.bson?raw=true"
     tmp = tempname()
-    download(url, tmp)
+    Downloads.download(url, tmp)
     cnn = BSON.load(tmp)[:cnn]
 else
     cnn = x -> x # fake "do-nothing CNN" for Literate/Documenter version
 end
 
 # Perform recon with pre-trained model.
-xiter1 = bregem(projectb, backprojectb, ynoisy, scatters,
+xiter1 = bregem(projectb, backprojectb, ynoisy, background,
                 Asum, xhat1, cnn, β; niter = 1)
-xiter2 = bregem(projectb, backprojectb, ynoisy, scatters,
+xiter2 = bregem(projectb, backprojectb, ynoisy, background,
                 Asum, xiter1, cnn, β; niter = 1)
 
 clim = (0,2)

@@ -1,18 +1,20 @@
 #---------------------------------------------------------
-# # [SPECTrecon ML-EM](@id 4-mlem)
+# # [SPECTrecon OS-EM](@id 7-osem)
 #---------------------------------------------------------
 
-# This page illustrates ML-EM reconstruction with the Julia package
+# This page illustrates OS-EM reconstruction with the Julia package
 # [`SPECTrecon`](https://github.com/JeffFessler/SPECTrecon.jl).
 
 # ### Setup
 
 # Packages needed here.
 
-using SPECTrecon
+using SPECTrecon # need to fix the "project idx" bug first!
 using MIRTjim: jim, prompt
 using Plots: scatter, plot!, default; default(markerstrokecolor=:auto)
-
+using LinearMapsAA: LinearMapAA, LinearMapAO
+using LinearAlgebra: mul!
+using Distributions: Poisson
 # The following line is helpful when running this example.jl file as a script;
 # this way it will prompt user to hit a key after each figure is displayed.
 
@@ -20,9 +22,8 @@ isinteractive() ? jim(:prompt, true) : prompt(:draw);
 
 # ### Overview
 
-# Maximum-likelihood expectation-maximization (ML-EM)
-# is a classic algorithm for performing SPECT image reconstruction.
-
+# Ordered-subset expectation-maximization (OS-EM)
+# is a commonly used algorithm for performing SPECT image reconstruction.
 
 # ### Simulation data
 
@@ -48,7 +49,7 @@ jim(mid3(xtrue), "Middle slices of xtrue")
 # Create a synthetic depth-dependent PSF for a single view
 px = 11
 psf1 = psf_gauss( ; ny, px)
-jim(psf1, "PSF for each of $ny planes")
+jim(psf1, "PSF for each of $ny planes"; ratio=1)
 
 
 # In general the PSF can vary from view to view
@@ -67,19 +68,13 @@ dy = 8 # transaxial pixel size in mm
 mumap = zeros(T, size(xtrue)) # zero μ-map just for illustration here
 plan = SPECTplan(mumap, psfs, dy; T)
 
-using LinearMapsAA: LinearMapAA
-using LinearAlgebra: mul!
 forw! = (y,x) -> project!(y, x, plan)
 back! = (x,y) -> backproject!(x, y, plan)
 idim = (nx,ny,nz)
 odim = (nx,nz,nview)
 A = LinearMapAA(forw!, back!, (prod(odim),prod(idim)); T, odim, idim)
 
-
-# ### Basic Expectation-Maximization (EM) algorithm
-
 # Noisy data
-using Distributions: Poisson
 
 if !@isdefined(ynoisy) # generate (scaled) Poisson data
     ytrue = A * xtrue
@@ -93,21 +88,34 @@ end
 jim(ynoisy, "$nview noisy projection views")
 
 
-# ### ML-EM algorithm - basic version
+# ### OS-EM algorithm - basic version
 x0 = ones(T, nx, ny, nz) # initial uniform image
 
-niter = 30
+niter = 8
+nblocks = 4
+Ab = Ablock(plan, nblocks) # create a linear map for each block
+
 if !@isdefined(xhat1)
-    xhat1 = mlem(x0, ynoisy, background, A; niter)
+    xhat1 = osem(x0, ynoisy, background, Ab; niter)
 end
 
-# This preferable ML-EM version preallocates the output `xhat2`
+# This preferable OS-EM version preallocates the output `xhat2`
 
 if !@isdefined(xhat2)
     xhat2 = copy(x0)
-    mlem!(xhat2, x0, ynoisy, background, A; niter)
+    osem!(xhat2, x0, ynoisy, background, Ab; niter)
 end
 
 @assert xhat1 ≈ xhat2
 
-jim(mid3(xhat2), "ML-EM at $niter iterations")
+# ### compare with ML-EM
+
+# run 30 iterations of ML-EM algorithm
+niter_mlem = 30
+if !@isdefined(xhat3)
+    xhat3 = copy(x0)
+    mlem!(xhat3, x0, ynoisy, background, A; niter=niter_mlem)
+end
+
+jim(jim(mid3(xhat2), "OS-EM at $niter iterations"),
+    jim(mid3(xhat3), "ML-EM at $niter_mlem iterations"))
