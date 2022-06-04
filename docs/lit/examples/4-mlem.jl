@@ -87,64 +87,25 @@ if !@isdefined(ynoisy) # generate (scaled) Poisson data
     scale = target_mean / average(ytrue)
     scatter_fraction = 0.1 # 10% uniform scatter for illustration
     scatter_mean = scatter_fraction * average(ytrue) # uniform for simplicity
+    background = scatter_mean * ones(T,nx,nz,nview)
     ynoisy = rand.(Poisson.(scale * (ytrue .+ scatter_mean))) / scale
 end
 jim(ynoisy, "$nview noisy projection views")
 
 
 # ### ML-EM algorithm - basic version
-
-# This basic ML-EM version uses the linear map, but it is still allocating.
-
-function mlem(x0, ynoisy, background, A; niter::Int = 20)
-    all(>(0), background) || throw("need background > 0")
-    x = copy(x0)
-    asum = A' * ones(eltype(ynoisy), size(ynoisy))
-    asum[(asum .== 0)] .= Inf # avoid divide by zero
-    time0 = time()
-    for iter = 1:niter
-        @show iter, extrema(x), time() - time0
-        ybar = A * x .+ background # forward model
-        x .*= (A' * (ynoisy ./ ybar)) ./ asum # multiplicative update
-    end
-    return x
-end
-
-
-# This preferable ML-EM version modifies the input `x`,
-# so no memory allocation is needed within the loop!
-
-function mlem!(x, ynoisy, background, A; niter::Int = 20)
-    all(>(0), background) || throw("need background > 0")
-    asum = A' * ones(eltype(ynoisy), size(ynoisy)) # this allocates
-    asum[(asum .== 0)] .= Inf # avoid divide by zero
-    ybar = similar(ynoisy)
-    yratio = similar(ynoisy)
-    back = similar(x)
-    time0 = time()
-    for iter = 1:niter
-        @show iter, extrema(x), time() - time0
-        mul!(ybar, A, x)
-        @. yratio = ynoisy / (ybar + background) # coalesce broadcast!
-        mul!(back, A', yratio) # back = A' * (ynoisy / ybar)
-        @. x *= back / asum # multiplicative update
-    end
-    return x
-end
-
-
-# Apply both versions of ML-EM to this simulated data
-
 x0 = ones(T, nx, ny, nz) # initial uniform image
 
 niter = 30
 if !@isdefined(xhat1)
-    xhat1 = mlem(x0, ynoisy, scatter_mean, A; niter)
+    xhat1 = mlem(x0, ynoisy, background, A; niter)
 end
+
+# This preferable ML-EM version preallocates the output `xhat2`
 
 if !@isdefined(xhat2)
     xhat2 = copy(x0)
-    mlem!(xhat2, ynoisy, scatter_mean, A; niter)
+    mlem!(xhat2, x0, ynoisy, background, A; niter)
 end
 
 @assert xhat1 ≈ xhat2

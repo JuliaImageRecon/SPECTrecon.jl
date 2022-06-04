@@ -36,17 +36,17 @@ using Test: @test, @testset
     scatter_fraction = 0.1 # 10% uniform scatter for illustration
     scatter_mean = scatter_fraction * average(ytrue) # uniform for simplicity
     ynoisy = rand.(Poisson.(scale * (ytrue .+ scatter_mean))) / scale
-    scatter = scatter_mean * ones(T, nx, nz, nview) # uniform scatter estimation
+    background = scatter_mean * ones(T, nx, nz, nview) # uniform scatter estimation
     x0 = ones(T, nx, ny, nz) # initial uniform image
     nblocks = 4
     niter = 10
     Ab = Ablock(plan, nblocks)
-    xhat1 = mlem(x0, ynoisy, scatter, A; niter)
+    xhat1 = mlem(x0, ynoisy, background, A; niter)
     xhat2 = similar(x0)
-    mlem!(xhat2, x0, ynoisy, scatter, A; niter)
+    mlem!(xhat2, x0, ynoisy, background, A; niter)
     @test xhat1 ≈ xhat2
-    xhat3 = osem(x0, ynoisy, scatter, Ab; niter)
+    xhat3 = osem(x0, ynoisy, background, Ab; niter)
     xhat4 = similar(x0)
-    osem!(xhat4, x0, ynoisy, scatter, Ab; niter)
+    osem!(xhat4, x0, ynoisy, background, Ab; niter)
     @test xhat3 ≈ xhat4
 end

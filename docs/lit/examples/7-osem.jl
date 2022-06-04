@@ -82,125 +82,39 @@ if !@isdefined(ynoisy) # generate (scaled) Poisson data
     scale = target_mean / average(ytrue)
     scatter_fraction = 0.1 # 10% uniform scatter for illustration
     scatter_mean = scatter_fraction * average(ytrue) # uniform for simplicity
+	background = scatter_mean * ones(T,nx,nz,nview)
     ynoisy = rand.(Poisson.(scale * (ytrue .+ scatter_mean))) / scale
 end
 jim(ynoisy, "$nview noisy projection views")
 
 
-# Generating a vector of linear maps that shares the plan for memory efficiency
-function Ablock(plan::SPECTplan, nblocks::Int)
-    nx, ny, nz = size(plan.mumap)
-    nview = plan.nview
-    @assert rem(nview, nblocks) == 0 || throw("nview must be divisible by nblocks!")
-    Ab = Vector{LinearMapAO}(undef, nblocks)
-    for nb = 1:nblocks
-        viewidx = nb:nblocks:nview
-        forw!(y,x) = project!(y, x, plan; index = viewidx)
-        back!(x,y) = backproject!(x, y, plan; index = viewidx)
-        idim = (nx,ny,nz)
-        odim = (nx,nz,length(viewidx))
-        Ab[nb] = LinearMapAA(forw!, back!, (prod(odim),prod(idim)); plan.T, odim, idim)
-    end
-    return Ab
-end
-
-
 # ### OS-EM algorithm - basic version
-
-# This basic OS-EM version uses the linear map, but it is still allocating.
-
-function osem(x0, ynoisy, background, Ab; niter::Int = 16)
-    all(>(0), background) || throw("need background > 0")
-    x = copy(x0)
-	nx, nz, nview = size(ynoisy)
-	nblocks = length(Ab)
-	asum = Vector{Array{eltype(ynoisy), 3}}(undef, nblocks)
-	for nb = 1:nblocks
-	    asum[nb] = Ab[nb]' * ones(eltype(ynoisy), nx, nz, nview÷nblocks)
-	    (asum[nb])[(asum[nb] .== 0)] .= Inf # avoid divide by zero
-	end
-	time0 = time()
-    for iter = 1:niter
-	for nb = 1:nblocks
-	    @show iter, nb, extrema(x), time() - time0
-	    ybar = Ab[nb] * x .+ (@view background[:,:,nb:nblocks:nview]) # forward model
-	    x .*= (Ab[nb]' * ((@view ynoisy[:,:,nb:nblocks:nview]) ./ ybar)) ./ asum[nb] # multiplicative update
-	end
-    end
-    return x
-end
-
-# This preferable OS-EM version modifies the input `x`,
-# so no memory allocation is needed within the loop!
-
-function osem!(x, ynoisy, background, Ab; niter::Int = 16)
-    all(>(0), background) || throw("need background > 0")
-	nx, nz, nview = size(ynoisy)
-	nblocks = length(Ab)
-	asum = Vector{Array{eltype(ynoisy), 3}}(undef, nblocks)
-	for nb = 1:nblocks
-	    asum[nb] = Ab[nb]' * ones(eltype(ynoisy), nx, nz, nview÷nblocks)
-        (asum[nb])[(asum[nb] .== 0)] .= Inf # avoid divide by zero
-	end
-    ybar = Array{eltype(ynoisy)}(undef, nx, nz, nview÷nblocks)
-    yratio = similar(ybar)
-    back = similar(x)
-	time0 = time()
-    for iter = 1:niter
-        for nb = 1:nblocks
-	    @show iter, nb, extrema(x), time() - time0
-	    mul!(ybar, Ab[nb], x)
-	    @. yratio = (@view ynoisy[:,:,nb:nblocks:nview]) /
-			(ybar + (@view background[:,:,nb:nblocks:nview]))
-	    mul!(back, Ab[nb]', yratio) # back = A' * (ynoisy / ybar)
-	    @. x *= back / asum[nb] # multiplicative update
-	end
-    end
-    return x
-end
-
-# Apply both versions of OS-EM to this simulated data
-
 x0 = ones(T, nx, ny, nz) # initial uniform image
 
 niter = 8
 nblocks = 4
-Ab = Ablock(plan, nblocks)
+Ab = Ablock(plan, nblocks) # create a linear map for each block
 
 if !@isdefined(xhat1)
-    xhat1 = osem(x0, ynoisy, scatter_mean * ones(T, nx, nz, nview), Ab; niter)
+    xhat1 = osem(x0, ynoisy, background, Ab; niter)
 end
+
+# This preferable OS-EM version preallocates the output `xhat2`
 
 if !@isdefined(xhat2)
     xhat2 = copy(x0)
-    osem!(xhat2, ynoisy, scatter_mean * ones(T, nx, nz, nview), Ab; niter)
+    osem!(xhat2, x0, ynoisy, background, Ab; niter)
 end
 
 @assert xhat1 ≈ xhat2
 
 # ### compare with ML-EM
-function mlem!(x, ynoisy, background, A; niter::Int = 20)
-    all(>(0), background) || throw("need background > 0")
-    asum = A' * ones(eltype(ynoisy), size(ynoisy)) # this allocates
-    ybar = similar(ynoisy)
-    yratio = similar(ynoisy)
-    back = similar(x)
-	time0 = time()
-    for iter = 1:niter
-        @show iter, extrema(x), time() - time0
-        mul!(ybar, A, x)
-        @. yratio = ynoisy / (ybar + background) # coalesce broadcast!
-        mul!(back, A', yratio) # back = A' * (ynoisy / ybar)
-        @. x *= back / asum # multiplicative update
-    end
-    return x
-end
 
 # run 30 iterations of ML-EM algorithm
 niter_mlem = 30
 if !@isdefined(xhat3)
     xhat3 = copy(x0)
-    mlem!(xhat3, ynoisy, scatter_mean, A; niter=niter_mlem)
+    mlem!(xhat3, x0, ynoisy, background, A; niter=niter_mlem)
 end
 
 jim(jim(mid3(xhat2), "OS-EM at $niter iterations"),
