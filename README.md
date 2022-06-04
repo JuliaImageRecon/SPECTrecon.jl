@@ -15,6 +15,15 @@ https://github.com/JeffFessler/SPECTrecon.jl
 This repo provides forward and back-projection methods
 for SPECT image reconstruction.
 
+It also has methods for ML-EM and ML-OS-EM image reconstruction.
+
+For examples with graphics,
+see the
+[documentation][docs-stable-url].
+The examples include an illustration
+of how to integrate deep learning
+into SPECT reconstruction.
+
 Designed for use with the
 [Michigan Image Reconstruction Toolbox (MIRT)](https://github.com/JeffFessler/MIRT.jl)
 or similar frameworks.
