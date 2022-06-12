@@ -2,39 +2,49 @@
 # # [SPECTrecon OS-EM](@id 7-osem)
 #---------------------------------------------------------
 
-# This page illustrates OS-EM reconstruction with the Julia package
-# [`SPECTrecon`](https://github.com/JeffFessler/SPECTrecon.jl).
+#=
+This page illustrates
+Ordered-subset expectation-maximization (OS-EM)
+image reconstruction with the Julia package
+[`SPECTrecon`](https://github.com/JeffFessler/SPECTrecon.jl).
+=#
 
 # ### Setup
 
 # Packages needed here.
 
-using SPECTrecon # need to fix the "project idx" bug first!
+using SPECTrecon
 using MIRTjim: jim, prompt
 using Plots: scatter, plot!, default; default(markerstrokecolor=:auto)
 using LinearMapsAA: LinearMapAA, LinearMapAO
 using LinearAlgebra: mul!
 using Distributions: Poisson
-# The following line is helpful when running this example.jl file as a script;
+
+# The following line is helpful when running this file as a script;
 # this way it will prompt user to hit a key after each figure is displayed.
 
 isinteractive() ? jim(:prompt, true) : prompt(:draw);
 
-# ### Overview
+#=
+### Overview
 
-# Ordered-subset expectation-maximization (OS-EM)
-# is a commonly used algorithm for performing SPECT image reconstruction.
+Ordered-subset expectation-maximization (OS-EM)
+is a commonly used algorithm for performing SPECT image reconstruction
+because of its favorable combination of image quality and speed.
+See
+[Hudson and Larkin, 1994](http://doi.org/10.1109/42.363108).
+
 
 # ### Simulation data
 
 nx,ny,nz = 64,64,50
 T = Float32
-xtrue = zeros(T, nx,ny,nz)
+xtrue = zeros(T, nx,ny,nz) # simple phantom
 xtrue[(1nx÷4):(2nx÷3), 1ny÷5:(3ny÷5), 2nz÷6:(3nz÷6)] .= 1
 xtrue[(2nx÷5):(3nx÷5), 1ny÷5:(2ny÷5), 4nz÷6:(5nz÷6)] .= 2
 
 average(x) = sum(x) / length(x)
-function mid3(x::AbstractArray{T,3}) where {T}
+function mid3(x::AbstractArray{<:Number,3}) # 3 central planes
     (nx,ny,nz) = size(x)
     xy = x[:,:,ceil(Int, nz÷2)]
     xz = x[:,ceil(Int,end/2),:]
@@ -97,9 +107,9 @@ Ab = Ablock(plan, nblocks) # create a linear map for each block
 
 if !@isdefined(xhat1)
     xhat1 = osem(x0, ynoisy, background, Ab; niter)
-end
+end;
 
-# This preferable OS-EM version preallocates the output `xhat2`
+# This preferable OS-EM version preallocates the output `xhat2`:
 
 if !@isdefined(xhat2)
     xhat2 = copy(x0)
@@ -108,9 +118,9 @@ end
 
 @assert xhat1 ≈ xhat2
 
-# ### compare with ML-EM
+# ### Compare with ML-EM
 
-# run 30 iterations of ML-EM algorithm
+# Run 30 iterations of ML-EM algorithm.
 niter_mlem = 30
 if !@isdefined(xhat3)
     xhat3 = copy(x0)
