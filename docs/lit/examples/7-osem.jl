@@ -33,6 +33,7 @@ is a commonly used algorithm for performing SPECT image reconstruction
 because of its favorable combination of image quality and speed.
 See
 [Hudson and Larkin, 1994](http://doi.org/10.1109/42.363108).
+=#
 
 
 # ### Simulation data
