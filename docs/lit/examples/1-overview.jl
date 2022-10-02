@@ -9,12 +9,16 @@
 
 # Packages needed here.
 
+#nb import Pkg
+#nb Pkg.add(["SPECTrecon", "LinearMapsAA", "MIRTjim", "Plots", "Unitful"])
+
 using SPECTrecon
-using MIRTjim: jim, prompt
 using LinearAlgebra: mul!
 using LinearMapsAA: LinearMapAA
+using MIRTjim: jim, prompt
 using Plots: scatter, plot!, default; default(markerstrokecolor=:auto)
 using Plots # @animate, gif
+using Unitful: cm
 using InteractiveUtils: versioninfo
 
 # The following line is helpful when running this example.jl file as a script;
@@ -168,7 +172,7 @@ project!(tmp, xtrue, plan)
 
 tmp = Array{T}(undef, nx, ny, nz)
 backproject!(tmp, views, plan)
-@assert tmp == back
+@assert tmp ≈ back
 
 
 # ### Using `LinearMapAA`
@@ -198,15 +202,6 @@ mul!(tmp, A', views)
 @assert tmp == back
 
 
-# ### Units
-
-# The pixel dimensions `deltas` can (and should!) be values with units.
-
-# Here is an example ... (todo)
-#using UnitfulRecipes
-#using Unitful: mm
-
-
 # ### Projection view animation
 
 anim = @animate for i in 1:nview
@@ -217,6 +212,24 @@ anim = @animate for i in 1:nview
     )
 end
 gif(anim, "views.gif", fps = 8)
+
+
+#=
+### Units
+
+The pixel dimension `dy` can have units, e.g., cm,
+provided the attenuation map has the reciprocal units, e.g., 1/cm.
+
+Here is an example ... (todo)
+=#
+
+dy = 0.4cm # transaxial pixel size in mm
+mumap = fill(0.1f0/cm, size(xtrue)) # uniform μ-map for illustration
+Tu = eltype(1f0cm)
+plan = SPECTplan(mumap, psfs, dy; Tu) # todo fails
+tmp = Array{T}(undef, nx, nz, nview)
+project!(tmp, xtrue, plan)
+@assert tmp == views
 
 
 # ### Reproducibility
