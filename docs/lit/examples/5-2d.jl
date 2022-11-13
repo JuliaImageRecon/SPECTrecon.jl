@@ -4,7 +4,7 @@
 
 # This page describes how to perform 2D SPECT forward and back-projection
 # using the Julia package
-# [`SPECTrecon`](https://github.com/JeffFessler/SPECTrecon.jl).
+# [`SPECTrecon`](https://github.com/JuliaImageRecon/SPECTrecon.jl).
 
 
 # ### Setup

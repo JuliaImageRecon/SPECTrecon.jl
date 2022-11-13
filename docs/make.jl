@@ -1,6 +1,6 @@
 execute = isempty(ARGS) || ARGS[1] == "run"
 
-org, reps = :JeffFessler, :SPECTrecon
+org, reps = :JuliaImageRecon, :SPECTrecon
 eval(:(using $reps))
 using Documenter
 using Literate

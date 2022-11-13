@@ -2,7 +2,7 @@
 CurrentModule = SPECTrecon
 ```
 
-# Documentation for [SPECTrecon](https://github.com/JeffFessler/SPECTrecon.jl)
+# Documentation for [SPECTrecon](https://github.com/JuliaImageRecon/SPECTrecon.jl)
 
 ## Overview
 

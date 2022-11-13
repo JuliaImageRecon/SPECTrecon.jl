@@ -5,7 +5,7 @@
 #=
 This page describes how to end-to-end train unrolled deep learning algorithms
 using the Julia package
-[`SPECTrecon`](https://github.com/JeffFessler/SPECTrecon.jl).
+[`SPECTrecon`](https://github.com/JuliaImageRecon/SPECTrecon.jl).
 
 This page was generated from a single Julia file:
 [6-dl.jl](@__REPO_ROOT_URL__/6-dl.jl).
@@ -262,7 +262,7 @@ So for now it is just fenced off with `isinteractive()`.
 =#
 
 if isinteractive()
-    url = "https://github.com/JeffFessler/SPECTrecon.jl/blob/main/data/trained-cnn-example-6-dl.bson?raw=true"
+    url = "https://github.com/JuliaImageRecon/SPECTrecon.jl/blob/main/data/trained-cnn-example-6-dl.bson?raw=true"
     tmp = tempname()
     Downloads.download(url, tmp)
     cnn = BSON.load(tmp)[:cnn]

@@ -3,7 +3,7 @@
 #---------------------------------------------------------
 
 # This page explains the PSF portion of the Julia package
-# [`SPECTrecon.jl`](https://github.com/JeffFessler/SPECTrecon.jl).
+# [`SPECTrecon.jl`](https://github.com/JuliaImageRecon/SPECTrecon.jl).
 
 # ### Setup
 

@@ -3,7 +3,7 @@
 #---------------------------------------------------------
 
 # This page gives an overview of the Julia package
-# [`SPECTrecon`](https://github.com/JeffFessler/SPECTrecon.jl).
+# [`SPECTrecon`](https://github.com/JuliaImageRecon/SPECTrecon.jl).
 
 # ### Setup
 
