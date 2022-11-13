@@ -6,7 +6,7 @@
 This page illustrates
 Ordered-subset expectation-maximization (OS-EM)
 image reconstruction with the Julia package
-[`SPECTrecon`](https://github.com/JeffFessler/SPECTrecon.jl).
+[`SPECTrecon`](https://github.com/JuliaImageRecon/SPECTrecon.jl).
 =#
 
 # ### Setup
