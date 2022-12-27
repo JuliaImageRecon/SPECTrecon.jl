@@ -115,12 +115,12 @@ function Base.show(io::IO, ::MIME"text/plain", plan::PlanPSF{T}) where {T}
     t = typeof(plan)
     println(io, t)
     for f in (:nx, :nz, :px, :pz, :padsize)
-        p = getproperty(plan, f)
+        p = getfield(plan, f)
         t = typeof(p)
         println(io, " ", f, "::", t, " ", p)
     end
     for f in (:workmat, :workvecx, :workvecz, :img_compl, :ker_compl, :fft_plan, :ifft_plan)
-        p = getproperty(plan, f)
+        p = getfield(plan, f)
         println(io, " ", f, ":", " ", summary(p))
     end
     println(io, " (", sizeof(plan), " bytes)")
