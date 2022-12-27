@@ -110,12 +110,12 @@ function Base.show(io::IO, ::MIME"text/plain", plan::PlanRotate{T,R}) where {T, 
     t = typeof(plan)
     println(io, t)
     for f in (:nx, :padsize)
-        p = getproperty(plan, f)
+        p = getfield(plan, f)
         t = typeof(p)
         println(io, " ", f, "::", t, " ", p)
     end
     for f in (:interp, :workmat1, :workmat2)
-        p = getproperty(plan, f)
+        p = getfield(plan, f)
         println(io, " ", f, ":", " ", summary(p))
     end
     println(io, " (", sizeof(plan), " bytes)")
