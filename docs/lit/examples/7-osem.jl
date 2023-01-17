@@ -1,24 +1,36 @@
-#---------------------------------------------------------
-# # [SPECTrecon OS-EM](@id 7-osem)
-#---------------------------------------------------------
-
 #=
+# [SPECTrecon OS-EM](@id 7-osem)
+
 This page illustrates
 Ordered-subset expectation-maximization (OS-EM)
 image reconstruction with the Julia package
 [`SPECTrecon`](https://github.com/JuliaImageRecon/SPECTrecon.jl).
+
+This page was generated from a single Julia file:
+[7-osem.jl](@__REPO_ROOT_URL__/7-osem.jl).
 =#
+
+#md # In any such Julia documentation,
+#md # you can access the source code
+#md # using the "Edit on GitHub" link in the top right.
+
+#md # The corresponding notebook can be viewed in
+#md # [nbviewer](https://nbviewer.org/) here:
+#md # [`7-osem.ipynb`](@__NBVIEWER_ROOT_URL__/7-osem.ipynb),
+#md # and opened in [binder](https://mybinder.org/) here:
+#md # [`7-osem.ipynb`](@__BINDER_ROOT_URL__/7-osem.ipynb).
 
 # ### Setup
 
 # Packages needed here.
 
-using SPECTrecon
-using MIRTjim: jim, prompt
-using Plots: scatter, plot!, default; default(markerstrokecolor=:auto)
+using SPECTrecon: psf_gauss, SPECTplan, project!, backproject!, Ablock
+using SPECTrecon: osem, osem!, mlem!
 using LinearMapsAA: LinearMapAA, LinearMapAO
 using LinearAlgebra: mul!
 using Distributions: Poisson
+using MIRTjim: jim, prompt
+using Plots: scatter, plot!, default; default(markerstrokecolor=:auto)
 
 # The following line is helpful when running this file as a script;
 # this way it will prompt user to hit a key after each figure is displayed.
@@ -26,17 +38,17 @@ using Distributions: Poisson
 isinteractive() ? jim(:prompt, true) : prompt(:draw);
 
 #=
-### Overview
+## Overview
 
 Ordered-subset expectation-maximization (OS-EM)
 is a commonly used algorithm for performing SPECT image reconstruction
 because of its favorable combination of image quality and speed.
 See
-[Hudson and Larkin, 1994](http://doi.org/10.1109/42.363108).
+[Hudson and Larkin, 1994](https://doi.org/10.1109/42.363108).
 =#
 
 
-# ### Simulation data
+# ## Simulation data
 
 nx,ny,nz = 64,64,50
 T = Float32
@@ -55,7 +67,7 @@ end
 jim(mid3(xtrue), "Middle slices of xtrue")
 
 
-# ### PSF
+# ## PSF
 
 # Create a synthetic depth-dependent PSF for a single view
 px = 11
@@ -63,17 +75,19 @@ psf1 = psf_gauss( ; ny, px)
 jim(psf1, "PSF for each of $ny planes"; ratio=1)
 
 
-# In general the PSF can vary from view to view
-# due to non-circular detector orbits.
-# For simplicity, here we illustrate the case
-# where the PSF is the same for every view.
+#=
+In general the PSF can vary from view to view
+due to non-circular detector orbits.
+For simplicity, here we illustrate the case
+where the PSF is the same for every view.
+=#
 
 nview = 60
 psfs = repeat(psf1, 1, 1, 1, nview)
 size(psfs)
 
 
-# ### SPECT system model using `LinearMapAA`
+# ## SPECT system model using `LinearMapAA`
 
 dy = 8 # transaxial pixel size in mm
 mumap = zeros(T, size(xtrue)) # zero μ-map just for illustration here
@@ -99,7 +113,7 @@ end
 jim(ynoisy, "$nview noisy projection views")
 
 
-# ### OS-EM algorithm - basic version
+# ## OS-EM algorithm - basic version
 x0 = ones(T, nx, ny, nz) # initial uniform image
 
 niter = 8
@@ -119,7 +133,7 @@ end
 
 @assert xhat1 ≈ xhat2
 
-# ### Compare with ML-EM
+# ## Compare with ML-EM
 
 # Run 30 iterations of ML-EM algorithm.
 niter_mlem = 30
