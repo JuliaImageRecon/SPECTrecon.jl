@@ -1,8 +1,6 @@
-#---------------------------------------------------------
-# # [SPECTrecon deep learning use](@id 6-dl)
-#---------------------------------------------------------
-
 #=
+# [SPECTrecon deep learning use](@id 6-dl)
+
 This page describes how to end-to-end train unrolled deep learning algorithms
 using the Julia package
 [`SPECTrecon`](https://github.com/JuliaImageRecon/SPECTrecon.jl).
@@ -16,7 +14,7 @@ This page was generated from a single Julia file:
 #md # using the "Edit on GitHub" link in the top right.
 
 #md # The corresponding notebook can be viewed in
-#md # [nbviewer](http://nbviewer.jupyter.org/) here:
+#md # [nbviewer](https://nbviewer.org/) here:
 #md # [`6-dl.ipynb`](@__NBVIEWER_ROOT_URL__/6-dl.ipynb),
 #md # and opened in [binder](https://mybinder.org/) here:
 #md # [`6-dl.ipynb`](@__BINDER_ROOT_URL__/6-dl.ipynb).
@@ -27,20 +25,19 @@ This page was generated from a single Julia file:
 # Packages needed here.
 
 using LinearAlgebra: norm, mul!
-using SPECTrecon
+using SPECTrecon: SPECTplan, project!, backproject!, psf_gauss, mlem!
 using MIRTjim: jim, prompt
 using Plots: default; default(markerstrokecolor=:auto)
-using Zygote
 using ZygoteRules: @adjoint
 using Flux: Chain, Conv, SamePad, relu, params, unsqueeze
-using Flux # apparently needed for BSON @load
-using NNlib
+import Flux # apparently needed for BSON @load
+import NNlib
 using LinearMapsAA: LinearMapAA
 using Distributions: Poisson
 using BSON: @load, @save
 import BSON # load
 using InteractiveUtils: versioninfo
-using Downloads: download
+import Downloads # download
 
 # The following line is helpful when running this example.jl file as a script;
 # this way it will prompt user to hit a key after each figure is displayed.
@@ -294,7 +291,7 @@ then you will see that the CNN reduces the NRMSE.
 A more thorough investigation
 would compare the CNN approach
 to a suitably optimized regularized approach;
-see [http://doi.org/10.1109/EMBC46164.2021.9630985](http://doi.org/10.1109/EMBC46164.2021.9630985).
+see [https://doi.org/10.1109/EMBC46164.2021.9630985](https://doi.org/10.1109/EMBC46164.2021.9630985).
 =#
 
 
