@@ -1,11 +1,24 @@
-#---------------------------------------------------------
-# # [SPECTrecon ML-EM](@id 4-mlem)
-#---------------------------------------------------------
+#=
+# [SPECTrecon ML-EM](@id 4-mlem)
 
-# This page illustrates ML-EM reconstruction with the Julia package
-# [`SPECTrecon`](https://github.com/JuliaImageRecon/SPECTrecon.jl).
+This page illustrates ML-EM reconstruction with the Julia package
+[`SPECTrecon`](https://github.com/JuliaImageRecon/SPECTrecon.jl).
 
-# ### Setup
+This page was generated from a single Julia file:
+[4-mlem.jl](@__REPO_ROOT_URL__/4-mlem.jl).
+=#
+
+#md # In any such Julia documentation,
+#md # you can access the source code
+#md # using the "Edit on GitHub" link in the top right.
+
+#md # The corresponding notebook can be viewed in
+#md # [nbviewer](https://nbviewer.org/) here:
+#md # [`4-mlem.ipynb`](@__NBVIEWER_ROOT_URL__/4-mlem.ipynb),
+#md # and opened in [binder](https://mybinder.org/) here:
+#md # [`4-mlem.ipynb`](@__BINDER_ROOT_URL__/4-mlem.ipynb).
+
+# ## Setup
 
 # Packages needed here.
 
@@ -18,13 +31,15 @@ using Plots: scatter, plot!, default; default(markerstrokecolor=:auto)
 
 isinteractive() ? jim(:prompt, true) : prompt(:draw);
 
-# ### Overview
+#=
+## Overview
 
-# Maximum-likelihood expectation-maximization (ML-EM)
-# is a classic algorithm for performing SPECT image reconstruction.
+Maximum-likelihood expectation-maximization (ML-EM)
+is a classic algorithm for performing SPECT image reconstruction.
+=#
 
 
-# ### Simulation data
+# ## Simulation data
 
 nx,ny,nz = 64,64,50
 T = Float32
@@ -43,7 +58,7 @@ end
 jim(mid3(xtrue), "Middle slices of xtrue")
 
 
-# ### PSF
+# ## PSF
 
 # Create a synthetic depth-dependent PSF for a single view
 px = 11
@@ -51,17 +66,19 @@ psf1 = psf_gauss( ; ny, px)
 jim(psf1, "PSF for each of $ny planes")
 
 
-# In general the PSF can vary from view to view
-# due to non-circular detector orbits.
-# For simplicity, here we illustrate the case
-# where the PSF is the same for every view.
+#=
+In general the PSF can vary from view to view
+due to non-circular detector orbits.
+For simplicity, here we illustrate the case
+where the PSF is the same for every view.
+=#
 
 nview = 60
 psfs = repeat(psf1, 1, 1, 1, nview)
 size(psfs)
 
 
-# ### SPECT system model using `LinearMapAA`
+# ## SPECT system model using `LinearMapAA`
 
 dy = 8 # transaxial pixel size in mm
 mumap = zeros(T, size(xtrue)) # zero μ-map just for illustration here
@@ -76,7 +93,7 @@ odim = (nx,nz,nview)
 A = LinearMapAA(forw!, back!, (prod(odim),prod(idim)); T, odim, idim)
 
 
-# ### Basic Expectation-Maximization (EM) algorithm
+# ## Basic Expectation-Maximization (EM) algorithm
 
 # Noisy data
 using Distributions: Poisson
@@ -93,21 +110,21 @@ end
 jim(ynoisy, "$nview noisy projection views")
 
 
-# ### ML-EM algorithm - basic version
+# ## ML-EM algorithm - basic version
 x0 = ones(T, nx, ny, nz) # initial uniform image
 
 niter = 30
 if !@isdefined(xhat1)
     xhat1 = mlem(x0, ynoisy, background, A; niter)
 end
+size(xhat1)
 
-# This preferable ML-EM version preallocates the output `xhat2`
+# This preferable ML-EM version preallocates the output `xhat2`:
 
 if !@isdefined(xhat2)
     xhat2 = copy(x0)
     mlem!(xhat2, x0, ynoisy, background, A; niter)
 end
-
 @assert xhat1 ≈ xhat2
 
 jim(mid3(xhat2), "ML-EM at $niter iterations")

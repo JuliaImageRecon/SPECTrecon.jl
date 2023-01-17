@@ -5,7 +5,7 @@ is based on the 1992 paper
 by GL Zeng & GT Gullberg
 "Frequency domain implementation
 of the three-dimensional geometric point response correction in SPECT imaging"
-[(DOI)](http://doi.org/10.1109/23.173222).
+[(DOI)](https://doi.org/10.1109/23.173222).
 
 
 Historically
@@ -49,7 +49,7 @@ the work was extended
 to consider
 blob basis functions,
 leading to a
-[2004 comparison paper](http://doi.org/10.1088/0031-9155/49/11/003).
+[2004 comparison paper](https://doi.org/10.1088/0031-9155/49/11/003).
 
 Somewhere during that period
 the 3D SPECT projector / backprojector
