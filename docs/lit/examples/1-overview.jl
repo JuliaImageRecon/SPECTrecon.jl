@@ -1,11 +1,24 @@
-#---------------------------------------------------------
-# # [SPECTrecon overview](@id 1-overview)
-#---------------------------------------------------------
+#=
+# [SPECTrecon overview](@id 1-overview)
 
-# This page gives an overview of the Julia package
-# [`SPECTrecon`](https://github.com/JuliaImageRecon/SPECTrecon.jl).
+This page gives an overview of the Julia package
+[`SPECTrecon`](https://github.com/JuliaImageRecon/SPECTrecon.jl).
 
-# ### Setup
+This page was generated from a single Julia file:
+[1-overview.jl](@__REPO_ROOT_URL__/1-overview.jl).
+=#
+
+#md # In any such Julia documentation,
+#md # you can access the source code
+#md # using the "Edit on GitHub" link in the top right.
+
+#md # The corresponding notebook can be viewed in
+#md # [nbviewer](https://nbviewer.org/) here:
+#md # [`1-overview.ipynb`](@__NBVIEWER_ROOT_URL__/1-overview.ipynb),
+#md # and opened in [binder](https://mybinder.org/) here:
+#md # [`1-overview.ipynb`](@__BINDER_ROOT_URL__/1-overview.ipynb).
+
+# ## Setup
 
 # Packages needed here.
 
@@ -22,46 +35,48 @@ using InteractiveUtils: versioninfo
 
 isinteractive() ? jim(:prompt, true) : prompt(:draw);
 
-# ### Overview
+#=
+## Overview
 
-# To perform SPECT image reconstruction,
-# one must have a model for the imaging system
-# encapsulated in a forward projector and back projector.
+To perform SPECT image reconstruction,
+one must have a model for the imaging system
+encapsulated in a forward projector and back projector.
 
-# Mathematically, we write the forward projection process in SPECT
-# as "y = A * x" where A is a "system matrix"
-# that models the physics of the imaging system
-# (including depth-dependent collimator/detector response
-# and attenuation)
-# and "x" is the current guess of the emission image.
+Mathematically, we write the forward projection process in SPECT
+as "y = A * x" where A is a "system matrix"
+that models the physics of the imaging system
+(including depth-dependent collimator/detector response
+and attenuation)
+and "x" is the current guess of the emission image.
 
-# However, in code we usually cannot literally store "A"
-# as dense matrix because it is too large.
-# A typical size in SPECT is that
-# the image `x` is
-# `nx × ny × nz = 128 × 128 × 100`
-# and the array of projection views `y` is
-# `nx × nz × nview = 128 × 100 × 120`.
-# So the system matrix `A` has `1536000 × 1638400` elements
-# which is far to many to store,
-# even accounting for some sparsity.
+However, in code we usually cannot literally store "A"
+as dense matrix because it is too large.
+A typical size in SPECT is that
+the image `x` is
+`nx × ny × nz = 128 × 128 × 100`
+and the array of projection views `y` is
+`nx × nz × nview = 128 × 100 × 120`.
+So the system matrix `A` has `1536000 × 1638400` elements
+which is far to many to store,
+even accounting for some sparsity.
 
-# Instead, we write functions called forward projectors
-# that calculate `A * x` "on the fly".
+Instead, we write functions called forward projectors
+that calculate `A * x` "on the fly".
 
-# Similarly, the operation `A' * y`
-# is called "back projection",
-# where `A'` denotes the transpose or "adjoint" of `A`.
+Similarly, the operation `A' * y`
+is called "back projection",
+where `A'` denotes the transpose or "adjoint" of `A`.
 
 
-# ### Example
+## Example
 
-# To illustrate forward and back projection,
-# it is easiest to start with a simulation example
-# using a digital phantom.
-# The fancy way would be to use a 3D phantom from
-# [ImagePhantoms](https://github.com/JuliaImageRecon/ImagePhantoms.jl),
-# but instead we just use two simple cubes.
+To illustrate forward and back projection,
+it is easiest to start with a simulation example
+using a digital phantom.
+The fancy way would be to use a 3D phantom from
+[ImagePhantoms](https://github.com/JuliaImageRecon/ImagePhantoms.jl),
+but instead we just use two simple cubes.
+=#
 
 nx,ny,nz = 128,128,80
 T = Float32
@@ -80,7 +95,7 @@ end
 jim(mid3(xtrue), "Middle slices of x")
 
 
-# ### PSF
+# ## PSF
 
 # Create a synthetic depth-dependent PSF for a single view
 px = 11
@@ -88,10 +103,12 @@ psf1 = psf_gauss( ; ny, px, fwhm_end = 6)
 jim(psf1, "PSF for each of $ny planes")
 
 
-# In general the PSF can vary from view to view
-# due to non-circular detector orbits.
-# For simplicity, here we illustrate the case
-# where the PSF is the same for every view.
+#=
+In general the PSF can vary from view to view
+due to non-circular detector orbits.
+For simplicity, here we illustrate the case
+where the PSF is the same for every view.
+=#
 
 nview = 60
 psfs = repeat(psf1, 1, 1, 1, nview)
@@ -103,11 +120,13 @@ size(psfs)
 plan = plan_psf( ; nx, nz, px)
 
 
-# ### Basic SPECT forward projection
+#=
+## Basic SPECT forward projection
 
-# Here is a simple illustration
-# of a SPECT forward projection operation.
-# (This is a memory inefficient way to do it!)
+Here is a simple illustration
+of a SPECT forward projection operation.
+(This is a memory inefficient way to do it!)
+=#
 
 dy = 4 # transaxial pixel size in mm
 mumap = zeros(T, size(xtrue)) # μ-map just zero for illustration here
@@ -120,14 +139,16 @@ size(views)
 jim(views[:,:,1:4:end], "Every 4th of $nview projection views")
 
 
-# ### Basic SPECT back projection
+#=
+## Basic SPECT back projection
 
-# This illustrates an "unfiltered backprojection"
-# that leads to a very blurry image
-# (again, with a simple memory inefficient usage).
+This illustrates an "unfiltered backprojection"
+that leads to a very blurry image
+(again, with a simple memory inefficient usage).
 
-# First, back-project two "rays"
-# to illustrate the depth-dependent PSF.
+First, back-project two "rays"
+to illustrate the depth-dependent PSF.
+=#
 tmp = zeros(T, size(views))
 tmp[nx÷2, nz÷2, nview÷5] = 1
 tmp[nx÷2, nz÷2, 1] = 1
@@ -141,18 +162,20 @@ back = backproject(views, mumap, psfs, dy)
 jim(mid3(back), "Back-projection of ytrue")
 
 
-# ### Memory efficiency
+#=
+## Memory efficiency
 
-# For iterative reconstruction,
-# one must do forward and back-projection repeatedly.
-# It is more efficient to pre-allocate work arrays
-# for those operations,
-# instead of repeatedly making system calls.
+For iterative reconstruction,
+one must do forward and back-projection repeatedly.
+It is more efficient to pre-allocate work arrays
+for those operations,
+instead of repeatedly making system calls.
 
-# Here we illustrate the memory efficient versions
-# that are recommended for iterative SPECT reconstruction.
+Here we illustrate the memory efficient versions
+that are recommended for iterative SPECT reconstruction.
 
-# First construction the SPECT plan.
+First construction the SPECT plan.
+=#
 
 #viewangle = (0:(nview-1)) * 2π # default
 plan = SPECTplan(mumap, psfs, dy; T)
@@ -168,16 +191,18 @@ project!(tmp, xtrue, plan)
 
 tmp = Array{T}(undef, nx, ny, nz)
 backproject!(tmp, views, plan)
-@assert tmp == back
+@assert tmp ≈ back
 
 
-# ### Using `LinearMapAA`
+#=
+## Using `LinearMapAA`
 
-# Calling `project!` and `backproject!` repeatedly
-# leads to application-specific code.
-# More general code uses the fact that SPECT projection and back-projection
-# are linear operations,
-# so we use `LinearMapAA` to define a "system matrix" for these operations.
+Calling `project!` and `backproject!` repeatedly
+leads to application-specific code.
+More general code uses the fact that SPECT projection and back-projection
+are linear operations,
+so we use `LinearMapAA` to define a "system matrix" for these operations.
+=#
 
 forw! = (y,x) -> project!(y, x, plan)
 back! = (x,y) -> backproject!(x, y, plan)
@@ -187,7 +212,7 @@ A = LinearMapAA(forw!, back!, (prod(odim),prod(idim)); T, odim, idim)
 
 # Simple forward and back-projection:
 @assert A * xtrue == views
-@assert A' * views == back
+@assert A' * views ≈ back
 
 # Mutating version:
 tmp = Array{T}(undef, nx, nz, nview)
@@ -195,19 +220,22 @@ mul!(tmp, A, xtrue)
 @assert tmp == views
 tmp = Array{T}(undef, nx, ny, nz)
 mul!(tmp, A', views)
-@assert tmp == back
+@assert tmp ≈ back
 
 
-# ### Units
+#=
+## Units
 
-# The pixel dimensions `deltas` can (and should!) be values with units.
+The pixel dimensions `deltas` can (and should!) be values with units.
 
-# Here is an example ... (todo)
+Here is an example ... (todo)
+=#
+
 #using UnitfulRecipes
 #using Unitful: mm
 
 
-# ### Projection view animation
+# ## Projection view animation
 
 anim = @animate for i in 1:nview
     ymax = maximum(views)
@@ -219,7 +247,7 @@ end
 gif(anim, "views.gif", fps = 8)
 
 
-# ### Reproducibility
+# ## Reproducibility
 
 # This page was generated with the following version of Julia:
 

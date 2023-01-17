@@ -22,7 +22,7 @@ by GL Zeng & GT Gullberg
 "Frequency domain implementation
 of the three-dimensional geometric point response correction in SPECT imaging"
 (IEEE Tr. on Nuclear Science, 39(5-1):1444-53, Oct 1992)
-[(DOI)](http://doi.org/10.1109/23.173222).
+[(DOI)](https://doi.org/10.1109/23.173222).
 
 The forward projection method works as follows.
 * The emission image and the attenuation map

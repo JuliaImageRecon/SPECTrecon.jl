@@ -1,11 +1,24 @@
-#---------------------------------------------------------
-# # [SPECTrecon rotation](@id 2-rotate)
-#---------------------------------------------------------
+#=
+# [SPECTrecon rotation](@id 2-rotate)
 
-# This page explains the image rotation portion of the Julia package
-# [`SPECTrecon.jl`](https://github.com/JuliaImageRecon/SPECTrecon.jl).
+This page explains the image rotation portion of the Julia package
+[`SPECTrecon.jl`](https://github.com/JuliaImageRecon/SPECTrecon.jl).
 
-# ### Setup
+This page was generated from a single Julia file:
+[2-rotate.jl](@__REPO_ROOT_URL__/2-rotate.jl).
+=#
+
+#md # In any such Julia documentation,
+#md # you can access the source code
+#md # using the "Edit on GitHub" link in the top right.
+
+#md # The corresponding notebook can be viewed in
+#md # [nbviewer](https://nbviewer.org/) here:
+#md # [`2-rotate.ipynb`](@__NBVIEWER_ROOT_URL__/2-rotate.ipynb),
+#md # and opened in [binder](https://mybinder.org/) here:
+#md # [`2-rotate.ipynb`](@__BINDER_ROOT_URL__/2-rotate.ipynb).
+
+# ## Setup
 
 # Packages needed here.
 
@@ -19,54 +32,56 @@ default(markerstrokecolor=:auto, markersize=3)
 
 isinteractive() ? jim(:prompt, true) : prompt(:draw);
 
-# ### Overview
+#=
+## Overview
 
-# The first step in SPECT image forward projection
-# is to rotate each slice of a 3D image volume
-# to the appropriate view angle.
-# In principle
-# one could use any of numerous candidate interpolation methods
-# for this task.
-# However, because emission images are nonnegative
-# and maximum likelihood methods
-# for SPECT image reconstruction
-# exploit that nonnegativity,
-# it is desirable to use interpolators
-# that preserve nonnegativity.
-# This constraint rules out quadratic and higher B-splines,
-# including the otherwise attractive cubic B-spline methods.
-# On the other hand, nearest-neighbor interpolation
-# (equivalent to 0th-order B-splines)
-# does not provide adequate image quality.
-# This leaves 1st-order interpolation methods
-# as the most viable options.
+The first step in SPECT image forward projection
+is to rotate each slice of a 3D image volume
+to the appropriate view angle.
+In principle
+one could use any of numerous candidate interpolation methods
+for this task.
+However, because emission images are nonnegative
+and maximum likelihood methods
+for SPECT image reconstruction
+exploit that nonnegativity,
+it is desirable to use interpolators
+that preserve nonnegativity.
+This constraint rules out quadratic and higher B-splines,
+including the otherwise attractive cubic B-spline methods.
+On the other hand, nearest-neighbor interpolation
+(equivalent to 0th-order B-splines)
+does not provide adequate image quality.
+This leaves 1st-order interpolation methods
+as the most viable options.
 
-# This package supports two 1st-order linear interpolators:
-# * 2D bilinear interpolation,
-# * a 3-pass rotation method based on 1D linear interpolation.
+This package supports two 1st-order linear interpolators:
+* 2D bilinear interpolation,
+* a 3-pass rotation method based on 1D linear interpolation.
 
-# Because image rotation is done repeatedly
-# (for every slice of both the emission image and the attenuation map,
-# for both projection and back-projection,
-# and for multiple iterations),
-# it is important for efficiency
-# to use mutating methods
-# rather than to repeatedly make heap allocations.
+Because image rotation is done repeatedly
+(for every slice of both the emission image and the attenuation map,
+for both projection and back-projection,
+and for multiple iterations),
+it is important for efficiency
+to use mutating methods
+rather than to repeatedly make heap allocations.
 
-# Following other libraries like
-# [FFTW.jl](https://github.com/JuliaMath/FFTW.jl),
-# the rotation operations herein start with a `plan`
-# where work arrays are preallocated
-# for subsequent use.
-# The `plan` is a `Vector` of `PlanRotate` objects:
-# one for each thread.
-# (Parallelism is across slices for a 3D image volume.)
-# The number of threads defaults to `Threads.nthreads()`.
+Following other libraries like
+[FFTW.jl](https://github.com/JuliaMath/FFTW.jl),
+the rotation operations herein start with a `plan`
+where work arrays are preallocated
+for subsequent use.
+The `plan` is a `Vector` of `PlanRotate` objects:
+one for each thread.
+(Parallelism is across slices for a 3D image volume.)
+The number of threads defaults to `Threads.nthreads()`.
 
 
-# ### Example
+## Example
 
-# Start with a 3D image volume (just 2 slices here for simplicity).
+Start with a 3D image volume (just 2 slices here for simplicity).
+=#
 
 T = Float32 # work with single precision to save memory
 image = zeros(T, 64, 64, 2)
@@ -116,10 +131,12 @@ jim(result1, "Rotated image by π/6 (3-pass 1D)")
 jim(result1 - result2, "Difference images")
 
 
-# ### Adjoint
+#=
+## Adjoint
 
-# To ensure adjoint consistency between SPECT forward- and back-projection,
-# there is also an adjoint routine:
+To ensure adjoint consistency between SPECT forward- and back-projection,
+there is also an adjoint routine:
+=#
 
 adj2 = similar(result2)
 imrotate_adj!(adj2, result2, π/6, plan2)
@@ -135,11 +152,13 @@ jim(adj1, "Adjoint image rotation (3-pass 1D)")
 # so one does not expect the output here to match the original image!
 
 
-# ### LinearMap
+#=
+## LinearMap
 
-# One can form a linear map corresponding to image rotation using `LinearMapAA`.
-# An operator like this may be useful
-# as part of a motion-compensated image reconstruction method.
+One can form a linear map corresponding to image rotation using `LinearMapAA`.
+An operator like this may be useful
+as part of a motion-compensated image reconstruction method.
+=#
 
 using LinearMapsAA: LinearMapAA
 

@@ -1,11 +1,24 @@
-#---------------------------------------------------------
-# # [SPECTrecon PSF](@id 3-psf)
-#---------------------------------------------------------
+#=
+# [SPECTrecon PSF](@id 3-psf)
 
-# This page explains the PSF portion of the Julia package
-# [`SPECTrecon.jl`](https://github.com/JuliaImageRecon/SPECTrecon.jl).
+This page explains the PSF portion of the Julia package
+[`SPECTrecon.jl`](https://github.com/JuliaImageRecon/SPECTrecon.jl).
 
-# ### Setup
+This page was generated from a single Julia file:
+[3-psf.jl](@__REPO_ROOT_URL__/3-psf.jl).
+=#
+
+#md # In any such Julia documentation,
+#md # you can access the source code
+#md # using the "Edit on GitHub" link in the top right.
+
+#md # The corresponding notebook can be viewed in
+#md # [nbviewer](https://nbviewer.org/) here:
+#md # [`3-psf.ipynb`](@__NBVIEWER_ROOT_URL__/3-psf.ipynb),
+#md # and opened in [binder](https://mybinder.org/) here:
+#md # [`3-psf.ipynb`](@__BINDER_ROOT_URL__/3-psf.ipynb).
+
+# ## Setup
 
 # Packages needed here.
 
@@ -19,36 +32,38 @@ default(markerstrokecolor=:auto, markersize=3)
 
 isinteractive() ? jim(:prompt, true) : prompt(:draw);
 
-# ### Overview
+#=
+## Overview
 
-# After rotating the image and the attenuation map,
-# second step in SPECT image forward projection
-# is to apply depth-dependent point spread function (PSF).
-# Each (rotated) image plane
-# is a certain distance from the SPECT detector
-# and must be convolved with the 2D PSF appropriate
-# for that plane.
+After rotating the image and the attenuation map,
+second step in SPECT image forward projection
+is to apply depth-dependent point spread function (PSF).
+Each (rotated) image plane
+is a certain distance from the SPECT detector
+and must be convolved with the 2D PSF appropriate
+for that plane.
 
-# Because SPECT has relatively poor spatial resolution,
-# the PSF is usually fairly wide,
-# so convolution using FFT operations
-# is typically more efficient
-# than direct spatial convolution.
+Because SPECT has relatively poor spatial resolution,
+the PSF is usually fairly wide,
+so convolution using FFT operations
+is typically more efficient
+than direct spatial convolution.
 
-# Following other libraries like
-# [FFTW.jl](https://github.com/JuliaMath/FFTW.jl),
-# the PSF operations herein start with a `plan`
-# where work arrays are preallocated
-# for subsequent use.
-# The `plan` is a `Vector` of `PlanPSF` objects:
-# one for each thread.
-# (Parallelism is across planes for a 3D image volume.)
-# The number of threads defaults to `Threads.nthreads()`.
+Following other libraries like
+[FFTW.jl](https://github.com/JuliaMath/FFTW.jl),
+the PSF operations herein start with a `plan`
+where work arrays are preallocated
+for subsequent use.
+The `plan` is a `Vector` of `PlanPSF` objects:
+one for each thread.
+(Parallelism is across planes for a 3D image volume.)
+The number of threads defaults to `Threads.nthreads()`.
 
 
-# ### Example
+## Example
 
-# Start with a 3D image volume.
+Start with a 3D image volume.
+=#
 
 T = Float32 # work with single precision to save memory
 nx = 32
@@ -68,11 +83,13 @@ psf = repeat(psf_gauss( ; ny=nx, px), 1, 1, 1, nview)
 jim(psf, "PSF for each of $nx planes")
 
 
-# Now plan the PSF modeling
-# by specifying
-# * the image size (must be square)
-# * the PSF size: must be `px × pz × ny × nview`
-# * the `DataType` used for the work arrays.
+#=
+Now plan the PSF modeling
+by specifying
+* the image size (must be square)
+* the PSF size: must be `px × pz × ny × nview`
+* the `DataType` used for the work arrays.
+=#
 
 plan = plan_psf( ; nx, nz, px, T)
 
@@ -89,10 +106,12 @@ fft_conv!(result, image, psf[:,:,:,1], plan) # mutates the first argument
 jim(result, "After applying PSF")
 
 
-# ### Adjoint
+#=
+## Adjoint
 
-# To ensure adjoint consistency between SPECT forward- and back-projection,
-# there is also an adjoint routine:
+To ensure adjoint consistency between SPECT forward- and back-projection,
+there is also an adjoint routine:
+=#
 
 adj = similar(result)
 fft_conv_adj!(adj, result, psf[:,:,:,1], plan)
@@ -103,10 +122,12 @@ jim(adj, "Adjoint of PSF modeling")
 # so one does not expect the output here to match the original image!
 
 
-# ### LinearMap
+#=
+## LinearMap
 
-# One can form a linear map corresponding to PSF modeling using `LinearMapAA`.
-# Perhaps the main purpose is simply for verifying adjoint correctness.
+One can form a linear map corresponding to PSF modeling using `LinearMapAA`.
+Perhaps the main purpose is simply for verifying adjoint correctness.
+=#
 
 using LinearMapsAA: LinearMapAA
 

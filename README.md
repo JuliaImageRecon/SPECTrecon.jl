@@ -48,7 +48,7 @@ Tested with Julia ≥ 1.6.
 [docs-stable-url]: https://JuliaImageRecon.github.io/SPECTrecon.jl/stable
 [docs-dev-img]: https://img.shields.io/badge/docs-dev-blue.svg
 [docs-dev-url]: https://JuliaImageRecon.github.io/SPECTrecon.jl/dev
-[license-img]: http://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat
+[license-img]: https://img.shields.io/badge/license-MIT-brightgreen.svg
 [license-url]: LICENSE
 [colprac-img]: https://img.shields.io/badge/ColPrac-Contributor's%20Guide-blueviolet
 [colprac-url]: https://github.com/SciML/ColPrac
