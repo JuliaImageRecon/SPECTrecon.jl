@@ -29,7 +29,7 @@ Base.@propagate_inbounds function padzero!(
         size(img) .+ (padsize[1] + padsize[2], padsize[3] + padsize[4]) || throw("size")
     M, N = size(img)
     output .= zero(T)
-    for j = padsize[3] + 1:padsize[3] + N, i = padsize[1] + 1:padsize[1] + M
+    for j in padsize[3] + 1:padsize[3] + N, i in padsize[1] + 1:padsize[1] + M
         @inbounds output[i, j] = img[i - padsize[1], j - padsize[3]]
     end
     return output
@@ -50,7 +50,7 @@ Base.@propagate_inbounds function padrepl!(
     @boundscheck size(output) ==
         size(img) .+ (padsize[1] + padsize[2], padsize[3] + padsize[4]) || throw("size")
     M, N = size(img)
-    for j = 1:size(output, 2), i = 1:size(output, 1)
+    for j in 1:size(output, 2), i in 1:size(output, 1)
         @inbounds output[i, j] = img[clamp(i - padsize[1], 1, M), clamp(j - padsize[3], 1, N)]
     end
     return output
@@ -75,7 +75,7 @@ Base.@propagate_inbounds function pad2sizezero!(
     dims = size(img)
     pad_dims = ceil.(Int, (padsize .- dims) ./ 2)
     output .= zero(T)
-    for j = pad_dims[2]+1:pad_dims[2]+dims[2], i = pad_dims[1]+1:pad_dims[1]+dims[1]
+    for j in pad_dims[2]+1:pad_dims[2]+dims[2], i in pad_dims[1]+1:pad_dims[1]+dims[1]
         @inbounds output[i, j] = img[i - pad_dims[1], j - pad_dims[2]]
     end
     return output
@@ -119,7 +119,7 @@ Base.@propagate_inbounds function fftshift2!(
     if size(src,2) == 1
         @boundscheck iseven(size(src, 1)) || throw("odd $(size(src))")
         m = size(src,1) ÷ 2
-        for i = 1:m
+        for i in 1:m
             @inbounds dst[i, 1] = src[m+i, 1]
             @inbounds dst[i+m, 1] = src[i, 1]
         end
@@ -128,16 +128,16 @@ Base.@propagate_inbounds function fftshift2!(
 
     @boundscheck (iseven(size(src, 1)) && iseven(size(src, 2))) || throw("odd")
     m, n = div.(size(src), 2)
-    for j = 1:n, i = 1:m
+    for j in 1:n, i in 1:m
         @inbounds dst[i, j] = src[m+i, n+j]
     end
-    for j = n+1:2n, i = 1:m
+    for j in n+1:2n, i in 1:m
         @inbounds dst[i, j] = src[m+i, j-n]
     end
-    for j = 1:n, i = m+1:2m
+    for j in 1:n, i in m+1:2m
         @inbounds dst[i, j] = src[i-m, j+n]
     end
-    for j = n+1:2n, i = m+1:2m
+    for j in n+1:2n, i in m+1:2m
         @inbounds dst[i, j] = src[i-m, j-n]
     end
     return dst

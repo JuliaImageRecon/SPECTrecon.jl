@@ -36,7 +36,7 @@ function mlem!(
     back = similar(x0)
     copyto!(out, x0)
     time0 = time()
-    for iter = 1:niter
+    for iter in 1:niter
         chat && (@show iter, extrema(out), time() - time0)
         mul!(ybar, A, out)
         @. yratio = ynoisy / (ybar + background) # coalesce broadcast!
@@ -70,7 +70,7 @@ function Ablock(plan::SPECTplan, nblocks::Int)
     nview = plan.nview
     rem(nview, nblocks) == 0 || throw("nview must be divisible by nblocks!")
     Ab = Vector{LinearMapAO}(undef, nblocks)
-    for nb = 1:nblocks
+    for nb in 1:nblocks
         viewidx = nb:nblocks:nview
         forw!(y,x) = project!(y, x, plan; index = viewidx)
         back!(x,y) = backproject!(x, y, plan; index = viewidx)
@@ -106,7 +106,7 @@ function osem!(
     nx, nz, nview = size(ynoisy)
     nblocks = length(Ab)
     asum = Vector{Array{eltype(ynoisy), 3}}(undef, nblocks)
-    for nb = 1:nblocks
+    for nb in 1:nblocks
         asum[nb] = Ab[nb]' * ones(eltype(ynoisy), nx, nz, nview÷nblocks)
         (asum[nb])[asum[nb] .== 0] .= Inf # avoid divide by zero
     end
@@ -115,8 +115,8 @@ function osem!(
     back = similar(x0)
     copyto!(out, x0)
     time0 = time()
-    for iter = 1:niter
-        for nb = 1:nblocks
+    for iter in 1:niter
+        for nb in 1:nblocks
 	        chat && (@show iter, nb, extrema(out), time() - time0)
 	        mul!(ybar, Ab[nb], out)
 	        @. yratio = (@view ynoisy[:,:,nb:nblocks:nview]) /

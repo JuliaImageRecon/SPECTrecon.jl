@@ -15,7 +15,7 @@ function project!(
 )
     # rotate image and mumap using multiple processors
 
-    Threads.@threads for z = 1:plan.imgsize[3] # 1:nz
+    Threads.@threads for z in 1:plan.imgsize[3] # 1:nz
         thid = Threads.threadid() # thread id
         # rotate image in plan.imgr
         imrotate!(
@@ -33,12 +33,12 @@ function project!(
         )
     end
 
-    Threads.@threads for y = 1:plan.imgsize[2] # 1:ny
+    Threads.@threads for y in 1:plan.imgsize[2] # 1:ny
         thid = Threads.threadid() # thread id
         # account for half of the final slice thickness
         scale3dj!(plan.exp_mumapr[thid], plan.mumapr, y, -0.5)
 
-        for j = 1:y
+        for j in 1:y
             plus3dj!(plan.exp_mumapr[thid], plan.mumapr, j)
         end
 
@@ -82,7 +82,7 @@ function project!(
 )
     # rotate image and mumap using multiple processors
 
-    for z = 1:plan.imgsize[3] # 1:nz
+    for z in 1:plan.imgsize[3] # 1:nz
         # rotate image in plan.imgr
         imrotate!(
             (@view plan.imgr[thid][:, :, z]),
@@ -99,11 +99,11 @@ function project!(
         )
     end
 
-    for y = 1:plan.imgsize[2] # 1:ny
+    for y in 1:plan.imgsize[2] # 1:ny
         # account for half of the final slice thickness
         scale3dj!(plan.exp_mumapr[thid], plan.mumapr[thid], y, -0.5)
 
-        for j = 1:y
+        for j in 1:y
             plus3dj!(plan.exp_mumapr[thid], plan.mumapr[thid], j)
         end
 

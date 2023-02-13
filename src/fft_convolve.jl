@@ -93,25 +93,25 @@ function fft_conv_adj!(
     (M, N) = size(img)
     # adjoint of replicate padding
     plan.workvecz .= zero(T)
-    for i = 1:plan.padsize[1]
+    for i in 1:plan.padsize[1]
         plus2di!(plan.workvecz, plan.workmat, i)
     end
     plus1di!(plan.workmat, plan.workvecz, 1+plan.padsize[1])
 
     plan.workvecz .= zero(T)
-    for i = (plan.padsize[1]+M+1):size(plan.workmat, 1)
+    for i in (plan.padsize[1]+M+1):size(plan.workmat, 1)
         plus2di!(plan.workvecz, plan.workmat, i)
     end
     plus1di!(plan.workmat, plan.workvecz, M+plan.padsize[1])
 
     plan.workvecx .= zero(T)
-    for j = 1:plan.padsize[3]
+    for j in 1:plan.padsize[3]
         plus2dj!(plan.workvecx, plan.workmat, j)
     end
     plus1dj!(plan.workmat, plan.workvecx, 1+plan.padsize[3])
 
     plan.workvecx .= zero(T)
-    for j = (plan.padsize[3]+N+1):size(plan.workmat, 2)
+    for j in (plan.padsize[3]+N+1):size(plan.workmat, 2)
         plus2dj!(plan.workvecx, plan.workmat, j)
     end
     plus1dj!(plan.workmat, plan.workvecx, N+plan.padsize[3])

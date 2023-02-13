@@ -14,7 +14,7 @@ having specified full-width half-maximum (FHWM) values.
 - 'pz::Int = px' (should be odd)
 - 'fwhm_start::Real = 1'
 - 'fwhm_end::Real = 4'
-- 'fwhm::AbstractVector{<:Real} = LinRange(fwhm_start, fwhm_end, ny)'
+- 'fwhm::AbstractVector{<:Real} = range(fwhm_start, fwhm_end, ny)'
 - 'fwhm_x::AbstractVector{<:Real} = fwhm,
 - 'fwhm_z::AbstractVector{<:Real} = fwhm_x'
 - 'T::DataType == Float32'
@@ -27,7 +27,7 @@ function psf_gauss( ;
     pz::Int = px,
     fwhm_start::Real = 1,
     fwhm_end::Real = 4,
-    fwhm::AbstractVector{<:Real} = LinRange(fwhm_start, fwhm_end, ny),
+    fwhm::AbstractVector{<:Real} = range(fwhm_start, fwhm_end, ny),
     fwhm_x::AbstractVector{<:Real} = fwhm,
     fwhm_z::AbstractVector{<:Real} = fwhm_x,
     T::DataType = Float32,
