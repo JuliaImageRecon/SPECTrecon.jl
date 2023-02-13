@@ -91,11 +91,11 @@ struct SPECTplan{T}
 
         if mode === :fast
             # imgr stores 3D image in different view angles
-            imgr = [Array{T, 3}(undef, nx, ny, nz) for id = 1:nthread]
+            imgr = [Array{T, 3}(undef, nx, ny, nz) for id in 1:nthread]
             # add_img stores 3d image for backprojection
-            add_img = [Array{T, 3}(undef, nx, ny, nz) for id = 1:nthread]
+            add_img = [Array{T, 3}(undef, nx, ny, nz) for id in 1:nthread]
             # mumapr stores 3D mumap in different view angles
-            mumapr = [Array{T, 3}(undef, nx, ny, nz) for id = 1:nthread]
+            mumapr = [Array{T, 3}(undef, nx, ny, nz) for id in 1:nthread]
         else
             # imgr stores 3D image in different view angles
             imgr = Array{T, 3}(undef, nx, ny, nz)
@@ -105,7 +105,7 @@ struct SPECTplan{T}
             mumapr = Array{T, 3}(undef, nx, ny, nz)
         end
 
-        exp_mumapr = [Matrix{T}(undef, nx, nz) for id = 1:nthread]
+        exp_mumapr = [Matrix{T}(undef, nx, nz) for id in 1:nthread]
 
         planrot = plan_rotate(nx; T, method = interpmeth)
 

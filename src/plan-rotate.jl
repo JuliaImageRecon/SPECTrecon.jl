@@ -99,7 +99,7 @@ function plan_rotate(
     method::Symbol = :two,
     nthread::Int = Threads.nthreads(),
 )
-    return [PlanRotate(nx; T, method) for id = 1:nthread]
+    return [PlanRotate(nx; T, method) for id in 1:nthread]
 end
 
 

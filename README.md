@@ -24,14 +24,19 @@ The examples include an illustration
 of how to integrate deep learning
 into SPECT reconstruction.
 
-For a GPU-focused version, see
+Tested with Julia ≥ 1.8.
+
+## Related packages
+
+- Pytorch/GPU version:
+https://github.com/ZongyuLi-umich/SPECTrecon-pytorch
+
+- Julia/GPU version:
 [CuSPECTrecon.jl](https://github.com/JuliaImageRecon/CuSPECTrecon.jl).
 
 Designed for use with the
 [Michigan Image Reconstruction Toolbox (MIRT)](https://github.com/JeffFessler/MIRT.jl)
 or similar frameworks.
-
-Tested with Julia ≥ 1.6.
 
 <!-- URLs -->
 [action-img]: https://github.com/JuliaImageRecon/SPECTrecon.jl/workflows/CI/badge.svg

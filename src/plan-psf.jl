@@ -104,7 +104,7 @@ function plan_psf( ;
     nthread::Int = Threads.nthreads(),
     T::DataType = Float32,
 )
-    return [PlanPSF( ; nx, nz, px, pz, T) for id = 1:nthread]
+    return [PlanPSF( ; nx, nz, px, pz, T) for id in 1:nthread]
 end
 
 

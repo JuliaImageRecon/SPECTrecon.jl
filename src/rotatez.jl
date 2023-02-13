@@ -26,7 +26,7 @@ function linearinterp!(
     dec = ceil(Int, s) - s
     ncoeff = length(A.C)
     ncol = len
-    for i = 1:ncoeff
+    for i in 1:ncoeff
         if isodd(i)
             A.C[i] = dec
         else
@@ -36,12 +36,12 @@ function linearinterp!(
 
     if e <= ncol
         A.J[end] = ceil(Int, e)
-        for i = ncoeff-1:-1:1
+        for i in ncoeff-1:-1:1
             A.J[i] = max(1, A.J[end] - ceil(Int, (ncoeff - i) / 2))
         end
     else
         A.J[1] = floor(Int, s)
-        for i = 2:ncoeff
+        for i in 2:ncoeff
             A.J[i] = min(ncol, A.J[1] + ceil(Int, (i - 1) / 2))
         end
     end
@@ -153,7 +153,7 @@ In place version of `rotl90`, returning rotation of `A` in `B`.
 function rotl90!(B::AbstractMatrix, A::AbstractMatrix)
     ind1, ind2 = axes(A)
     n = first(ind2) + last(ind2)
-    for i = axes(A, 1), j = ind2
+    for i in axes(A, 1), j in ind2
         B[n - j, i] = A[i, j]
     end
     return B
@@ -167,7 +167,7 @@ In place version of `rotr90`, returning rotation of `A` in `B`.
 function rotr90!(B::AbstractMatrix, A::AbstractMatrix)
     ind1, ind2 = axes(A)
     m = first(ind1) + last(ind1)
-    for i = ind1, j = axes(A, 2)
+    for i in ind1, j in axes(A, 2)
         B[j, m - i] = A[i, j]
     end
     return B
@@ -181,7 +181,7 @@ In place version of `rot180`, returning rotation of `A` in `B`.
 function rot180!(B::AbstractMatrix, A::AbstractMatrix)
     ind1, ind2 = axes(A,1), axes(A,2)
     m, n = first(ind1)+last(ind1), first(ind2)+last(ind2)
-    for j=ind2, i=ind1
+    for j in ind2, i in ind1
         B[m-i,n-j] = A[i, j]
     end
     return B
@@ -512,7 +512,7 @@ function _imrotate!(
     size(image3,1) == plans[1].nx || throw("nx")
     length(plans) == Threads.nthreads() || throw("#threads")
 
-    Threads.@threads for z = 1:size(image3,3) # 1:nz
+    Threads.@threads for z in 1:size(image3,3) # 1:nz
         id = Threads.threadid() # thread id
         fun(
             (@view output[:, :, z]),
