@@ -28,11 +28,11 @@ Tested with Julia ≥ 1.8.
 
 ## Related packages
 
-- GPU-focused version:
-[CuSPECTrecon.jl](https://github.com/JuliaImageRecon/CuSPECTrecon.jl).
-
-- Python version:
+- Pytorch/GPU version:
 https://github.com/ZongyuLi-umich/SPECTrecon-pytorch
+
+- Julia/GPU version:
+[CuSPECTrecon.jl](https://github.com/JuliaImageRecon/CuSPECTrecon.jl).
 
 Designed for use with the
 [Michigan Image Reconstruction Toolbox (MIRT)](https://github.com/JeffFessler/MIRT.jl)
