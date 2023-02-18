@@ -3,20 +3,9 @@
 
 This page explains the image rotation portion of the Julia package
 [`SPECTrecon.jl`](https://github.com/JuliaImageRecon/SPECTrecon.jl).
-
-This page was generated from a single Julia file:
-[2-rotate.jl](@__REPO_ROOT_URL__/2-rotate.jl).
 =#
 
-#md # In any such Julia documentation,
-#md # you can access the source code
-#md # using the "Edit on GitHub" link in the top right.
-
-#md # The corresponding notebook can be viewed in
-#md # [nbviewer](https://nbviewer.org/) here:
-#md # [`2-rotate.ipynb`](@__NBVIEWER_ROOT_URL__/2-rotate.ipynb),
-#md # and opened in [binder](https://mybinder.org/) here:
-#md # [`2-rotate.ipynb`](@__BINDER_ROOT_URL__/2-rotate.ipynb).
+#srcURL
 
 # ## Setup
 

@@ -3,20 +3,9 @@
 
 This page explains the PSF portion of the Julia package
 [`SPECTrecon.jl`](https://github.com/JuliaImageRecon/SPECTrecon.jl).
-
-This page was generated from a single Julia file:
-[3-psf.jl](@__REPO_ROOT_URL__/3-psf.jl).
 =#
 
-#md # In any such Julia documentation,
-#md # you can access the source code
-#md # using the "Edit on GitHub" link in the top right.
-
-#md # The corresponding notebook can be viewed in
-#md # [nbviewer](https://nbviewer.org/) here:
-#md # [`3-psf.ipynb`](@__NBVIEWER_ROOT_URL__/3-psf.ipynb),
-#md # and opened in [binder](https://mybinder.org/) here:
-#md # [`3-psf.ipynb`](@__BINDER_ROOT_URL__/3-psf.ipynb).
+#srcURL
 
 # ## Setup
 
