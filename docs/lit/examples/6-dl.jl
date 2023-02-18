@@ -4,20 +4,9 @@
 This page describes how to end-to-end train unrolled deep learning algorithms
 using the Julia package
 [`SPECTrecon`](https://github.com/JuliaImageRecon/SPECTrecon.jl).
-
-This page was generated from a single Julia file:
-[6-dl.jl](@__REPO_ROOT_URL__/6-dl.jl).
 =#
 
-#md # In any such Julia documentation,
-#md # you can access the source code
-#md # using the "Edit on GitHub" link in the top right.
-
-#md # The corresponding notebook can be viewed in
-#md # [nbviewer](https://nbviewer.org/) here:
-#md # [`6-dl.ipynb`](@__NBVIEWER_ROOT_URL__/6-dl.ipynb),
-#md # and opened in [binder](https://mybinder.org/) here:
-#md # [`6-dl.ipynb`](@__BINDER_ROOT_URL__/6-dl.ipynb).
+#srcURL
 
 
 # ### Setup
@@ -295,13 +284,4 @@ see [https://doi.org/10.1109/EMBC46164.2021.9630985](https://doi.org/10.1109/EMB
 =#
 
 
-# ### Reproducibility
-
-# This page was generated with the following version of Julia:
-
-io = IOBuffer(); versioninfo(io); split(String(take!(io)), '\n')
-
-
-# And with the following package versions
-
-import Pkg; Pkg.status()
+include("../../../inc/reproduce.jl")

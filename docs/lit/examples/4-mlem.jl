@@ -3,20 +3,9 @@
 
 This page illustrates ML-EM reconstruction with the Julia package
 [`SPECTrecon`](https://github.com/JuliaImageRecon/SPECTrecon.jl).
-
-This page was generated from a single Julia file:
-[4-mlem.jl](@__REPO_ROOT_URL__/4-mlem.jl).
 =#
 
-#md # In any such Julia documentation,
-#md # you can access the source code
-#md # using the "Edit on GitHub" link in the top right.
-
-#md # The corresponding notebook can be viewed in
-#md # [nbviewer](https://nbviewer.org/) here:
-#md # [`4-mlem.ipynb`](@__NBVIEWER_ROOT_URL__/4-mlem.ipynb),
-#md # and opened in [binder](https://mybinder.org/) here:
-#md # [`4-mlem.ipynb`](@__BINDER_ROOT_URL__/4-mlem.ipynb).
+#srcURL
 
 # ## Setup
 
