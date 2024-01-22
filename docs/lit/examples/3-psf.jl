@@ -11,7 +11,7 @@ This page explains the PSF portion of the Julia package
 
 # Packages needed here.
 
-using SPECTrecon
+using SPECTrecon: psf_gauss, plan_psf, fft_conv!, fft_conv_adj!
 using MIRTjim: jim, prompt
 using Plots: scatter, scatter!, plot!, default
 default(markerstrokecolor=:auto, markersize=3)

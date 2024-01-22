@@ -11,7 +11,7 @@ This page explains the image rotation portion of the Julia package
 
 # Packages needed here.
 
-using SPECTrecon
+using SPECTrecon: plan_rotate, imrotate!, imrotate_adj!
 using MIRTjim: jim, prompt
 using Plots: scatter, scatter!, plot!, default
 default(markerstrokecolor=:auto, markersize=3)

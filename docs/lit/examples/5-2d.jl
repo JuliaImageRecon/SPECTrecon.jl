@@ -12,7 +12,8 @@ using the Julia package
 
 # Packages needed here.
 
-using SPECTrecon
+using SPECTrecon: SPECTplan, psf_gauss
+using SPECTrecon: project, project!, backproject, backproject!
 using MIRTjim: jim, prompt
 using ImagePhantoms: shepp_logan, SheppLoganEmis
 using LinearAlgebra: mul!

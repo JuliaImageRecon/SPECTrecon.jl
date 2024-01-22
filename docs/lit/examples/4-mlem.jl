@@ -11,7 +11,7 @@ This page illustrates ML-EM reconstruction with the Julia package
 
 # Packages needed here.
 
-using SPECTrecon
+using SPECTrecon: SPECTplan, psf_gauss, project!, backproject!, mlem, mlem!
 using MIRTjim: jim, prompt
 using Plots: scatter, plot!, default; default(markerstrokecolor=:auto)
 
