@@ -11,7 +11,8 @@ This page gives an overview of the Julia package
 
 # Packages needed here.
 
-using SPECTrecon
+using SPECTrecon: plan_psf, psf_gauss, SPECTplan
+using SPECTrecon: project, project!, backproject, backproject!
 using MIRTjim: jim, prompt
 using LinearAlgebra: mul!
 using LinearMapsAA: LinearMapAA
@@ -218,10 +219,10 @@ mul!(tmp, A', views)
 The pixel dimensions `deltas` can (and should!) be values with units.
 
 Here is an example ... (todo)
-=#
 
-#using UnitfulRecipes
-#using Unitful: mm
+using UnitfulRecipes
+using Unitful: mm
+=#
 
 
 # ## Projection view animation

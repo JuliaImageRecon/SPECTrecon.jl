@@ -219,26 +219,37 @@ end
 # Initial loss
 @show loss(xhat1, xtrue)
 
-# ### Train the CNN
-# Uncomment the following code to train!
-## using Printf
-## nepoch = 200
-## for e = 1:nepoch
-##     @printf("epoch = %d, loss = %.2f\n", e, loss(xhat1, xtrue))
-##     ps = Flux.params(cnn)
-##     gs = gradient(ps) do
-##         loss(xhat1, xtrue) # we start with the 30 iteration EM reconstruction
-##     end
-##     opt = ADAMW(0.002)
-##     Flux.Optimise.update!(opt, ps, gs)
-## end
+#=
+### Train the CNN
+Uncomment the following code to train:
 
-# Uncomment to save your trained model.
-## file = "../data/trained-cnn-example-6-dl.bson" # adjust path/name as needed
-## @save file cnn
+```
+using Printf
+nepoch = 200
+for e in 1:nepoch
+    @printf("epoch = %d, loss = %.2f\n", e, loss(xhat1, xtrue))
+    ps = Flux.params(cnn)
+    gs = gradient(ps) do
+        loss(xhat1, xtrue) # we start with the 30 iteration EM reconstruction
+    end
+    opt = ADAMW(0.002)
+    Flux.Optimise.update!(opt, ps, gs)
+end
+```
+=#
 
-# Load the pre-trained model (uncomment if you save your own model).
-## @load file cnn
+#=
+Uncomment to save your trained model:
+```
+file = "../data/trained-cnn-example-6-dl.bson" # adjust path/name as needed
+@save file cnn
+```
+
+Load the pre-trained model (uncomment if you save your own model):
+```
+@load file cnn
+```
+=#
 
 #=
 The code below here works fine when run via `include` from the REPL,
