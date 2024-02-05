@@ -24,7 +24,7 @@ The examples include an illustration
 of how to integrate deep learning
 into SPECT reconstruction.
 
-Tested with Julia ≥ 1.8.
+Tested with Julia ≥ 1.10.
 
 ## Related packages
 
