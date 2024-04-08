@@ -81,7 +81,7 @@ jim(image, "Original image")
 # Now plan the rotation
 # by specifying
 # * the image size `nx` (it must be square, so `ny=nx` implicitly)
-# * the `DataType` used for the work arrays.
+# * the `Type` used for the work arrays.
 
 plan2 = plan_rotate(size(image, 1); T)
 

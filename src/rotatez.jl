@@ -371,7 +371,7 @@ function imrotate(
     img::AbstractMatrix{I},
     θ::RealU;
     method::Symbol=:two,
-    T::DataType = promote_type(I, Float32),
+    T::Type{<:AbstractFloat} = promote_type(I, Float32),
 ) where {I <: Number}
     output = similar(Matrix{T}, size(img))
     plan = plan_rotate(size(img, 1); T, nthread = 1, method)[1]
@@ -424,7 +424,7 @@ function imrotate_adj(
     img::AbstractMatrix{I},
     θ::RealU;
     method::Symbol=:two,
-    T::DataType = promote_type(I, Float32),
+    T::Type{<:AbstractFloat} = promote_type(I, Float32),
 ) where {I <: Number}
     output = similar(Matrix{T}, size(img))
     plan = plan_rotate(size(img, 1); T, nthread = 1, method)[1]

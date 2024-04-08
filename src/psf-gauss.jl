@@ -17,7 +17,7 @@ having specified full-width half-maximum (FHWM) values.
 - 'fwhm::AbstractVector{<:Real} = range(fwhm_start, fwhm_end, ny)'
 - 'fwhm_x::AbstractVector{<:Real} = fwhm,
 - 'fwhm_z::AbstractVector{<:Real} = fwhm_x'
-- 'T::DataType == Float32'
+- 'T::Type == Float32'
 
 Returned `psf` is `[px, pz, ny]` where each PSF sums to 1.
 """
@@ -30,7 +30,7 @@ function psf_gauss( ;
     fwhm::AbstractVector{<:Real} = range(fwhm_start, fwhm_end, ny),
     fwhm_x::AbstractVector{<:Real} = fwhm,
     fwhm_z::AbstractVector{<:Real} = fwhm_x,
-    T::DataType = Float32,
+    T::Type{<:AbstractFloat} = Float32,
 )
     isodd(px) || @warn("even px = $px ?")
     isodd(pz) || @warn("even pz = $pz ?")
