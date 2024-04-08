@@ -77,7 +77,7 @@ Now plan the PSF modeling
 by specifying
 * the image size (must be square)
 * the PSF size: must be `px × pz × ny × nview`
-* the `DataType` used for the work arrays.
+* the `Type` used for the work arrays.
 =#
 
 plan = plan_psf( ; nx, nz, px, T)

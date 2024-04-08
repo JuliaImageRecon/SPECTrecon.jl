@@ -5,7 +5,7 @@ import AbstractFFTs
 import FFTW
 
 """
-    PlanPSF{T,Tf,Ti}( ; nx::Int, nz::Int, px::Int, pz::Int, T::DataType)
+    PlanPSF{T,Tf,Ti}( ; nx::Int, nz::Int, px::Int, pz::Int, T::Type)
 Struct for storing work arrays and factors for 2D convolution for one thread.
 Each PSF is `px × pz`
 - `T` datatype of work arrays (subtype of `AbstractFloat`)
@@ -41,7 +41,7 @@ struct PlanPSF{T, Tf, Ti}
         nz::Int = nx,
         px::Int = 1,
         pz::Int = px,
-        T::DataType = Float32,
+        T::Type{<:AbstractFloat} = Float32,
     )
 
         T <: AbstractFloat || throw("invalid T=$T")
@@ -84,7 +84,7 @@ end
 
 
 """
-    plan_psf( ; nx::Int, nz::Int, px::Int, pz::Int, nthread::Int, T::DataType)
+    plan_psf( ; nx::Int, nz::Int, px::Int, pz::Int, nthread::Int, T::Type)
 Make Vector of structs for storing work arrays and factors
 for 2D convolution with SPECT depth-dependent PSF model,
 threaded across planes parallel to detector.
@@ -102,7 +102,7 @@ function plan_psf( ;
     px::Int = 1,
     pz::Int = px,
     nthread::Int = Threads.nthreads(),
-    T::DataType = Float32,
+    T::Type{<:AbstractFloat} = Float32,
 )
     return [PlanPSF( ; nx, nz, px, pz, T) for id in 1:nthread]
 end

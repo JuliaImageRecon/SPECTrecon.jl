@@ -46,7 +46,7 @@ struct PlanRotate{T, R}
 
     function PlanRotate(
         nx::Int ;
-        T::DataType = Float32,
+        T::Type{<:AbstractFloat} = Float32,
         method::Symbol = :two, # :one is for 1d interpolation, :two is for 2d interpolation
     )
 
@@ -78,7 +78,7 @@ end
 
 
 """
-    plan_rotate(nx::Int; T::DataType, method::Symbol)
+    plan_rotate(nx::Int; T::Type{<:AbstractFloat}, method::Symbol)
 Make `Vector` of `PlanRotate` structs
 for storing work arrays and factors
 for threaded rotation of a stack of 2D square images.
@@ -95,7 +95,7 @@ for threaded rotation of a stack of 2D square images.
 """
 function plan_rotate(
     nx::Int ;
-    T::DataType = Float32,
+    T::Type{<:AbstractFloat} = Float32,
     method::Symbol = :two,
     nthread::Int = Threads.nthreads(),
 )

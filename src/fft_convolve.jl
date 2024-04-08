@@ -57,7 +57,7 @@ Convolve 2D image `img` with 2D (symmetric!) kernel `ker` using FFT.
 function fft_conv(
     img::AbstractMatrix{I},
     ker::AbstractMatrix{K};
-    T::DataType = promote_type(I, K, Float32),
+    T::Type{<:AbstractFloat} = promote_type(I, K, Float32),
 ) where {I <: Number, K <: Number}
 
     ker ≈ reverse(ker, dims=:) || throw("asymmetric kernel")
@@ -132,7 +132,7 @@ Adjoint of `fft_conv`.
 function fft_conv_adj(
     img::AbstractMatrix{I},
     ker::AbstractMatrix{K};
-    T::DataType = promote_type(I, K, Float32),
+    T::Type{<:AbstractFloat} = promote_type(I, K, Float32),
 ) where {I <: Number, K <: Number}
 
     ker ≈ reverse(ker, dims=:) || throw("asymmetric kernel")

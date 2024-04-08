@@ -30,7 +30,7 @@ Currently code assumes the following:
 * multiprocessing using # of threads specified by `Threads.nthreads()`
 """
 struct SPECTplan{T}
-    T::DataType # default type for work arrays etc.
+    T::Type{<:AbstractFloat} # default type for work arrays etc.
     imgsize::NTuple{3, Int}
     px::Int
     pz::Int
@@ -56,7 +56,7 @@ struct SPECTplan{T}
         mumap::Array{<:RealU, 3},
         psfs::Array{<:RealU, 4},
         dy::RealU;
-        T::DataType = promote_type(eltype(mumap), Float32),
+        T::Type{<:AbstractFloat} = promote_type(eltype(mumap), Float32),
         viewangle::StepRangeLen{<:RealU} = (0:size(psfs, 4) - 1) / size(psfs, 4) * T(2π), # set of view angles
         interpmeth::Symbol = :two, # :one is for 1d interpolation, :two is for 2d interpolation
         nthread::Int = Threads.nthreads(),
