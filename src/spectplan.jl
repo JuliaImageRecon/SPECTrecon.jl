@@ -16,10 +16,10 @@ Struct for storing key factors for a SPECT system model
 - `psfs [px,pz,ny,nview]` point spread function, must be 4D, with `px and `pz` odd, and symmetric for each slice
 - `nview` number of views, must be integer
 - `viewangle` set of view angles, must be from 0 to 2π
-- `interpmeth` interpolation method, :one means 1d, :two means 2d
-- `mode` pre-allcoation method, :fast means faster, :mem means use less memory
-- `dy` voxel size in y direction (dx is the same value)
-- `nthread` number of CPU threads used to process data, must be integer
+- `interpmeth` interpolation method: `:one` means 1d; `:two` means 2d
+- `mode` pre-allocation method: `:fast` means faster; `:mem` means use less memory
+- `dy` voxel size in y direction (`dx` is the same value)
+- `nthread` number of CPU threads used to process data; must be integer
 - `planrot` Vector of struct `PlanRotate`
 - `planpsf` Vector of struct `PlanPSF`
 Currently code assumes the following:

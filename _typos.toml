@@ -1,0 +1,11 @@
+[default]
+extend-ignore-identifiers-re = [
+    "thid",
+    "iy",
+    "iy",
+]
+
+[files]
+extend-exclude = [
+    "*.ipynb",
+]

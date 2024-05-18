@@ -50,5 +50,6 @@ function SPECTplan_time()
 end
 
 
-# run all functions, time may vary on different machines, will alllocate ~100 MB memory.
+# Run all functions; time may vary on different machines.
+# Will allocate ~100 MB memory.
 SPECTplan_time()
