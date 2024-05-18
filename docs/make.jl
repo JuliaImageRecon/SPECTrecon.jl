@@ -2,8 +2,8 @@ execute = isempty(ARGS) || ARGS[1] == "run"
 
 org, reps = :JuliaImageRecon, :SPECTrecon
 eval(:(using $reps))
-using Documenter
-using Literate
+import Documenter
+import Literate
 
 # https://juliadocs.github.io/Documenter.jl/stable/man/syntax/#@example-block
 ENV["GKSwstype"] = "100"
@@ -23,9 +23,7 @@ binder_root_url =
 
 
 repo = eval(:($reps))
-DocMeta.setdocmeta!(repo, :DocTestSetup, :(using $reps); recursive=true)
-
-#ENV["JULIA_DEBUG"] = "Literate"
+Documenter.DocMeta.setdocmeta!(repo, :DocTestSetup, :(using $reps); recursive=true)
 
 # preprocessing
 inc1 = "include(\"../../../inc/reproduce.jl\")"
@@ -79,7 +77,7 @@ format = Documenter.HTML(;
     assets = ["assets/custom.css"],
 )
 
-makedocs(;
+Documenter.makedocs(;
     modules = [repo],
     authors = "Jeff Fessler & Zongyu Li & contributors",
     sitename = "$repo.jl",
@@ -93,7 +91,7 @@ makedocs(;
 )
 
 if isci
-    deploydocs(;
+    Documenter.deploydocs(;
         repo = "github.com/$base",
         devbranch = "main",
         devurl = "dev",

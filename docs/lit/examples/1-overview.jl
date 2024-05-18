@@ -218,7 +218,7 @@ mul!(tmp, A', views)
 
 The pixel dimensions `deltas` can (and should!) be values with units.
 
-Here is an example ... (todo)
+Here is an example with units ... (todo)
 
 using UnitfulRecipes
 using Unitful: mm
