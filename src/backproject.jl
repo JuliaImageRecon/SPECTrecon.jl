@@ -23,7 +23,7 @@ function backproject!(
                   plan.planrot[thid],
                   )
 
-    end
+    end # COV_EXCL_LINE
 
     # adjoint of convolving img with psf and applying attenuation map
     Threads.@threads for y in 1:plan.imgsize[2] # 1:ny
@@ -45,7 +45,7 @@ function backproject!(
                        )
 
         mul3dj!(plan.imgr, plan.exp_mumapr[thid], y)
-    end
+    end # COV_EXCL_LINE
 
     # adjoint of rotating image
     Threads.@threads for z in 1:plan.imgsize[3] # 1:nz
@@ -56,7 +56,7 @@ function backproject!(
                       plan.viewangle[viewidx],
                       plan.planrot[thid],
                       )
-    end
+    end # COV_EXCL_LINE
 
     return image
 end
@@ -142,7 +142,7 @@ function backproject!(
         Threads.@threads for (i, viewidx) in collect(enumerate(index))
             thid = Threads.threadid()
             backproject!(plan.add_img[thid], (@view views[:, :, i]), plan, thid, viewidx)
-        end
+        end # COV_EXCL_LINE
 
         for i in 1:plan.nthread
             broadcast!(+, image, image, plan.add_img[i])

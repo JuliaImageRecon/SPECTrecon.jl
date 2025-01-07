@@ -31,7 +31,7 @@ function project!(
             plan.viewangle[viewidx],
             plan.planrot[thid],
         )
-    end
+    end # COV_EXCL_LINE
 
     Threads.@threads for y in 1:plan.imgsize[2] # 1:ny
         thid = Threads.threadid() # thread id
@@ -55,7 +55,7 @@ function project!(
             (@view plan.psfs[:, :, y, viewidx]),
             plan.planpsf[thid],
         )
-    end
+    end # COV_EXCL_LINE
 
     copy3dj!(view, plan.add_img, 1) # initialize accumulator
     for y in 2:plan.imgsize[2] # accumulate to get total view
@@ -151,7 +151,7 @@ function project!(
         Threads.@threads for (i, viewidx) in collect(enumerate(index))
             thid = Threads.threadid()
             project!((@view views[:,:,i]), image, plan, thid, viewidx)
-        end
+        end # COV_EXCL_LINE
     else
         for (i, viewidx) in collect(enumerate(index))
             project!((@view views[:,:,i]), image, plan, viewidx)
