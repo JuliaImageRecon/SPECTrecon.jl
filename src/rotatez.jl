@@ -520,7 +520,7 @@ function _imrotate!(
             θ,
             plans[id],
         )
-    end
+    end # COV_EXCL_LINE
 
     return output
 end
