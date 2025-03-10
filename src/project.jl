@@ -2,6 +2,7 @@
 
 export project, project!
 
+
 """
     project!(view, plan, image, viewidx)
 SPECT projection of `image` into a single `view` with index `viewidx`.
@@ -13,49 +14,49 @@ function project!(
     plan::SPECTplan,
     viewidx::Int,
 )
-    # rotate image and mumap using multiple processors
 
-    Threads.@threads for z in 1:plan.imgsize[3] # 1:nz
-        thid = Threads.threadid() # thread id
+    # rotate image and mumap using multiple processors
+    nz = plan.imgsize[3] # prepare to loop over slices
+    spawner(plan.nthread, nz) do buffer_id, iz
         # rotate image in plan.imgr
         imrotate!(
-            (@view plan.imgr[:, :, z]),
-            (@view image[:, :, z]),
+            (@view plan.imgr[:, :, iz]),
+            (@view image[:, :, iz]),
             plan.viewangle[viewidx],
-            plan.planrot[thid],
+            plan.planrot[buffer_id],
         )
         # rotate mumap and store in plan.mumapr
         imrotate!(
-            (@view plan.mumapr[:, :, z]),
-            (@view plan.mumap[:, :, z]),
+            (@view plan.mumapr[:, :, iz]),
+            (@view plan.mumap[:, :, iz]),
             plan.viewangle[viewidx],
-            plan.planrot[thid],
+            plan.planrot[buffer_id],
         )
-    end # COV_EXCL_LINE
+    end
 
-    Threads.@threads for y in 1:plan.imgsize[2] # 1:ny
-        thid = Threads.threadid() # thread id
+    # apply depth-dependent attenuation and blur to each y plane
+    ny = plan.imgsize[2] # prepare to loop over y planes
+    spawner(plan.nthread, ny) do buffer_id, iy
         # account for half of the final slice thickness
-        scale3dj!(plan.exp_mumapr[thid], plan.mumapr, y, -0.5)
+        scale3dj!(plan.exp_mumapr[buffer_id], plan.mumapr, iy, -0.5)
 
-        for j in 1:y
-            plus3dj!(plan.exp_mumapr[thid], plan.mumapr, j)
+        for j in 1:iy
+            plus3dj!(plan.exp_mumapr[buffer_id], plan.mumapr, j)
         end
 
-        broadcast!(*, plan.exp_mumapr[thid], plan.exp_mumapr[thid], - plan.dy)
-
-        broadcast!(exp, plan.exp_mumapr[thid], plan.exp_mumapr[thid])
+        broadcast!(*, plan.exp_mumapr[buffer_id], plan.exp_mumapr[buffer_id], - plan.dy)
+        broadcast!(exp, plan.exp_mumapr[buffer_id], plan.exp_mumapr[buffer_id])
 
         # apply depth-dependent attenuation
-        mul3dj!(plan.imgr, plan.exp_mumapr[thid], y)
+        mul3dj!(plan.imgr, plan.exp_mumapr[buffer_id], iy)
 
         fft_conv!(
-            (@view plan.add_img[:, y, :]),
-            (@view plan.imgr[:, y, :]),
-            (@view plan.psfs[:, :, y, viewidx]),
-            plan.planpsf[thid],
+            (@view plan.add_img[:, iy, :]),
+            (@view plan.imgr[:, iy, :]),
+            (@view plan.psfs[:, :, iy, viewidx]),
+            plan.planpsf[buffer_id],
         )
-    end # COV_EXCL_LINE
+    end
 
     copy3dj!(view, plan.add_img, 1) # initialize accumulator
     for y in 2:plan.imgsize[2] # accumulate to get total view
@@ -81,6 +82,8 @@ function project!(
     viewidx::Int,
 )
     # rotate image and mumap using multiple processors
+
+#@show thid
 
     for z in 1:plan.imgsize[3] # 1:nz
         # rotate image in plan.imgr
@@ -149,7 +152,7 @@ function project!(
     # loop over each view index
     if plan.mode === :fast
         Threads.@threads for (i, viewidx) in collect(enumerate(index))
-            thid = Threads.threadid()
+            thid = Threads.threadid() # todo NO!
             project!((@view views[:,:,i]), image, plan, thid, viewidx)
         end # COV_EXCL_LINE
     else
