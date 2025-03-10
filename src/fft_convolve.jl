@@ -3,16 +3,19 @@
 export fft_conv!, fft_conv_adj!
 export fft_conv, fft_conv_adj
 
+
 """
     imfilterz!(plan)
 FFT-based convolution of `plan.img_compl`
 and kernel `plan.ker_compl` (not centered),
 storing result in `plan.workmat`.
+Over-writes `plan.ker_compl`.
 """
 function imfilterz!(plan::PlanPSF)
     mul!(plan.img_compl, plan.fft_plan, plan.img_compl)
     mul!(plan.ker_compl, plan.fft_plan, plan.ker_compl)
     broadcast!(*, plan.img_compl, plan.img_compl, plan.ker_compl)
+#   plan.img_compl .*= plan.ker_compl # todo - time it
     mul!(plan.img_compl, plan.ifft_plan, plan.img_compl)
     fftshift2!(plan.ker_compl, plan.img_compl)
     plan.workmat .= real.(plan.ker_compl)
@@ -161,15 +164,16 @@ function fft_conv!(
 
     size(output) == size(image3) || throw(DimensionMismatch())
 
-    fun = y -> fft_conv!(
-            (@view output[:, y, :]),
-            (@view image3[:, y, :]),
-            (@view ker3[:, :, y]),
-            plans[Threads.threadid()], # todo NO!
+    nbuffer = length(plans)
+    ny = size(image3, 2)
+    spawner(nbuffer, ny) do buffer_id, iy
+        fft_conv!(
+            (@view output[:, iy, :]),
+            (@view image3[:, iy, :]),
+            (@view ker3[:, :, iy]),
+            plans[buffer_id],
         )
-
-    ntasks = length(plans)
-    Threads.foreach(fun, foreach_setup(1:size(image3, 2)); ntasks)
+    end
 
     return output
 end
@@ -188,15 +192,16 @@ function fft_conv_adj!(
 
     size(output) == size(image3) || throw(DimensionMismatch())
 
-    fun = y -> fft_conv_adj!(
-            (@view output[:, y, :]),
-            (@view image3[:, y, :]),
-            (@view ker3[:, :, y]),
-            plans[Threads.threadid()],
+    nbuffer = length(plans)
+    ny = size(image3, 2)
+    spawner(nbuffer, ny) do buffer_id, iy
+        fft_conv_adj!(
+            (@view output[:, iy, :]),
+            (@view image3[:, iy, :]),
+            (@view ker3[:, :, iy]),
+            plans[buffer_id],
         )
-
-    ntasks = length(plans)
-    Threads.foreach(fun, foreach_setup(1:size(image3, 2)); ntasks)
+    end
 
     return output
 end
@@ -217,15 +222,16 @@ function fft_conv_adj2!(
     size(output, 1) == size(image2, 1) || throw("size 1")
     size(output, 3) == size(image2, 2) || throw("size 2")
 
-    fun = y -> fft_conv_adj!(
-            (@view output[:, y, :]),
+    nbuffer = length(plans)
+    ny = size(image2, 2)
+    spawner(nbuffer, ny) do buffer_id, iy
+        fft_conv_adj!(
+            (@view output[:, iy, :]),
             image2,
-            (@view ker3[:, :, y]),
-            plans[Threads.threadid()],
+            (@view ker3[:, :, iy]),
+            plans[buffer_id],
         )
-
-    ntasks = length(plans)
-    Threads.foreach(fun, foreach_setup(1:size(output, 2)); ntasks)
+    end
 
     return output
 end
