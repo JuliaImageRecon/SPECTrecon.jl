@@ -433,17 +433,6 @@ function imrotate_adj(
 end
 
 
-function _task3(z, fun::Function, output, image3, θ, plans)
-    id = Threads.threadid() # todo NO!
-#   1 ≤ id ≤ length(plans) || throw("bug: id=$id nplan=$(length(plans))")
-    return fun(
-        (@view output[:,:,z]),
-        (@view image3[:,:,z]),
-        θ,
-        plans[id],
-    )
-end
-
 # rotate image3 using foreach
 function _imrotate!(
     fun::Function, # imrotate! or imrotate_adj!
@@ -458,8 +447,15 @@ function _imrotate!(
     size(image3,1) == plans[1].nx || throw("nx")
     length(plans) == Threads.nthreads() || throw("#threads")
 
-    task = z -> _task3(z, fun, output, image3, θ, plans)
-    Threads.foreach(task, foreach_setup(1:size(image3,3)); ntasks)
+    nz = size(image3, 3)
+    spawner(ntasks, nz) do buffer_id, iz
+        fun(
+            (@view output[:,:,iz]),
+            (@view image3[:,:,iz]),
+            θ,
+            plans[buffer_id],
+        )
+    end
 
     return output
 end
@@ -508,19 +504,20 @@ function _imrotate!(
     ::Symbol, # :thread
 )
 
+    nthread = Threads.nthreads()
     size(output) == size(image3) || throw(DimensionMismatch())
     size(image3,1) == plans[1].nx || throw("nx")
-    length(plans) == Threads.nthreads() || throw("#threads")
+    length(plans) == nthread || throw("#threads")
 
-    Threads.@threads for z in 1:size(image3,3) # 1:nz
-        id = Threads.threadid() # thread id
+    nz = size(image3, 3)
+    spawner(nthread, nz) do buffer_id, iz
         fun(
-            (@view output[:, :, z]),
-            (@view image3[:, :, z]),
+            (@view output[:,:,iz]),
+            (@view image3[:,:,iz]),
             θ,
-            plans[id],
+            plans[buffer_id],
         )
-    end # COV_EXCL_LINE
+    end
 
     return output
 end
