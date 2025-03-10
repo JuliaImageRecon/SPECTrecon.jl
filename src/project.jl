@@ -83,8 +83,6 @@ function project!(
 )
     # rotate image and mumap using multiple processors
 
-#@show thid
-
     for z in 1:plan.imgsize[3] # 1:nz
         # rotate image in plan.imgr
         imrotate!(
@@ -155,6 +153,14 @@ function project!(
             thid = Threads.threadid() # todo NO!
             project!((@view views[:,:,i]), image, plan, thid, viewidx)
         end # COV_EXCL_LINE
+
+#=
+        spawner(plan.nthread, length(index)) do buffer_id, ii
+            viewidx = index[ii]
+@show viewidx, buffer_id
+            project!((@view views[:,:,viewidx]), image, plan, buffer_id, viewidx)
+        end
+=#
     else
         for (i, viewidx) in collect(enumerate(index))
             project!((@view views[:,:,i]), image, plan, viewidx)
