@@ -165,7 +165,7 @@ function fft_conv!(
             (@view output[:, y, :]),
             (@view image3[:, y, :]),
             (@view ker3[:, :, y]),
-            plans[Threads.threadid()],
+            plans[Threads.threadid()], # todo NO!
         )
 
     ntasks = length(plans)

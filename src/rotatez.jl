@@ -434,7 +434,7 @@ end
 
 
 function _task3(z, fun::Function, output, image3, θ, plans)
-    id = Threads.threadid()
+    id = Threads.threadid() # todo NO!
 #   1 ≤ id ≤ length(plans) || throw("bug: id=$id nplan=$(length(plans))")
     return fun(
         (@view output[:,:,z]),

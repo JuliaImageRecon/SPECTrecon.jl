@@ -67,14 +67,12 @@ function backproject!(
     image::AbstractArray{<:RealU, 3},
     view::AbstractMatrix{<:RealU},
     plan::SPECTplan,
-    thid::Int,
+    thid::Int, # todo NO!
     viewidx::Int,
 )
 
+    # rotate mumap
     for z in 1:plan.imgsize[3] # 1:nz
-        # thid = Threads.threadid() # thread id
-
-        # rotate mumap
         imrotate!((@view plan.mumapr[thid][:, :, z]),
                   (@view plan.mumap[:, :, z]),
                   plan.viewangle[viewidx],
@@ -85,7 +83,7 @@ function backproject!(
 
     # adjoint of convolving img with psf and applying attenuation map
     for y in 1:plan.imgsize[2] # 1:ny
-        thid = Threads.threadid() # thread id
+        thid = Threads.threadid() # thread id todo NO!
         # account for half of the final slice thickness
         scale3dj!(plan.exp_mumapr[thid], plan.mumapr[thid], y, -0.5)
         for j in 1:y
