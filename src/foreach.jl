@@ -1,5 +1,6 @@
 # foreach.jl
 
+#=
 """
      foreach_setup(z)
 Return `Channel` for `foreach` threaded computation from iterable `z`.
@@ -9,3 +10,4 @@ function foreach_setup(z)
         foreach(i -> put!(ch, i), z)
     end
 end
+=#
