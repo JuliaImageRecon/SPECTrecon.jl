@@ -8,6 +8,7 @@ module SPECTrecon
 
     include("foreach.jl")
     include("helper.jl")
+    include("spawn.jl")
     include("plan-rotate.jl")
     include("rotatez.jl")
     include("plan-psf.jl")

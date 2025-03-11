@@ -28,6 +28,9 @@ Currently code assumes the following:
 * uniform angular sampling
 * `psf` is symmetric
 * multiprocessing using # of threads specified by `Threads.nthreads()`
+
+Constructor is not type stable due to the `Union`,
+but this is OK because construction is done just once before iterating.
 """
 struct SPECTplan{T}
     T::Type{<:AbstractFloat} # default type for work arrays etc.
@@ -87,7 +90,7 @@ struct SPECTplan{T}
         (nthread == Threads.nthreads()) || throw("bad nthread")
 
         # check mode
-        (mode === :fast || mode === :mem) || throw("bad mode")
+        (mode ∈ (:fast, :mem)) || throw("bad mode")
 
         if mode === :fast
             # imgr stores 3D image in different view angles
@@ -96,6 +99,7 @@ struct SPECTplan{T}
             add_img = [Array{T, 3}(undef, nx, ny, nz) for id in 1:nthread]
             # mumapr stores 3D mumap in different view angles
             mumapr = [Array{T, 3}(undef, nx, ny, nz) for id in 1:nthread]
+            # todo: store all the rotated mumaps!
         else
             # imgr stores 3D image in different view angles
             imgr = Array{T, 3}(undef, nx, ny, nz)
