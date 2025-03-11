@@ -70,7 +70,7 @@ end
 
 
 """
-    project!(view, plan, image, thid, viewidx)
+    project!(view, plan, image, buffer_id, viewidx)
 SPECT projection of `image` into a single `view` with index `viewidx`.
 The `view` must be pre-allocated but need not be initialized to zero.
 """
@@ -78,55 +78,55 @@ function project!(
     view::AbstractMatrix{<:RealU},
     image::AbstractArray{<:RealU, 3},
     plan::SPECTplan,
-    thid::Int,
+    buffer_id::Int,
     viewidx::Int,
 )
-    # rotate image and mumap using multiple processors
 
+    # rotate image and mumap
     for z in 1:plan.imgsize[3] # 1:nz
         # rotate image in plan.imgr
         imrotate!(
-            (@view plan.imgr[thid][:, :, z]),
+            (@view plan.imgr[buffer_id][:, :, z]),
             (@view image[:, :, z]),
             plan.viewangle[viewidx],
-            plan.planrot[thid],
+            plan.planrot[buffer_id],
         )
         # rotate mumap and store in plan.mumapr
         imrotate!(
-            (@view plan.mumapr[thid][:, :, z]),
+            (@view plan.mumapr[buffer_id][:, :, z]),
             (@view plan.mumap[:, :, z]),
             plan.viewangle[viewidx],
-            plan.planrot[thid],
+            plan.planrot[buffer_id],
         )
     end
 
     for y in 1:plan.imgsize[2] # 1:ny
         # account for half of the final slice thickness
-        scale3dj!(plan.exp_mumapr[thid], plan.mumapr[thid], y, -0.5)
+        scale3dj!(plan.exp_mumapr[buffer_id], plan.mumapr[buffer_id], y, -0.5)
 
         for j in 1:y
-            plus3dj!(plan.exp_mumapr[thid], plan.mumapr[thid], j)
+            plus3dj!(plan.exp_mumapr[buffer_id], plan.mumapr[buffer_id], j)
         end
 
-        broadcast!(*, plan.exp_mumapr[thid], plan.exp_mumapr[thid], - plan.dy)
+        broadcast!(*, plan.exp_mumapr[buffer_id], plan.exp_mumapr[buffer_id], - plan.dy)
 
-        broadcast!(exp, plan.exp_mumapr[thid], plan.exp_mumapr[thid])
+        broadcast!(exp, plan.exp_mumapr[buffer_id], plan.exp_mumapr[buffer_id])
 
         # apply depth-dependent attenuation
-        mul3dj!(plan.imgr[thid], plan.exp_mumapr[thid], y)
+        mul3dj!(plan.imgr[buffer_id], plan.exp_mumapr[buffer_id], y)
 
         fft_conv!(
-            (@view plan.add_img[thid][:, y, :]),
-            (@view plan.imgr[thid][:, y, :]),
+            (@view plan.add_img[buffer_id][:, y, :]),
+            (@view plan.imgr[buffer_id][:, y, :]),
             (@view plan.psfs[:, :, y, viewidx]),
-            plan.planpsf[thid],
+            plan.planpsf[buffer_id],
         )
 
     end
 
-    copy3dj!(view, plan.add_img[thid], 1) # initialize accumulator
+    copy3dj!(view, plan.add_img[buffer_id], 1) # initialize accumulator
     for y in 2:plan.imgsize[2] # accumulate to get total view
-        plus3dj!(view, plan.add_img[thid], y)
+        plus3dj!(view, plan.add_img[buffer_id], y)
     end
 
     # plan.add_img[2] # why does julia allocate (on heap!?) here?
@@ -149,18 +149,10 @@ function project!(
 
     # loop over each view index
     if plan.mode === :fast
-        Threads.@threads for (i, viewidx) in collect(enumerate(index))
-            thid = Threads.threadid() # todo NO!
-            project!((@view views[:,:,i]), image, plan, thid, viewidx)
-        end # COV_EXCL_LINE
-
-#=
         spawner(plan.nthread, length(index)) do buffer_id, ii
             viewidx = index[ii]
-@show viewidx, buffer_id
-            project!((@view views[:,:,viewidx]), image, plan, buffer_id, viewidx)
+            project!((@view views[:,:,ii]), image, plan, buffer_id, viewidx)
         end
-=#
     else
         for (i, viewidx) in collect(enumerate(index))
             project!((@view views[:,:,i]), image, plan, viewidx)
