@@ -3,7 +3,9 @@
 
 export mlem, mlem!, osem, osem!
 export Ablock
+
 using LinearMapsAA: LinearMapAO, LinearMapAA
+using LinearAlgebra: mul!
 
 
 """

@@ -1,8 +1,9 @@
 # plan-psf.jl
 
 export PlanPSF, plan_psf
-import AbstractFFTs
-import FFTW
+
+using FFTW: plan_fft!, plan_ifft!
+
 
 """
     PlanPSF{T,Tf,Ti}( ; nx::Int, nz::Int, px::Int, pz::Int, T::Type)
