@@ -1,10 +1,8 @@
 # helper.jl
 # A lot of helper functions
 
-using LinearAlgebra
-import OffsetArrays
-using ImageFiltering: BorderArray, Fill, Pad
-using FFTW
+import OffsetArrays # no_offset_view (non-public!?)
+using ImageFiltering: BorderArray, Fill
 
 
 Power2 = x -> 2^(ceil(Int, log2(x)))

@@ -3,6 +3,8 @@
 export imrotate!, imrotate_adj!
 export imrotate, imrotate_adj
 
+using LinearAlgebra: mul!
+
 using LinearInterpolators: LinearSpline
 using LinearInterpolators: SparseInterpolator, AffineTransform2D, rotate
 using LinearInterpolators: TwoDimensionalTransformInterpolator

@@ -3,6 +3,8 @@
 export fft_conv!, fft_conv_adj!
 export fft_conv, fft_conv_adj
 
+using LinearAlgebra: mul!
+
 
 """
     imfilterz!(plan)
