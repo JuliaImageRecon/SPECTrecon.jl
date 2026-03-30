@@ -1,8 +1,7 @@
 [default]
 extend-ignore-identifiers-re = [
-    "thid",
-    "iy",
-    "iy",
+ "iy",
+ "iz",
 ]
 
 [files]
