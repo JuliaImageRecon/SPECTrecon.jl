@@ -3,6 +3,7 @@
 using SPECTrecon
 using Test: @test, @testset, detect_ambiguities
 
+include("aqua.jl")
 include("helper.jl")
 include("rotatez.jl")
 include("fftconv.jl")

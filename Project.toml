@@ -1,7 +1,10 @@
 name = "SPECTrecon"
 uuid = "ab1be465-a7f0-4423-9048-0ee774b70ed9"
-authors = ["Zongyu Li and Jeff Fessler and group"]
+authors = ["Zongyu Li and Jeff Fessler and others"]
 version = "0.3"
+
+[workspace]
+projects = ["docs", "test"]
 
 [deps]
 AbstractFFTs = "621f4979-c628-5d54-868e-fcf4e3e8185c"
@@ -19,4 +22,4 @@ ImageFiltering = "0.6, 0.7"
 LinearInterpolators = "0.1"
 LinearMapsAA = "0.12"
 OffsetArrays = "1"
-julia = "1.11"
+julia = "1.12.6"
