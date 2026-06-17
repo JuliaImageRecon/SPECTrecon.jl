@@ -118,7 +118,7 @@ function Base.show(io::IO, ::MIME"text/plain", plan::PlanRotate{T,R}) where {T, 
         p = getfield(plan, f)
         println(io, " ", f, ":", " ", summary(p))
     end
-    println(io, " (", sizeof(plan), " bytes)")
+    println(io, " (", Base.summarysize(plan), " bytes)")
 end
 
 
@@ -129,13 +129,4 @@ function Base.show(io::IO, mime::MIME"text/plain", vp::Vector{PlanRotate{T,R}}) 
     t = typeof(vp)
     println(io, length(vp), "-element ", t, " with N=", vp[1].nx)
 #   show(io, mime, vp[1])
-end
-
-
-"""
-    sizeof(::PlanRotate)
-Show size in bytes of `PlanRotate` object.
-"""
-function Base.sizeof(ob::T) where {T <: Union{PlanRotate, SparseInterpolator}}
-    sum(f -> sizeof(getfield(ob, f)), fieldnames(typeof(ob)))
 end

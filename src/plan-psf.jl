@@ -124,7 +124,7 @@ function Base.show(io::IO, ::MIME"text/plain", plan::PlanPSF{T}) where {T}
         p = getfield(plan, f)
         println(io, " ", f, ":", " ", summary(p))
     end
-    println(io, " (", sizeof(plan), " bytes)")
+    println(io, " (", Base.summarysize(plan), " bytes)")
 end
 
 
@@ -135,13 +135,4 @@ function Base.show(io::IO, mime::MIME"text/plain", vp::Vector{<: PlanPSF})
     t = typeof(vp)
     println(io, length(vp), "-element ", t, " with N=", vp[1].nx)
 #   show(io, mime, vp[1])
-end
-
-
-"""
-    sizeof(::PlanPSF)
-Show size in bytes of `PlanPSF` object.
-"""
-function Base.sizeof(ob::T) where {T <: PlanPSF}
-    sum(f -> sizeof(getfield(ob, f)), fieldnames(typeof(ob)))
 end

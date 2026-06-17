@@ -153,14 +153,5 @@ function Base.show(io::IO, ::MIME"text/plain", plan::SPECTplan{T}) where {T}
         p = getfield(plan, f)
         println(io, " ", f, ":", " ", summary(p))
     end
-    println(io, " (", sizeof(plan), " bytes)")
-end
-
-
-"""
-    sizeof(::SPECTplan)
-Show size in bytes of `SPECTplan` object.
-"""
-function Base.sizeof(ob::T) where {T <: Union{SPECTplan}}
-    sum(f -> sizeof(getfield(ob, f)), fieldnames(typeof(ob)))
+    println(io, " (", Base.summarysize(plan), " bytes)")
 end
