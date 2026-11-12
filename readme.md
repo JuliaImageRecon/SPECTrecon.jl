@@ -27,17 +27,21 @@ into SPECT reconstruction.
 
 Tested with Julia ≥ 1.12.
 
-## Related packages
-
-- Pytorch/GPU version:
-https://github.com/ZongyuLi-umich/SPECTrecon-pytorch
-
-- Julia/GPU version:
-[CuSPECTrecon.jl](https://github.com/JuliaImageRecon/CuSPECTrecon.jl).
-
 Designed for use with the
 [Michigan Image Reconstruction Toolbox (MIRT)](https://github.com/JeffFessler/MIRT.jl)
 or similar frameworks.
+
+## Related packages
+
+- Pytorch/GPU version:
+[SPECTrecon-pytorch](https://github.com/ZongyuLi-umich/SPECTrecon-pytorch)
+
+- Julia/GPU version:
+[CuSPECTrecon.jl](https://github.com/JuliaImageRecon/CuSPECTrecon.jl)
+
+- SPECT Point Spread Function Toolbox:
+[SPECTPSFToolbox](https://github.com/PyTomography/SPECTPSFToolbox)
+
 
 <!-- URLs -->
 [action-img]: https://github.com/JuliaImageRecon/SPECTrecon.jl/workflows/CI/badge.svg
